@@ -1,0 +1,20 @@
+#!/bin/bash
+
+opp_makemake -f --genconfig ./config/omnetpp.config
+
+make ROOT=`pwd` MAKEMAKE=opp_makemake EXT= -f ./config/makemake.config
+
+echo
+echo 'Regenerating nedfiles.lst...'
+find ./src -name *.ned > nedfiles.lst
+echo 'Done'
+
+if [ "$LANG" != "" -o "$LANGUAGE" != "" ]; then
+    echo
+    echo '==============================================================================='
+    echo 'NOTE: if you experience linker errors, try the following commands:'
+    echo '  unset LANG; unset LANGUAGE'
+    echo '==============================================================================='
+    echo
+fi
+

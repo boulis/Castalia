@@ -1,0 +1,16 @@
+./src/Wireless_Channel/WirelessChannel.ned
+./src/Physical_Process/PhysicalProcess.ned
+./src/Node/Sensor_Device_Manager/SensorDevMgrModule.ned
+./src/Node/Resource_Manager/ResourceGenericManager.ned
+./src/Node/Communication/Radio/RadioModule.ned
+./src/Node/Communication/CommunicationModule.ned
+./src/Node/Communication/MAC/TunableMac/TunableMacModule.ned
+./src/Node/Communication/MAC/MacGenericModule.ned
+./src/Node/Application/ValuePropagationApp/ValuePropagation_ApplicationModule.ned
+./src/Node/Application/connectivityMap/connectivityMap_ApplicationModule.ned
+./src/Node/Application/ApplicationGenericModule.ned
+./src/Node/Application/templateApplication/Template_ApplicationModule.ned
+./src/Node/Application/IDEA/Idea_ApplicationModule.ned
+./src/Node/Application/multipathAggregation/multipathAggregation_ApplicationModule.ned
+./src/Node/Node.ned
+./src/SensorNetwork.ned

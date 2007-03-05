@@ -1,0 +1,14 @@
+#!/bin/bash
+
+opp_makemake -f --genconfig ./config/omnetpp.config
+make ROOT=`pwd` MAKEMAKE=opp_makemake EXT= -f ./config/makemake.config
+
+echo
+echo 'Regenerating nedfiles.lst...'
+find ./src -name *.ned > nedfiles.lst
+#perl -i.bak -pe "s|^(./)?test/.*||" nedfiles.lst
+#perl -i.bak -pe "s|^(./)?Unsupported/.*||" nedfiles.lst
+#perl -i.qexirbak -pe "s|^(./)?Obsolete/.*||" nedfiles.lst
+#perl -i.bak -pe "s|^(./)?Tests/.*||" nedfiles.lst
+echo 'Done'
+

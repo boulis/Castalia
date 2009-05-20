@@ -1,0 +1,63 @@
+# ***************************************************************************************
+# *  Copyright: National ICT Australia,  2007						*
+# *  Developed at the Networks and Pervasive Computing program				*
+# *  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis				*
+# *  This file is distributed under the terms in the attached LICENSE file.		*
+# *  If you do not find this file, copies can be found by writing to:			*
+# *											*
+# *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia			*
+# *      Attention:  License Inquiry.							*
+# *											*
+# **************************************************************************************/
+
+
+
+
+#!/bin/bash
+castaliaHome_RelativePath="../../../.."
+
+echo -e "\n Castalia: All output will be written to Castalia-Primary-Output.txt \n Old Castalia-statistics.sca and Castalia-statistics.vec in the current directory will be deleted.\n Be aware that Castalia-Primary-Output.txt gets *appended* each time you run the script\n"
+
+if [ -a Castalia-statistics.sca ]; then
+	rm -f Castalia-statistics.sca 
+fi
+
+if [ -a Castalia-statistics.vec ]; then
+	rm -f Castalia-statistics.vec 
+fi
+
+$castaliaHome_RelativePath/bin/CastaliaBin $* > FullDetailedResults_perRun.txt
+
+if test $? == 0; then
+	
+	php produce_statistics_hardcoded.php
+
+	if test $? == 0; then
+		if [ -a OverallResults.txt ]; then
+			cat OverallResults.txt >> Castalia-Primary-Output.txt
+			rm -f OverallResults.txt
+		fi
+	else
+		echo -e "\n\nERROR! The simulation results (FullDetailedResults_perRun.txt) could not be parsed because you don't have the php-cli installed on your machine!\n"
+		echo -e "\n\n************\nFile OverallResults.txt was not produced becuase php-cli was not installed on the machine.\n************\n\n" >> Castalia-Primary-Output.txt
+		exit 0
+	fi	
+
+	if [ -a Castalia-statistics.sca ]; then
+		cat Castalia-statistics.sca >> Castalia-Primary-Output.txt
+	fi
+
+	if [ -a Castalia-statistics.vec ]; then
+		cat Castalia-statistics.vec >> Castalia-Primary-Output.txt
+	fi
+
+	echo -e "\n\n\n===========================================================\n\nProduced with the following version of Castalia:"  >> Castalia-Primary-Output.txt
+	
+	cat $castaliaHome_RelativePath/VERSION >> Castalia-Primary-Output.txt
+	
+	echo -e "\n===========================================================\n\n\n***********************************************************\nSimulation's parameter settings were\n"  >> Castalia-Primary-Output.txt
+
+	source $castaliaHome_RelativePath/Simulations/Parameter_Include_Files/extractOmnetppINI  >> Castalia-Primary-Output.txt
+	
+	echo -e "\n----------------------------\nEnd of simulation\n---------------------------\n\n\n\n\n"  >> Castalia-Primary-Output.txt
+fi

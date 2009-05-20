@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# ***************************************************************************************
+# *  Copyright: National ICT Australia,  2007, 2008, 2009				*
+# *  Developed at the Networks and Pervasive Computing program				*
+# *  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis				*
+# *  This file is distributed under the terms in the attached LICENSE file.		*
+# *  If you do not find this file, copies can be found by writing to:			*
+# *											*
+# *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia			*
+# *      Attention:  License Inquiry.							*
+# *											*
+# **************************************************************************************/
+
+
+castaliaHome_RelativePath="../.."
+
+echo -e "\n Castalia: All output will be written to Castalia-Primary-Output.txt and debug output to Castalia-Debug.txt \n Old Castalia-statistics.sca and Castalia-statistics.vec in the current directory will be deleted.\n Be aware that Castalia-Primary-Output.txt and Castalia-Debug.txt get *appended* each time you run the script\n"
+
+if [ -a Castalia-statistics.sca ]; then
+	rm -f Castalia-statistics.sca 
+fi
+
+if [ -a Castalia-statistics.vec ]; then
+	rm -f Castalia-statistics.vec 
+fi
+
+$castaliaHome_RelativePath/bin/CastaliaBin $* >> Castalia-Primary-Output.txt
+
+if test $? == 0; then
+	if [ -a Castalia-statistics.sca ]; then
+		cat Castalia-statistics.sca >> Castalia-Primary-Output.txt
+	fi
+
+	if [ -a Castalia-statistics.vec ]; then
+		cat Castalia-statistics.vec >> Castalia-Primary-Output.txt
+	fi
+	
+	echo -e "\n\n\n===========================================================\n\nProduced with the following version of Castalia:"  >> Castalia-Primary-Output.txt
+	
+	cat $castaliaHome_RelativePath/VERSION >> Castalia-Primary-Output.txt
+	
+	echo -e "\n===========================================================\n\n\n***********************************************************\nSimulation's parameter settings were"  >> Castalia-Primary-Output.txt
+	
+	source $castaliaHome_RelativePath/Simulations/Parameter_Include_Files/extractOmnetppINI >> Castalia-Primary-Output.txt
+	
+	echo -e "\n----------------------------\nEnd of simulation\n---------------------------\n\n\n\n\n"  >> Castalia-Primary-Output.txt
+fi

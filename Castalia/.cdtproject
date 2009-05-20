@@ -16,16 +16,6 @@
 <parser enabled="true"/>
 </scannerInfoProvider>
 </profile>
-<profile id="org.eclipse.cdt.make.core.GCCStandardMakePerFileProfile">
-<buildOutputProvider>
-<openAction enabled="false" filePath=""/>
-<parser enabled="true"/>
-</buildOutputProvider>
-<scannerInfoProvider id="makefileGenerator">
-<runAction arguments="-f ${project_name}_scd.mk" command="make" useDefault="true"/>
-<parser enabled="false"/>
-</scannerInfoProvider>
-</profile>
 <profile id="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfile">
 <buildOutputProvider>
 <openAction enabled="false" filePath=""/>
@@ -46,41 +36,43 @@
 <parser enabled="false"/>
 </scannerInfoProvider>
 </profile>
+<profile id="org.eclipse.cdt.make.core.GCCStandardMakePerFileProfile">
+<buildOutputProvider>
+<openAction enabled="false" filePath=""/>
+<parser enabled="true"/>
+</buildOutputProvider>
+<scannerInfoProvider id="makefileGenerator">
+<runAction arguments="-f ${project_name}_scd.mk" command="make" useDefault="true"/>
+<parser enabled="false"/>
+</scannerInfoProvider>
+</profile>
 </item>
 <item id="org.eclipse.cdt.core.pathentry">
 <pathentry kind="src" path=""/>
 <pathentry kind="out" path=""/>
 <pathentry kind="con" path="org.eclipse.cdt.make.core.DISCOVERED_SCANNER_INFO"/>
 </item>
-
 <item id="org.eclipse.cdt.make.core.buildtargets">
 <buildTargets>
 <target name="all" path="" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
 <buildCommand>make</buildCommand>
-<buildArguments>-f</buildArguments>
+<buildArguments/>
 <buildTarget>all</buildTarget>
 <stopOnError>true</stopOnError>
 <useDefaultCommand>true</useDefaultCommand>
 </target>
 <target name="clean" path="" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
 <buildCommand>make</buildCommand>
-<buildArguments>-f</buildArguments>
+<buildArguments/>
 <buildTarget>clean</buildTarget>
-<stopOnError>false</stopOnError>
-<useDefaultCommand>true</useDefaultCommand>
-</target>
-<target name="clean &amp; all" path="" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
-<buildCommand>make</buildCommand>
-<buildArguments>-f</buildArguments>
-<buildTarget>clean all</buildTarget>
 <stopOnError>true</stopOnError>
 <useDefaultCommand>true</useDefaultCommand>
 </target>
 <target name="makemake" path="" targetID="org.eclipse.cdt.make.MakeTargetBuilder">
-<buildCommand>/home/administrator/Desktop/EclipseWorkspace/Castalia/eclipseMakemake.sh</buildCommand>
-<buildArguments>-f</buildArguments>
+<buildCommand>sh</buildCommand>
+<buildArguments>/home/administrator/Desktop/EclipseWorkspace/Castalia-1.3/eclipseMakemake.sh</buildArguments>
 <buildTarget>all</buildTarget>
-<stopOnError>false</stopOnError>
+<stopOnError>true</stopOnError>
 <useDefaultCommand>false</useDefaultCommand>
 </target>
 </buildTargets>

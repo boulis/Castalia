@@ -1,6 +1,14 @@
------------------------------------------
--------- HOW TO BUILD CASTALIA ----------
------------------------------------------
+# ***************************************************************************************
+# *  Copyright: National ICT Australia,  2007, 2008					*
+# *  Developed at the Networks and Pervasive Computing program				*
+# *  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis				*
+# *  This file is distributed under the terms in the attached LICENSE file.		*
+# *  If you do not find this file, copies can be found by writing to:			*
+# *											*
+# *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia			*
+# *      Attention:  License Inquiry.							*
+# *											*
+# **************************************************************************************/
 
 
 
@@ -8,85 +16,96 @@
 
 In the Root directory (Castalia/) there are the following contents :
 
-bin           --> Here is placed the produced executable of Castalia (CastaliaBin)
+bin           --> Contains the produced executable of Castalia (CastaliaBin)
 
 config        --> Contains the configuration files needed for building the Makefile files
 
+Simulations   --> For each implemented application module in Castalia, there is a test simulation
+		  that allows the user to run experiments with his own parameter settings.
+		  Inside the Castalia/Simulations directory there are four subdirectories each one
+		  holding the simulation files of the respective application.
+
 src           --> Here resides the source code of Castalia (*.cc, *.h, *.msg, *.ned files)
-                  The directory's structure is respective to that of the structure of the 
+                  The directory's structure corresponds to the structure of the 
                   compound modules and submodules that Castalia has. Each compound module 
                   resides in a separate forlder. This folder contains as many subfolders 
                   as the number of the used sub-modules by this compound module (and so forth).
 
-test          --> A test simulation that uses the binary of Castalia & exploints the feature of 
-                  dynamic NED loading.
+Makefile      --> This file is created after the invocation of the makemake script. In general,
+		  a Makefile is created/generated for every directory inside the src folder.
 
-Makefile      --> This file is created after the invocation of the makemake script. In general, it is
-                  created/generated a Makefile for every directory inside the src folder.
+makemake      --> The script that the user uses to generate the appropriate Makefiles. It uses 
+                  OMNeT's opp_makemake tool. It also uses the configuration files inside the 
+		  ./config directory.
 
-makemake      --> The script that the user uses to generate the appropriate Makefiles.Of course it uses 
-                  the opp_makemake tool. It uses the configuration files inside the ./config directory.
-
-nedfiles.lst  --> This file is produced automatically after the run of makemake. This file is extremely 
-                  useful as it contains all the ned files of the source of Castalia with their relative paths. 
+nedfiles.lst  --> This file is produced automatically after the run of makemake and contains
+		  all the ned files of the source of Castalia with their relative paths. 
                   It is used inside the omnet.ini file to include all the modules of the Castalia simulator. 
                   All the listed modules are loaded in the runtime dynamically.
 
 Readme.txt    --> This file.
 
+VERSION	      --> This file hold the current version/build of Castalia
 
 
 
 
 *** How to build Castalia ***
-The procedure to build Castalia is quite similar to that of INET framework for Omnet++.
-Because the source files of Castalia have a directory structure similar to the logical structure
-of its modular structure, it would be dufficult to the user to create a custom script to build
-the simulator everytime it modified the sources.
-Instead, the only thing that it has to do now is to modify one configuration file. That is it all!
+The source files of Castalia have a directory structure that follows the logical structure
+its modules. Due to the file structure complexity, it would be dufficult for the user to 
+create a custom script to build the simulator everytime its sources are modified.
+Insteado fthis, the user modifies one configuration file and runs the standard build script
+of Castalia. The procedure to build Castalia is quite similar to that of the INET framework
+for OMNeT++.
+The steps to build Castalia from its sources are:
 
-1) Add your new Modules (simple or compound) by creating *.ned, *.cc, *.h files
+1) Add your new Modules (simple or compound) by creating *.ned, *.cc, *.h files under Castalia/src
+   Note: If you haven't added/created any new source file (you just modified the existing code) you can
+   jump to "STEP 8)"
 
-2) Add your new modules inside new directories so that the directory structure is always similar to the 
-   structure of the modules of Castalia. Eg. if you create a new routing protocol, place the ned file and
-   the sources inside Castalia/src/Node/L3_Network folder. If your new module is a compound one then create
-   a new directory for it and add all the related simple modules inside that directory.
+2) If you create a new module then try to place its sources in such a place (in a new directory under Castalia/src)
+   so that the module structure is reflected on the directory structure. For example if you create a new MAC 
+   protocol (named myMAC), place the ned file and the sources inside Castalia/src/Node/Communication/MAC/MyMAC folder
+   after creating this first.
 
 3) Add whenever you like (make sure that you remember where) your msg files. Usually it is more convenient
-   to add them inside the directory of the modules that they use them. If more that one modules use this
-   msg file then place it to the upper most directory that has directly under it all these modules folders.
+   to add them inside the directory where the *.ned files of the modules that use them, reside. If more than
+   one modules use this msg file then place it to the lower upper-most directory that includes all these 
+   module folders.
 
-4) Change to directory "Castalia/config" and modify the file Castalia.config.
+4) Change to directory "Castalia/config" and modify the file "Castalia.config".
    Make sure that the "ROOT" variable contains the full path of the root directory of Castalia.
 
-5) Change to directory "Castalia/config" and modify the file makemakefiles
-   This file is the Makefile uses by the script "makemake" and keeps information on how to generate
-   the Makefile file at each sub-directory of the Castalia/src folder.
-   Variables:
-   a)OPTS ==> here you can add/modify the flags for the opp_makemake calls. Usually it has not to be modified art all.
-   b)ALL_WSN_INCLUDES ==> here you MUST add every directory that either already contains an *.h (C++ header) file or
-                          it will contain one after the call of opp_makemake by the Castalia/makemake script (usually 
+5) Change to directory "Castalia/config" and modify the file "makemakefiles"
+   This file is used by the script "makemake" and contains information on how to generate
+   Makefile files at each sub-directory of the Castalia/src folder.
+   
+   * Variables:
+   a)OPTS ==> here you can add/modify the options of the opp_makemake tool. Usually it has not to be modified at all.
+   b)ALL_WSN_INCLUDES ==> here you MUST add every directory that either contains an *.h (C++ header) file or
+                          it will contain one after the invocation of opp_makemake by the Castalia/makemake script (usually 
                           the *.msg files produce extra header files). What you have to do is to add all the directories
-                          with the *.h or *.msg files that you created.
-   Make Targets:
-   You MUST modify the "WSNetwork" target. What you have to do usually is adding a line like:
-        cd $(SRCDIR)/Node && $(MAKEMAKE) $(OPTS) -n -r 
-   for each new directory that you have created with source code or ned files.
-   ATTENTION :  * You may need to add a -I$(SRCDIR)/xxx flag at the end of this line if you use a module from a different directory
-                * You may need to edit the existing lines and add/modifiy the -I$(SRCDIR)/yyy flags appropriately.
+                          with the *.h or *.msg files that you created in the form of: 
+				-I$(SRCDIR)/Your_include_Dir_Under_Castalia_src.
+   * Make Targets:
+   You MUST modify the "WSNetwork" target. Most of the times you need to add a line like:
+        cd $(SRCDIR)/Your_Dir_Under_Castalia_src && $(MAKEMAKE) $(OPTS) -n -r -I$(SRCDIR)/Your_include_Dir_A_Under_Castalia_src
+   for each new directory that you have created and that contains source(*.ned, *.cc, *.h) or *.msg files.
+   ATTENTION :  You may need to add more than one -I$(SRCDIR)/Your_include_Dir_XX_Under_Castalia_src flag at the end of 
+		this line if you use a source file from a different directory
 
-6) You don't have to create your own omnetppconfig. It is generated automatically after the execution of "makemake".
+6) You don't have to create your own omnetpp.config. It is generated automatically after the execution of "makemake".
 
 7) You don't have to create your own nedfiles.lst. It is generated automatically after the execution of "makemake".
 
 8) You may wish to add dependencies across directories. 
-   To do that, create a file "makefrag" and place it inside the directory path that you wish to add the dependency
+   To do that, create a file with name "makefrag" and place it inside the directory where you wish to add the dependencies
    among its subdirectories/modules. You can add as many "makefrag" files as the total number of the produced Makefile 
-   files by the "makemake" script. The opp_makemake just injects/includes the "makefrag" inside the Makefile that it produces.
-   It is a perfect way to keep some extra settings inside the Makefile files without loosing it every time they are regenerated
-   by the makemake script (that uses the opp_makemake tool).
+   files by the "makemake" script. The opp_makemake injects/includes the "makefrag" inside the generated Makefile.
+   Adding "makefrag" files is a good way to keep some extra settings inside the Makefile files without loosing it every time 
+   they are regenerated by the makemake script (which uses the opp_makemake tool).
 
-9) If there are some extra/external libraries/header files that you'd like to include inside the produced Makefile files
+9) If there are some extra/external libraries/header files that you'd like to include inside all the produced Makefile files
    then uncomment the two last lines of Castalia/config/Castalia.config and modify them as you wish.
 
 
@@ -100,10 +119,4 @@ Instead, the only thing that it has to do now is to modify one configuration fil
    Check the Castalia/Bin to see the CastaliaBin executable binary with the core functionalities of the simulator.
    This binary is invoked everytime you need to run a simulation.
 
-
-
-
-******************************************************************************************************************
-FOR DETAILED INSTRUCTION ON HOW TO RUN YOU OWN CUSTOM SIMULATIONS CHECK THE README.TXT FILE IN CASTALIA/TEST FOLDER.
-******************************************************************************************************************
 

@@ -1,0 +1,57 @@
+
+
+Castalia 2.0: Major changes from ver 1.3
+------------------------------------------
+
+== Wireless channel module
+1. Mobility support (!)
+2. Time-varying links (!)
+3. 3D coordinates and orientation
+4. the 2 directions of a link correlated
+   with a dedicated parameter
+
+== Radio Module
+1. Custom modulation allowed by defining
+   a SNR->BER array. 
+2. variance in TX power introduced. The radio
+   now sends explicit TxPower to the channel,
+   instead of a power level index.
+
+
+== MAC module
+1. TMAC implemented
+
+
+== Application modules
+1. Test throughput app introduced
+
+
+
+Castalia 1.3: Changes from ver 1.2
+------------------------------------------
+- Implementation of 2 routing protocols
+- Implementation of 2 new example applications (using routing protocols)
+- Advanced ability to define various degrees of simpler channel and radio models
+- Bug fixes with the TunableMAC and routing modules
+
+
+
+
+Castalia 1.2: Changes from ver 1.1
+------------------------------------------
+- Creation of a network/routing module.
+- Ability to modify several radio and MAC parameters 
+  through the application code at run-time.
+- Minor bug fixes relating with EV.
+- Richer debug messages
+  (awaiting for the visualization tool)
+
+
+
+Castalia 1.1: Changes from ver 1.0
+------------------------------------------
+-Restructuring of the input (omnetpp.ini parameter file)
+ to be more modular.
+-Restructuring of the output to be clearer.
+-Changes to the run scripts to accomodate the above changes.
+-Minor bug fixes relating building problems under Cygwin.

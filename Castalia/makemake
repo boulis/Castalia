@@ -1,6 +1,20 @@
+# ***************************************************************************************
+# *  Copyright: National ICT Australia,  2007						*
+# *  Developed at the Networks and Pervasive Computing program				*
+# *  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis				*
+# *  This file is distributed under the terms in the attached LICENSE file.		*
+# *  If you do not find this file, copies can be found by writing to:			*
+# *											*
+# *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia			*
+# *      Attention:  License Inquiry.							*
+# *											*
+# **************************************************************************************/
+
+
+
 #!/bin/bash
 
-opp_makemake -f --genconfig ./config/omnetpp.config
+opp_makemake -r -f --genconfig ./config/omnetpp.config
 make ROOT=`pwd` MAKEMAKE=opp_makemake EXT= -f ./config/makemake.config
 
 echo

@@ -267,12 +267,12 @@ void WirelessChannel::initialize() {
 	if(onlyStaticNodes) parsePrrMap();
 
 	/* Create temporal model object from parameters file (if given) */
-	if (strlen(temporalModelParametersFile) > 0) 
+	if (strlen(temporalModelParametersFile) > 0)
 	{
 	    temporalModel = new channelTemporalModel(temporalModelParametersFile,2);
 	    temporalModelDefined = true;
 	}
-	else 
+	else
 	{
 	    temporalModelDefined = false;
 	}
@@ -493,14 +493,14 @@ void WirelessChannel::handleMessage(cMessage *msg)
 				}
 				/* If the resulting current signal received is
 				 * not strong enough, update the relevant stats
-				 * and continue to the next cell. 
+				 * and continue to the next cell.
 				 */
 				if ((currentSignalReceived - noiseFloor < thresholdSNRdB) || (currentSignalReceived < receiverSensitivity))
 				{
 					stats[srcAddr].TxFailedTemporalFades += cellOccupation[(*it1)->cellID].size();
 					continue;
 				}
-				
+
 
 				/* Else go through all the nodes of that cell.
 				 * Iterator it2 returns node IDs.
@@ -612,7 +612,7 @@ void WirelessChannel::handleMessage(cMessage *msg)
 					default :
 						opp_error("Error in specifying \"Collision model\" in the omnetpp.ini.");
 				}
-				
+
 				if (SINR_dB >= thresholdSNRdB) {
 					prob = calculateProb(SINR_dB, message->byteLength());
 				}
@@ -648,7 +648,7 @@ void WirelessChannel::handleMessage(cMessage *msg)
 				}
 
 				else  // reception was not successful
-				{	
+				{
 					/* update the stats */
 					if (InterferenceForSignalTerminating > -200.0)
 					{
@@ -764,7 +764,7 @@ void WirelessChannel::finish()
 
 	if (modulationType == MODULATION_CUSTOM) delete[] customModulationArray;
 	if (temporalModelDefined) delete temporalModel;
-	
+
 	//close the output stream that CASTALIA_DEBUG is writing to
 	DebugInfoWriter::closeStream();
 }
@@ -864,7 +864,7 @@ void WirelessChannel::readIniFileParameters(void)
 		int radioOverhead = node_0->submodule("networkInterface")->submodule("Radio")->par("phyFrameOverhead");
 		maxPacketSize = node_0->submodule("networkInterface")->submodule("Radio")->par("maxPhyFrameSize");
 		minPacketSize = (appOverhead + macOverhead + radioOverhead + 2);
-		
+
 		dataRate = node_0->submodule("networkInterface")->submodule("Radio")->par("dataRate");
 
 		receiverSensitivity = node_0->submodule("networkInterface")->submodule("Radio")->par("receiverSensitivity");
@@ -875,8 +875,8 @@ void WirelessChannel::readIniFileParameters(void)
 
 		modulationTypeParam = node_0->submodule("networkInterface")->submodule("Radio")->par("modulationType");
 		customModulationArray = NULL;
-		
-		//Modulation type is a string, either IDEAL, FSK, PSK, or CUSTOM. 
+
+		//Modulation type is a string, either IDEAL, FSK, PSK, or CUSTOM.
 		if (strlen(modulationTypeParam) == 0 || strncmp(modulationTypeParam,"IDEAL",5) == 0) {
 		    modulationType = MODULATION_IDEAL;
 		} else if (strncmp(modulationTypeParam,"FSK",3) == 0) {
@@ -885,30 +885,31 @@ void WirelessChannel::readIniFileParameters(void)
 		    modulationType = MODULATION_PSK;
 		} else if (strncmp(modulationTypeParam,"CUSTOM",6) == 0) {
 		    modulationType = MODULATION_CUSTOM;
-		    
-		    /*********************************************************
-		     *A custom definition of modulation is a list of comma separated pairs, 
-		     *where first value is SNR and second value is BER (bit error rate) associated with the given SNR
-		     *********************************************************/
+
+		    /*****************************************************************
+		     * A custom definition of modulation is a list of comma separated
+		     * pairs, where the first value is SNR and second value is BER
+		     * (bit error rate) associated with this given SNR
+		     *****************************************************************/
 
 		    //tokenizer will help to convert the string into an array using comma as delimiter
 		    cStringTokenizer t(modulationTypeParam + 6,",");
 		    vector <string> v = t.asVector();
-		    
+
 		    //it is necessary to create and fill the customModulationArray based on the result from tokenizer
 		    customModulationArray = new CustomModulation_type[v.size()];
 		    numOfCustomModulationValues = v.size();
 		    const char *ptr;
 		    for (int i = 0; i < v.size(); i++) {
 			ptr = v[i].c_str();
-			if (parseFloat(ptr, &(customModulationArray[i].SNR))) 
+			if (parseFloat(ptr, &(customModulationArray[i].SNR)))
 			    opp_error("\n[Wireless Channel]: Illegal syntax for CUSTOM modulation type, unable to parse float from %s\n",ptr);
-			if ((i > 0) && (customModulationArray[i-1].SNR >= customModulationArray[i].SNR)) 
+			if ((i > 0) && (customModulationArray[i-1].SNR >= customModulationArray[i].SNR))
 			    opp_error("\n[Wireless Channel]: Illegal syntax for CUSTOM modulation type: SNR values are not in increasing order\n");
 			while (ptr[0] && ptr[0] != ':') ptr++;
-			if (parseFloat(++ptr, &(customModulationArray[i].BER))) 
+			if (parseFloat(++ptr, &(customModulationArray[i].BER)))
 			    opp_error("\n[Wireless Channel]: Illegal syntax for CUSTOM modulation type, unable to parse float from %s\n",ptr);
-			if ((customModulationArray[i].BER < 0) || (customModulationArray[i].BER > 1)) 
+			if ((customModulationArray[i].BER < 0) || (customModulationArray[i].BER > 1))
 			    opp_error("\n[Wireless Channel]: Illegal syntax for CUSTOM modulation type: BER values have to be in range 0 to 1\n");
 		    }
 		} else {
@@ -981,36 +982,47 @@ void WirelessChannel::readIniFileParameters(void)
 
 } // readIniParameters
 
-//Parsing of custom pathloss map from a file, given by the parameter pathLossMapFile
+
+
+/* Parsing of custom pathloss map from a file,
+ * filename given by the parameter pathLossMapFile
+ */
 void WirelessChannel::parsePathLossMap(void)
 {
     if (strlen(pathLossMapFile) == 0) return;
     ifstream f(pathLossMapFile);
     if (!f.is_open()) opp_error("\n[Wireless Channel]:\n Error reading from pathLossMapFile %s\n", pathLossMapFile);
 
-    string s; const char *ct; 
+    string s; const char *ct;
     int source, destination; float pathloss_db;
-    
-    //each line in a file is in the same format: SOURCE>DESTINATION:PL_DB, ... ,DESTINATION:PL_DB
-    //based on these values we will update the pathloss array (using updatePathLossElement function)
+
+    /* each line in a file is in the same format:
+     * Transmitter_id>Receiver_id:PathLoss_dB, ... ,Receiver_id:PathLoss_dB
+     * based on these values we will update the pathloss array
+     * (using updatePathLossElement function)
+     */
     while (getline(f,s)) {
 	ct = s.c_str();				//ct points to the beginning of a line
 	while (ct[0] && (ct[0] == ' ' || ct[0] == '\t')) ct++;
-	if (ct[0] == '#') continue;		//check for commentswhile (ct[0]
+	if (ct[0] == '#') continue;		// skip comments
 	if (parseInt(ct,&source)) opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile\n");
 	while (ct[0] && ct[0] != '>') ct++;	//skip untill '>' character
-	if (!ct[0]) opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile\n");	
+	if (!ct[0]) opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile\n");
 	cStringTokenizer t(++ct,","); 		//divide the rest of the strig with comma delimiter
 	while (ct = t.nextToken()) {
 	    if (parseInt(ct,&destination)) opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile\n");
 	    while (ct[0] && ct[0] != ':') ct++;	//skip untill ':' character
-	    if (parseFloat(++ct,&pathloss_db)) opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile\n");	
-	    updatePathLossElement(source,destination,pathloss_db);	
+	    if (parseFloat(++ct,&pathloss_db)) opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile\n");
+	    updatePathLossElement(source,destination,pathloss_db);
 	}
     }
 }
 
-//Parsing of custom PRR map from a file, given by the parameter PRRMapFile
+
+
+/* Parsing of custom PRR map from a file,
+ * filenamegiven by the parameter PRRMapFile
+ */
 void WirelessChannel::parsePrrMap(void)
 {
     if (strlen(PRRMapFile) == 0) return;
@@ -1021,48 +1033,52 @@ void WirelessChannel::parsePrrMap(void)
     int source, destination, packetSize;
     float tmpSNR_db, PRR, sourceTxPower_db;
 
-    //each line in a file is in the same format: SOURCE,PACKET_SIZE,TX_POWER>DESTINATION:PRR, ... ,DESTINATION:PRR
-    //given the values of PACKET_SIZE and TX_POWER we are able to convert the given PRR (packet reception rate) value
-    //to a pathloss value, which we can use to update the pathloss array (using updatePathLossElement function)
+    /* each line in a file is in the same format:
+     * Transmitter,Packet_size,TX_power>Receiver_id:PRR, ... ,Receiver_id:PRR
+     * given the values of Packet_size and TX_power we are able to convert
+     * the given PRR (packet reception rate) value to a pathloss value,
+     * which we can use to update the pathloss array
+     * (using updatePathLossElement function)
+     */
     while (getline(f,s)) {
 	ct = s.c_str();				//ct points to the beginning of a line
 	while (ct[0] && (ct[0] == ' ' || ct[0] == '\t')) ct++;
 	if (ct[0] == '#') continue;		//check for comments
-	if (parseInt(ct,&source)) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");	
-	while (ct[0] && ct[0] != ',') ct++;	//skip untill ',' character
-	if (parseInt(++ct,&packetSize)) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");	
-	while (ct[0] && ct[0] != ',') ct++;	//skip untill ',' character
-	if (parseFloat(++ct,&sourceTxPower_db)) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");	
-	while (ct[0] && ct[0] != '>') ct++;	//skip untill '>' character
-	if (!ct[0]) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");	
+	if (parseInt(ct,&source)) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");
+	while (ct[0] && ct[0] != ',') ct++;	//skip until ',' character
+	if (parseInt(++ct,&packetSize)) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");
+	while (ct[0] && ct[0] != ',') ct++;	//skip until ',' character
+	if (parseFloat(++ct,&sourceTxPower_db)) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");
+	while (ct[0] && ct[0] != '>') ct++;	//skip until '>' character
+	if (!ct[0]) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");
 	cStringTokenizer t(++ct,",");		//divide the rest of the strig with comma delimiter
 	while (ct = t.nextToken()) {
 	    if (parseInt(ct,&destination)) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");
 	    while (ct[0] && ct[0] != ':') ct++;	//skip untill ':' character
-	    if (parseFloat(ct+1,&PRR)) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");	
+	    if (parseFloat(ct+1,&PRR)) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");
 	    if (PRR <= 0) continue;		//if PRR is 0 or below, we cannot receive packets, so skip this element
-	    if (PRR >= 1) PRR = 0.9999;		//if PRR is 1, the value for SNR will be -infinity. 
+	    if (PRR >= 1) PRR = 0.9999;		//if PRR is 1, the value for SNR will be -infinity.
 						//To avoid that PRR is set to a value close to 1 but not equal to 1
-    	    
+
     	    //Based on modulation type given PRR value can be converted to SNR value in Db
-    	    if (modulationType = MODULATION_FSK) {
+    	    if (modulationType == MODULATION_FSK) {
 		tmpSNR_db = 10.0 * log10((-2.0*(dataRate/noiseBandwidth)) * log( 2.0 * (1.0 -  pow(PRR, 1.0/(8.0*packetSize)))));
-	    } else if (modulationType = MODULATION_PSK) {
+	    } else if (modulationType == MODULATION_PSK) {
 		tmpSNR_db = 10.0 * log10((dataRate/noiseBandwidth) * pow(erfcInv(2.0 * ( 1.0 - pow(PRR, 1.0/(8.0*packetSize)))), 2.0));
 	    } else {
 		opp_error("\n[Wireless Channel]:\n Error: PRRMapFile is only compatible with modulation type PSK or FSK\n");
 	    }
-	    //if (modulationType = MODULATION_CUSTOM) { ... } //not implemented for custom modulation
-	    
+	    //if (modulationType == MODULATION_CUSTOM) { ... } //not implemented for custom modulation
+
 	    //SNR can be converted to pathloss by using (TX_POWER - NOISE_FLOOR - SNR)
-    	    updatePathLossElement(source,destination,sourceTxPower_db - noiseFloor - tmpSNR_db);	
+    	    updatePathLossElement(source,destination,sourceTxPower_db - noiseFloor - tmpSNR_db);
     	}
     }
 }
 
 //This function will update a pathloss element for given source and destination cells with a given value of pathloss
 //If this pair is already defined in pathloss array, the old value is replaced, otherwise a new pathloss element is created
-void WirelessChannel::updatePathLossElement(int src, int dst, float pathloss_db) 
+void WirelessChannel::updatePathLossElement(int src, int dst, float pathloss_db)
 {
     list<PathLossElement *>::iterator it1;
     for ( it1=pathLoss[src].begin(); it1 != pathLoss[src].end(); it1++ )
@@ -1070,7 +1086,7 @@ void WirelessChannel::updatePathLossElement(int src, int dst, float pathloss_db)
         if ((*it1)->cellID == dst) {
     	    (*it1)->avgPathLoss = pathloss_db;
     	    return;
-	}	    
+	}
     }
     pathLoss[src].push_front(new PathLossElement(dst, pathloss_db));
 }

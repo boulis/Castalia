@@ -187,7 +187,7 @@ void throughputTest_ApplicationModule::handleMessage(cMessage *msg)
 			//Example : how to broadcast a value
 			/*
 			 *  int data2send = 10000;
-			 *  send2NetworkDataPacket(BROADCAST_ADDR, data2send, 1);
+			 *  send2NetworkDataPacket(BROADCAST, data2send, 1);
 			 */
 
 
@@ -379,7 +379,7 @@ void throughputTest_ApplicationModule::send2NetworkDataPacket(const char *destID
 
 		packet2Net->getHeader().seqNumber = pckSeqNumber;
 
-		if(constantDataPayload != 0)
+		if(constantDataPayload > 0)
 			packet2Net->setByteLength(constantDataPayload + packetHeaderOverhead);
 		else
 			packet2Net->setByteLength(sizeof(data) + packetHeaderOverhead);

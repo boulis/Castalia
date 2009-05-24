@@ -88,7 +88,7 @@ void connectivityMap_ApplicationModule::initialize()
 	maxAppPacketSize = par("maxAppPacketSize");
 
 	packetHeaderOverhead = par("packetHeaderOverhead");
-	
+
 	constantDataPayload = par("constantDataPayload");
 
 	char buff[30];
@@ -386,14 +386,14 @@ void connectivityMap_ApplicationModule::send2NetworkDataPacket(const char *destI
 		packet2Net->getHeader().destination = destID;
 
 		packet2Net->getHeader().seqNumber = pckSeqNumber;
-		
-		if(constantDataPayload != 0)
+
+		if(constantDataPayload > 0)
 			packet2Net->setByteLength(constantDataPayload + packetHeaderOverhead);
 		else
 			packet2Net->setByteLength(sizeof(data) + packetHeaderOverhead);
-		
+
 		//TODO: here the user can control the size of the packet and break it into smaller fragments
-		
+
 		send(packet2Net, "toCommunicationModule");
 	}
 }

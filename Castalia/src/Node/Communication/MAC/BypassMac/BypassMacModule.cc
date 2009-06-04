@@ -14,12 +14,6 @@
 
 #include "BypassMacModule.h"
 
-#define MAC_BUFFER_ARRAY_SIZE macBufferSize+1
-
-#define BUFFER_IS_EMPTY  (headTxBuffer==tailTxBuffer)
-
-#define BUFFER_IS_FULL  (getTXBufferSize() >= macBufferSize)
-
 #define DRIFTED_TIME(time) ((time) * cpuClockDrift)
 
 #define EV   ev.disabled() ? (ostream&)ev : ev
@@ -59,12 +53,6 @@ void BypassMacModule::initialize()
 	else
 		opp_error("\n[Mac]:\n Error in geting a valid reference to  nodeResourceMgr for direct method calls.");
 	cpuClockDrift = resMgrModule->getCPUClockDrift();
-
-	schedTXBuffer = new MAC_GenericFrame*[MAC_BUFFER_ARRAY_SIZE];
-	headTxBuffer = 0;
-	tailTxBuffer = 0;
-
-	maxSchedTXBufferSizeRecorded = 0;
 
 	epsilon = 0.000001;
 
@@ -106,7 +94,7 @@ void BypassMacModule::handleMessage(cMessage *msg)
 		 *--------------------------------------------------------------------------------------------------------------*/
 		case NETWORK_FRAME:
 		{			
-			if(!BUFFER_IS_FULL)
+			if(TXBuffer.size() < macBufferSize)
 			{
 				Network_GenericFrame *rcvNetDataFrame = check_and_cast<Network_GenericFrame*>(msg);
 				
@@ -116,9 +104,9 @@ void BypassMacModule::handleMessage(cMessage *msg)
 				
 				//create the MACFrame from the Network Data Packet (encapsulation)
 				if(encapsulateNetworkFrame(rcvNetDataFrame, newDataFrame))
-				{									
-					pushBuffer(newDataFrame);
-					
+				{
+					newDataFrame->setKind(MAC_FRAME);
+					TXBuffer.push(newDataFrame);
 					// schedule a new TX
 					scheduleAt(simTime() + epsilon, new MAC_ControlMessage("initiate a TX", MAC_SELF_CHECK_TX_BUFFER));
 				}
@@ -135,9 +123,7 @@ void BypassMacModule::handleMessage(cMessage *msg)
 			else
 			{
 				MAC_ControlMessage *fullBuffMsg = new MAC_ControlMessage("MAC buffer is full Radio->Mac", MAC_2_NETWORK_FULL_BUFFER);
-
 				send(fullBuffMsg, "toNetworkModule");
-				
 				CASTALIA_DEBUG  << "\n[Mac_"<< self <<"] t= " << simTime() << ": WARNING: SchedTxBuffer FULL!!! Network frame is discarded.\n";
 			}
 
@@ -173,11 +159,12 @@ void BypassMacModule::handleMessage(cMessage *msg)
 		 *--------------------------------------------------------------------------------------------------------------*/
 		case MAC_SELF_CHECK_TX_BUFFER:
 		{	
-			if(!(BUFFER_IS_EMPTY))
+			if(!TXBuffer.empty())
 			{
 				
 				// SEND THE DATA FRAME TO RADIO BUFFER
-				MAC_GenericFrame *dataFrame = popTxBuffer();
+				MAC_GenericFrame *dataFrame = TXBuffer.front(); 
+				TXBuffer.pop();
 
 				send(dataFrame, "toRadioModule");
 				
@@ -348,37 +335,27 @@ void BypassMacModule::handleMessage(cMessage *msg)
 	msg = NULL;		// safeguard
 }
 
-
-
 void BypassMacModule::finish()
 {	
 	MAC_GenericFrame *macMsg;
 
-	while(!BUFFER_IS_EMPTY)
+	while(!TXBuffer.empty())
 	{
-		macMsg = popTxBuffer();
-
+		macMsg = TXBuffer.front();
+		TXBuffer.pop();
 		cancelAndDelete(macMsg);
-
 	  	macMsg = NULL;
 	}
-	delete[] schedTXBuffer;
 }
 
 
 void BypassMacModule::readIniFileParameters(void)
 {
 	printDebugInfo = par("printDebugInfo");
-
 	maxMACFrameSize = par("maxMACFrameSize");
-
 	macFrameOverhead = par("macFrameOverhead");
-
 	macBufferSize = par("macBufferSize");
 }
-
-
-
 
 void BypassMacModule::setRadioState(MAC_ControlMessageType typeID, double delay)
 {
@@ -390,9 +367,6 @@ void BypassMacModule::setRadioState(MAC_ControlMessageType typeID, double delay)
 	sendDelayed(ctrlMsg, delay, "toRadioModule");
 }
 
-
-
-
 void BypassMacModule::setRadioTxMode(Radio_TxMode txTypeID, double delay)
 {
 	if( (txTypeID != CARRIER_SENSE_NONE)&&(txTypeID != CARRIER_SENSE_ONCE_CHECK)&&(txTypeID != CARRIER_SENSE_PERSISTENT) )
@@ -403,9 +377,6 @@ void BypassMacModule::setRadioTxMode(Radio_TxMode txTypeID, double delay)
 
 	sendDelayed(ctrlMsg, delay, "toRadioModule");
 }
-
-
-
 
 void BypassMacModule::setRadioPowerLevel(int powLevel, double delay)
 {
@@ -419,91 +390,19 @@ void BypassMacModule::setRadioPowerLevel(int powLevel, double delay)
 		CASTALIA_DEBUG << "\n[Mac_" << self << "] t= " << simTime() << ": WARNING: in function setRadioPowerLevel() of Mac module, parameter powLevel has invalid value.\n";
 }
 
-
 int BypassMacModule::encapsulateNetworkFrame(Network_GenericFrame *networkFrame, MAC_GenericFrame *retFrame)
 {
 	int totalMsgLen = networkFrame->byteLength() + macFrameOverhead;
-	if(totalMsgLen > maxMACFrameSize)
-		return 0;
+	if(totalMsgLen > maxMACFrameSize) return 0;
 	retFrame->setByteLength(macFrameOverhead); //networkFrame->byteLength() extra bytes will be added after the encapsulation
-
 	retFrame->getHeader().srcID = self;
-	
 	retFrame->getHeader().destID = deliver2NextHop(networkFrame->getHeader().nextHop.c_str());
-	
 	retFrame->getHeader().frameType = (unsigned short)MAC_PROTO_DATA_FRAME;
-
 	Network_GenericFrame *dupNetworkFrame = check_and_cast<Network_GenericFrame *>(networkFrame->dup());
 	retFrame->encapsulate(dupNetworkFrame);
 
 	return 1;
 }
-
-
-
-int BypassMacModule::pushBuffer(MAC_GenericFrame *theFrame)
-{
-	if(theFrame == NULL)
-	{
-		CASTALIA_DEBUG << "\n[Mac_" << self << "] t= " << simTime() << ": WARNING: Trying to push NULL MAC_GenericFrame to the MAC_Buffer!!\n";
-		return 0;
-	}
-
-	tailTxBuffer = (++tailTxBuffer)%(MAC_BUFFER_ARRAY_SIZE); //increment the tailTxBuffer pointer. If reached the end of array, then start from position [0] of the array
-
-	if (tailTxBuffer == headTxBuffer)
-	{
-		// reset tail pointer
-		if(tailTxBuffer == 0)
-			tailTxBuffer = MAC_BUFFER_ARRAY_SIZE-1;
-		else
-			tailTxBuffer--;
-		CASTALIA_DEBUG << "\n[Mac_" << self << "] t= " << simTime() << ": WARNING: SchedTxBuffer FULL!!! value to be Tx not added to buffer\n";
-		return 0;
-	}
-
-	theFrame->setKind(MAC_FRAME);
-
-	if (tailTxBuffer==0)
-		schedTXBuffer[MAC_BUFFER_ARRAY_SIZE-1] = theFrame;
-	else
-		schedTXBuffer[tailTxBuffer-1] = theFrame;
-
-
-	int currLen = getTXBufferSize();
-	if (currLen > maxSchedTXBufferSizeRecorded)
-		maxSchedTXBufferSizeRecorded = currLen;
-
-	return 1;
-}
-
-
-MAC_GenericFrame* BypassMacModule::popTxBuffer()
-{
-
-	if (tailTxBuffer == headTxBuffer) {
-		ev << "\nTrying to pop  EMPTY TxBuffer!!";
-		tailTxBuffer--;  // reset tail pointer
-		return NULL;
-	}
-
-	MAC_GenericFrame *pop_message = schedTXBuffer[headTxBuffer];
-
-	headTxBuffer = (++headTxBuffer)%(MAC_BUFFER_ARRAY_SIZE);
-
-	return pop_message;
-}
-
-
-int BypassMacModule::getTXBufferSize(void)
-{
-	int size = tailTxBuffer - headTxBuffer;
-	if ( size < 0 )
-		size += MAC_BUFFER_ARRAY_SIZE;
-
-	return size;
-}
-
 
 int BypassMacModule::deliver2NextHop(const char *nextHop)
 {
@@ -522,4 +421,3 @@ int BypassMacModule::deliver2NextHop(const char *nextHop)
 	// moreover if strNextHop is a list of delimited nodeIDs 
 	// then again BROADCAST
 }
-

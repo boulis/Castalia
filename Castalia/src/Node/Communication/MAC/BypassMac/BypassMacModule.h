@@ -16,6 +16,7 @@
 #define TUNABLEMACMODULE
 
 #include <vector>
+#include <queue>
 #include <omnetpp.h>
 //#include "App_GenericDataPacket_m.h"
 #include "App_ControlMessage_m.h"
@@ -43,17 +44,14 @@ class BypassMacModule : public cSimpleModule
 		bool printDebugInfo;
 		
 		/*--- Custom class parameters ---*/
-		int self;					// the node's ID
-		RadioModule *radioModule;	//a pointer to the object of the Radio Module (used for direct method calls)
+		int self;				// the node's ID
+		RadioModule *radioModule;		//a pointer to the object of the Radio Module (used for direct method calls)
 		double radioDelayForValidCS;
 		ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
 		double radioDataRate;
 		
-		MAC_GenericFrame **schedTXBuffer;		// a buffer that can hold up to 9 values to get trasmitted
-		int headTxBuffer;
-		int tailTxBuffer;
+		queue<MAC_GenericFrame *> TXBuffer;	// a buffer that can hold up to 9 values to get trasmitted
 		
-		int maxSchedTXBufferSizeRecorded;
 		double epsilon;				//used to keep/manage the order between two messages that are sent at the same simulation time
 		double cpuClockDrift;
 		int disabled;
@@ -67,9 +65,6 @@ class BypassMacModule : public cSimpleModule
 		void setRadioTxMode(Radio_TxMode txTypeID, double delay=0.0);
 		void setRadioPowerLevel(int powLevel, double delay=0.0);
 		int encapsulateNetworkFrame(Network_GenericFrame *networkFrame, MAC_GenericFrame *retFrame);
-		int pushBuffer(MAC_GenericFrame *theMsg);
-		MAC_GenericFrame* popTxBuffer();
-		int getTXBufferSize(void);
 		int deliver2NextHop(const char *nextHop);
 };
 

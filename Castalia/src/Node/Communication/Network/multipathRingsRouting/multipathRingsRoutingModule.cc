@@ -16,27 +16,15 @@
 
 #include "multipathRingsRoutingModule.h"
 
-#define NET_BUFFER_ARRAY_SIZE netBufferSize+1
-
-#define BUFFER_IS_EMPTY  (headTxBuffer==tailTxBuffer)
-
-#define BUFFER_IS_FULL  (getTXBufferSize() >= netBufferSize)
-
 #define DRIFTED_TIME(time) ((time) * cpuClockDrift)
-
 #define EV   ev.disabled() ? (ostream&)ev : ev
-
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
-
 
 #define NO_LEVEL  -110
 #define NO_SINK   -120
 #define MOTES_BOOT_TIMEOUT 0.05
 
-
 Define_Module(multipathRingsRoutingModule);
-
-
 
 void multipathRingsRoutingModule::initialize()
 {
@@ -65,21 +53,12 @@ void multipathRingsRoutingModule::initialize()
 		opp_error("\n[Network]:\n Error in geting a valid reference to  nodeResourceMgr for direct method calls.");
 	cpuClockDrift = resMgrModule->getCPUClockDrift();
 	
-	schedTXBuffer = new Network_GenericFrame*[NET_BUFFER_ARRAY_SIZE];
-	headTxBuffer = 0;
-	tailTxBuffer = 0;
-
-	maxSchedTXBufferSizeRecorded = 0;
-	
 	epsilon = 0.000001;
-	
 	disabled = 1;
-	
+
 	char buff[256];
 	sprintf(buff, "%i", self);
 	strSelfID.assign(buff);
-	
-	
 	
 	/*******  multipathRingsRouting-related initializations *************/ 
 	// make sure that in your omnetpp.ini you have used an Application module that has the boolean parameter "isSink"
@@ -101,14 +80,12 @@ void multipathRingsRoutingModule::handleMessage(cMessage *msg)
 {
 	int msgKind = msg->kind();
 
-
-	if((disabled) && (msgKind != APP_NODE_STARTUP))
+        if((disabled) && (msgKind != APP_NODE_STARTUP))
 	{
 		delete msg;
 		msg = NULL;		// safeguard
 		return;
 	}
-
 
 	switch (msgKind)
 	{
@@ -199,7 +176,7 @@ void multipathRingsRoutingModule::handleMessage(cMessage *msg)
 		 *--------------------------------------------------------------------------------------------------------------*/
 		case APP_DATA_PACKET:
 		{			
-			if(!BUFFER_IS_FULL)
+			if(TXBuffer.size() < netBufferSize)
 			{
 				App_GenericDataPacket *rcvAppDataPacket = check_and_cast<App_GenericDataPacket*>(msg);
 				string appPktDest(rcvAppDataPacket->getHeader().destination.c_str());
@@ -252,10 +229,11 @@ void multipathRingsRoutingModule::handleMessage(cMessage *msg)
 		case NETWORK_SELF_CHECK_TX_BUFFER:
 		{	
 			
-			if(!(BUFFER_IS_EMPTY))
+			if(!TXBuffer.empty())
 			{
 				// SEND THE DATA FRAME TO MAC BUFFER
-				Network_GenericFrame *theFrame = popTxBuffer();
+				Network_GenericFrame *theFrame = TXBuffer.front();
+				TXBuffer.pop();
 
 				send(theFrame, "toMacModule");
 				
@@ -408,17 +386,13 @@ void multipathRingsRoutingModule::finish()
 {	
 	Network_GenericFrame *netMsg;
 
-	while(!BUFFER_IS_EMPTY)
+	while(!TXBuffer.empty())
 	{
-		netMsg = popTxBuffer();
-
+		netMsg = TXBuffer.front();
+		TXBuffer.pop();
 		cancelAndDelete(netMsg);
-
 	  	netMsg = NULL;
 	}
-	
-	delete [] schedTXBuffer;
-	
 }
 
 
@@ -438,75 +412,6 @@ void multipathRingsRoutingModule::readIniFileParameters(void)
 	if(mpathRingsSetupFrameOverhead > maxNetFrameSize)
 		opp_error("Error in value of parameter \"mpathRingsSetupFrameOverhead\" provided in omnetpp.ini for multipathRingsRoutingModule.");
 }
-
-
-
-int multipathRingsRoutingModule::pushBuffer(Network_GenericFrame *theFrame)
-{		
-	if(theFrame == NULL)
-	{
-		CASTALIA_DEBUG << "\n[Network_" << self << "] t= " << simTime() << ": WARNING: Trying to push NULL Network_GenericFrame to the Net_Buffer!!\n";
-		
-		return 0;
-	}
-
-	tailTxBuffer = (++tailTxBuffer)%(NET_BUFFER_ARRAY_SIZE); //increment the tailTxBuffer pointer. If reached the end of array, then start from position [0] of the array
-
-	if (tailTxBuffer == headTxBuffer)
-	{
-		// reset tail pointer
-		if(tailTxBuffer == 0)
-			tailTxBuffer = NET_BUFFER_ARRAY_SIZE-1;
-		else
-			tailTxBuffer--;
-		CASTALIA_DEBUG << "\n[Network_" << self << "] t= " << simTime() << ": WARNING: SchedTxBuffer FULL!!! value to be Tx not added to buffer\n";
-		
-		return 0;
-	}
-
-	theFrame->setKind(NETWORK_FRAME);
-
-	if (tailTxBuffer==0)
-		schedTXBuffer[NET_BUFFER_ARRAY_SIZE-1] = theFrame;
-	else
-		schedTXBuffer[tailTxBuffer-1] = theFrame;
-
-
-	int currLen = getTXBufferSize();
-	if (currLen > maxSchedTXBufferSizeRecorded)
-		maxSchedTXBufferSizeRecorded = currLen;
-
-	return 1;
-}
-
-
-Network_GenericFrame* multipathRingsRoutingModule::popTxBuffer(void)
-{
-
-	if (tailTxBuffer == headTxBuffer) {
-		CASTALIA_DEBUG << "\n[Network_" << self << "] \nTrying to pop  EMPTY TxBuffer!!";
-		tailTxBuffer--;  // reset tail pointer
-		return NULL;
-	}
-
-	Network_GenericFrame *pop_message = schedTXBuffer[headTxBuffer];
-
-	headTxBuffer = (++headTxBuffer)%(NET_BUFFER_ARRAY_SIZE);
-
-	return pop_message;
-}
-
-
-int multipathRingsRoutingModule::getTXBufferSize(void)
-{
-	int size = tailTxBuffer - headTxBuffer;
-	if ( size < 0 )
-		size += NET_BUFFER_ARRAY_SIZE;
-
-	return size;
-}
-
-
 
 int multipathRingsRoutingModule::encapsulateAppPacket(App_GenericDataPacket *appPacket, multipathRingsRouting_DataFrame *retFrame)
 {
@@ -563,7 +468,7 @@ void multipathRingsRoutingModule::multipathRingsRoute_forwardPacket(multipathRin
 	char pathBuff[1024];
 	sprintf(pathBuff, "%s%s%s", theMsg->getCurrentPathFromSource(), ROUTE_DEST_DELIMITER, strSelfID.c_str());
 	theMsg->setCurrentPathFromSource(pathBuff);
-	
+	theMsg->setKind(NETWORK_FRAME);
 	
 	// --- Set the multipathRingsRouting_DataFrame fields
 	// No need to set the SinkID again, because multipathRingsRoute_forwardPacket() is
@@ -572,7 +477,7 @@ void multipathRingsRoutingModule::multipathRingsRoute_forwardPacket(multipathRin
 	// theMsg->setSinkID((unsigned short)currentSinkID);
 	theMsg->setSenderLevel((short)currentLevel);	
 	
-	pushBuffer(theMsg);
+	TXBuffer.push(theMsg);
 						
 	scheduleAt(simTime() + epsilon, new multipathRingsRouting_DataFrame("initiate a TX", NETWORK_SELF_CHECK_TX_BUFFER));
 }
@@ -664,9 +569,9 @@ void multipathRingsRoutingModule::sendTopoSetupMesage(int parSinkID, int parSend
 	// --- Set the simpleTreeRouting_DataFrame fields
 	setupMsg->setSinkID((unsigned short)parSinkID);
 	setupMsg->setSenderLevel((short)parSenderLevel);
+	setupMsg->setKind(NETWORK_FRAME);
 	
-	
-	pushBuffer(setupMsg);
+	TXBuffer.push(setupMsg);
 	
 	scheduleAt(simTime() + epsilon, new multipathRingsRouting_DataFrame("initiate a TX", NETWORK_SELF_CHECK_TX_BUFFER));
 }

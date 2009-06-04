@@ -18,7 +18,9 @@
 #define MULTIPATHRINGSROUTINGMODULE
 
 #include <vector>
+#include <queue>
 #include <omnetpp.h>
+
 #include "App_GenericDataPacket_m.h"
 #include "App_ControlMessage_m.h"
 #include "multipathRingsRoutingControlMessage_m.h"
@@ -57,13 +59,11 @@ class multipathRingsRoutingModule : public cSimpleModule
 		RadioModule *radioModule;	//a pointer to the object of the Radio Module (used for direct method calls)
 		double radioDataRate;
 		ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
-		// a buffer that can hold up to 9 values to get trasmitted
-		Network_GenericFrame **schedTXBuffer;		
-		int headTxBuffer;
-		int tailTxBuffer;
+
+		queue <Network_GenericFrame *> TXBuffer;
+
 		//used to keep/manage the order between two messages that are sent at the same simulation time
 		double epsilon;				
-		int maxSchedTXBufferSizeRecorded;
 		double cpuClockDrift;
 		int disabled;
 		string strSelfID;
@@ -84,9 +84,6 @@ class multipathRingsRoutingModule : public cSimpleModule
 		virtual void finish();
 		void readIniFileParameters(void);
 		int encapsulateAppPacket(App_GenericDataPacket *appPacket, multipathRingsRouting_DataFrame *retFrame);
-		int pushBuffer(Network_GenericFrame *theMsg);
-		Network_GenericFrame* popTxBuffer(void);
-		int getTXBufferSize(void);
 		void multipathRingsRoute_forwardPacket(multipathRingsRouting_DataFrame *theMsg);
 		void filterIncomingNetworkDataFrames(Network_GenericFrame *theFrame);
 		void decapsulateAndDeliverToApplication(multipathRingsRouting_DataFrame * parFrame2Deliver);

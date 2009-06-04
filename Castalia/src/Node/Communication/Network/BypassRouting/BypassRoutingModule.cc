@@ -14,23 +14,11 @@
 
 #include "BypassRoutingModule.h"
 
-#define NET_BUFFER_ARRAY_SIZE netBufferSize+1
-
-#define BUFFER_IS_EMPTY  (headTxBuffer==tailTxBuffer)
-
-#define BUFFER_IS_FULL  (getTXBufferSize() >= netBufferSize)
-
 #define DRIFTED_TIME(time) ((time) * cpuClockDrift)
-
 #define EV   ev.disabled() ? (ostream&)ev : ev
-
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 
-
-
 Define_Module(BypassRoutingModule);
-
-
 
 void BypassRoutingModule::initialize()
 {
@@ -59,14 +47,7 @@ void BypassRoutingModule::initialize()
 		opp_error("\n[Network]:\n Error in geting a valid reference to  nodeResourceMgr for direct method calls.");
 	cpuClockDrift = resMgrModule->getCPUClockDrift();
 	
-	schedTXBuffer = new Network_GenericFrame*[NET_BUFFER_ARRAY_SIZE];
-	headTxBuffer = 0;
-	tailTxBuffer = 0;
-
-	maxSchedTXBufferSizeRecorded = 0;
-	
 	epsilon = 0.000001;
-	
 	disabled = 1;
 	
 	char buff[256];
@@ -78,7 +59,6 @@ void BypassRoutingModule::initialize()
 void BypassRoutingModule::handleMessage(cMessage *msg)
 {
 	int msgKind = msg->kind();
-
 
 	if((disabled) && (msgKind != APP_NODE_STARTUP))
 	{
@@ -109,7 +89,7 @@ void BypassRoutingModule::handleMessage(cMessage *msg)
 		 *--------------------------------------------------------------------------------------------------------------*/
 		case APP_DATA_PACKET:
 		{			
-			if(!BUFFER_IS_FULL)
+			if(TXBuffer.size() < netBufferSize)
 			{
 				App_GenericDataPacket *rcvAppDataPacket = check_and_cast<App_GenericDataPacket*>(msg);
 				
@@ -129,10 +109,9 @@ void BypassRoutingModule::handleMessage(cMessage *msg)
 					else
 						newDataFrame->getHeader().nextHop = appPktDestination.c_str();
 					
+					newDataFrame->setKind(NETWORK_FRAME);
+					TXBuffer.push(newDataFrame);
 					
-					pushBuffer(newDataFrame);
-					
-						
 					scheduleAt(simTime() + epsilon, new Network_ControlMessage("initiate a TX", NETWORK_SELF_CHECK_TX_BUFFER));
 				}
 				else
@@ -164,11 +143,11 @@ void BypassRoutingModule::handleMessage(cMessage *msg)
 		 *--------------------------------------------------------------------------------------------------------------*/
 		case NETWORK_SELF_CHECK_TX_BUFFER:
 		{	
-			if(!(BUFFER_IS_EMPTY))
+			if(!TXBuffer.empty())
 			{
-				
 				// SEND THE DATA FRAME TO MAC BUFFER
-				Network_GenericFrame *dataFrame = popTxBuffer();
+				Network_GenericFrame *dataFrame = TXBuffer.front();
+				TXBuffer.pop();
 
 				send(dataFrame, "toMacModule");
 				
@@ -291,31 +270,23 @@ void BypassRoutingModule::finish()
 {	
 	Network_GenericFrame *netMsg;
 
-	while(!BUFFER_IS_EMPTY)
+	while(!TXBuffer.empty())
 	{
-		netMsg = popTxBuffer();
-
+		netMsg = TXBuffer.front();
+		TXBuffer.pop();
 		cancelAndDelete(netMsg);
-
 	  	netMsg = NULL;
 	}
-	
-	delete [] schedTXBuffer;
-}
+}	
 
 
 void BypassRoutingModule::readIniFileParameters(void)
 {
 	printDebugInfo = par("printDebugInfo");
-
 	maxNetFrameSize = par("maxNetFrameSize");
-
 	netDataFrameOverhead = par("netDataFrameOverhead");
-
 	netBufferSize = par("netBufferSize");
 }
-
-
 
 int BypassRoutingModule::encapsulateAppPacket(App_GenericDataPacket *appPacket, Network_GenericFrame *retFrame)
 {
@@ -342,69 +313,4 @@ int BypassRoutingModule::encapsulateAppPacket(App_GenericDataPacket *appPacket, 
 	// No ttl is used (retFrame->getHeader().ttl = ??? )
 
 	return 1;
-}
-
-
-
-int BypassRoutingModule::pushBuffer(Network_GenericFrame *theFrame)
-{
-	if(theFrame == NULL)
-	{
-		CASTALIA_DEBUG << "\n[Network_" << self << "] t= " << simTime() << ": WARNING: Trying to push NULL Network_GenericFrame to the Net_Buffer!!\n";
-		return 0;
-	}
-
-	tailTxBuffer = (++tailTxBuffer)%(NET_BUFFER_ARRAY_SIZE); //increment the tailTxBuffer pointer. If reached the end of array, then start from position [0] of the array
-
-	if (tailTxBuffer == headTxBuffer)
-	{
-		// reset tail pointer
-		if(tailTxBuffer == 0)
-			tailTxBuffer = NET_BUFFER_ARRAY_SIZE-1;
-		else
-			tailTxBuffer--;
-		CASTALIA_DEBUG << "\n[Network_" << self << "] t= " << simTime() << ": WARNING: SchedTxBuffer FULL!!! value to be Tx not added to buffer\n";
-		return 0;
-	}
-
-	theFrame->setKind(NETWORK_FRAME);
-
-	if (tailTxBuffer==0)
-		schedTXBuffer[NET_BUFFER_ARRAY_SIZE-1] = theFrame;
-	else
-		schedTXBuffer[tailTxBuffer-1] = theFrame;
-
-
-	int currLen = getTXBufferSize();
-	if (currLen > maxSchedTXBufferSizeRecorded)
-		maxSchedTXBufferSizeRecorded = currLen;
-
-	return 1;
-}
-
-
-Network_GenericFrame* BypassRoutingModule::popTxBuffer(void)
-{
-
-	if (tailTxBuffer == headTxBuffer) {
-		CASTALIA_DEBUG << "\n[Network_" << self << "] \nTrying to pop  EMPTY TxBuffer!!";
-		tailTxBuffer--;  // reset tail pointer
-		return NULL;
-	}
-
-	Network_GenericFrame *pop_message = schedTXBuffer[headTxBuffer];
-
-	headTxBuffer = (++headTxBuffer)%(NET_BUFFER_ARRAY_SIZE);
-
-	return pop_message;
-}
-
-
-int BypassRoutingModule::getTXBufferSize(void)
-{
-	int size = tailTxBuffer - headTxBuffer;
-	if ( size < 0 )
-		size += NET_BUFFER_ARRAY_SIZE;
-
-	return size;
 }

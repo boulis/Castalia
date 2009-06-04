@@ -16,7 +16,9 @@
 #define BYPASSROUTINGMODULE
 
 #include <vector>
+#include <queue>
 #include <omnetpp.h>
+
 #include "App_GenericDataPacket_m.h"
 #include "App_ControlMessage_m.h"
 #include "NetworkControlMessage_m.h"
@@ -52,13 +54,9 @@ class BypassRoutingModule : public cSimpleModule
 		double radioDataRate;
 		ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
 		
-		Network_GenericFrame **schedTXBuffer;		// a buffer that can hold up to 9 values to get trasmitted
-		int headTxBuffer;
-		int tailTxBuffer;
+		queue <Network_GenericFrame *> TXBuffer;
 		
 		double epsilon;				//used to keep/manage the order between two messages that are sent at the same simulation time
-		
-		int maxSchedTXBufferSizeRecorded;
 		
 		double cpuClockDrift;
 		int disabled;
@@ -70,9 +68,6 @@ class BypassRoutingModule : public cSimpleModule
 		virtual void finish();
 		void readIniFileParameters(void);
 		int encapsulateAppPacket(App_GenericDataPacket *appPacket, Network_GenericFrame *retFrame);
-		int pushBuffer(Network_GenericFrame *theMsg);
-		Network_GenericFrame* popTxBuffer(void);
-		int getTXBufferSize(void);
 };
 
 #endif //BYPASSROUTINGMODULE

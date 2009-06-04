@@ -16,11 +16,11 @@
 #ifndef _RADIOMODULE_H_
 #define _RADIOMODULE_H_
 
-#include "WirelessChannelMessages_m.h"
-
-
 #include <vector>
+#include <queue>
 #include <omnetpp.h>
+
+#include "WirelessChannelMessages_m.h"
 #include "RadioControlMessage_m.h"
 #include "MacGenericFrame_m.h"
 #include "MacControlMessage_m.h"
@@ -29,7 +29,6 @@
 #include "DebugInfoWriter.h"
 using namespace std;
 
-
 enum RadioState
 {
 	RADIO_STATE_TX = 101,
@@ -37,14 +36,12 @@ enum RadioState
 	RADIO_STATE_SLEEP = 103
 };
 
-
 enum nonValid_CS_Codes
 {
 	RADIO_IN_TX_MODE = 104,
 	RADIO_SLEEPING = 105,
 	RADIO_NON_READY = 106
 };
-
 
 class RadioModule : public cSimpleModule 
 {
@@ -81,12 +78,9 @@ class RadioModule : public cSimpleModule
 		int self;						// the node's ID
 		RadioState radioState;			// we are using the enum values RADIO_SLEEP RADIO_LISTEN from the msg definition as possible values to this variable
 		
-		MAC_GenericFrame **radioBuffer;
-		int headTxBuffer;
-		int tailTxBuffer;
+		queue <MAC_GenericFrame *> radioBuffer;
 		
 		vector <double> txPowerLevels;	// the vector holding the different Tx PowerLevels, txPowerLevel[0] is the default
-		int maxBufferSizeRecorded;
 		simtime_t startListeningTime;
 		simtime_t startSleepingTime;
 		simtime_t startTxTime;
@@ -122,13 +116,8 @@ class RadioModule : public cSimpleModule
 		virtual void finish();
 		void readIniFileParameters(void);
 		void senseCarrier(double interval);
-		//int pushBuffer(MAC_GenericFrame *theFrame);
-		//int popBuffer(MAC_GenericFrame *retFrame);
 		double popAndSendToChannel();
 		int encapsulateMacFrame(MAC_GenericFrame *macFrame, WChannel_GenericMessage *retWcFrame);
-		int pushBuffer(MAC_GenericFrame *theMsg);
-		MAC_GenericFrame* popBuffer();
-		int getRadioBufferSize(void);
 		int isBeacon(MAC_GenericFrame *theFrame);
 		
 	public:

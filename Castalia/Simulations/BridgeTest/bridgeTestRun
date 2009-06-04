@@ -86,7 +86,7 @@ SN.node[*].networkInterface.MAC.listenInterval = $listen
 
 SN.node[*].appModuleName = \"BridgeTest_ApplicationModule\"
 SN.node[*].nodeApplication.applicationID = \"bridgeTest\"
-SN.node[*].nodeApplication.printDebugInfo = false
+SN.node[*].nodeApplication.printDebugInfo = true
 SN.node[*].nodeApplication.priority = 1
 
 SN.node[*].nodeApplication.maxAppPacketSize = 70    #in bytes

@@ -13,8 +13,8 @@
 #define TMACMODULE
 
 #include <vector>
+#include <queue>
 #include <omnetpp.h>
-#include <cqueue.h>
 
 #include "App_ControlMessage_m.h"
 #include "NetworkGenericFrame_m.h"
@@ -103,11 +103,8 @@ class TMacModule : public cSimpleModule
 		MAC_GenericFrame  *ctsFrame;
 		MAC_GenericFrame  *ackFrame;
 
-		MAC_GenericFrame **schedTXBuffer;		// a buffer that can hold up to 9 values to get trasmitted
-		int headTxBuffer;
-		int tailTxBuffer;
-		
-		int maxSchedTXBufferSizeRecorded;
+		queue <MAC_GenericFrame *> TXBuffer;
+	
 		double sleepInterval;		// in secs
 		double epsilon;				//used to keep/manage the order between two messages that are sent at the same simulation time
 		double cpuClockDrift;
@@ -135,10 +132,6 @@ class TMacModule : public cSimpleModule
 		void setRadioPowerLevel(int powLevel, double delay=0);
 		void createACKFrame(MAC_GenericFrame *retFrame);
 		int encapsulateNetworkFrame(Network_GenericFrame *networkFrame, MAC_GenericFrame *retFrame);
-		int pushBuffer(MAC_GenericFrame *theMsg);
-		MAC_GenericFrame* popTxBuffer();
-		MAC_GenericFrame* peekTxBuffer();
-		int getTXBufferSize(void);
 		int deliver2NextHop(const char *nextHop);
 		void resetDefaultState();
 

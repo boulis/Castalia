@@ -14,25 +14,12 @@
 
 #include "TunableMacModule.h"
 
-#define MAC_BUFFER_ARRAY_SIZE macBufferSize+1
-
-#define BUFFER_IS_EMPTY  (headTxBuffer==tailTxBuffer)
-
-#define BUFFER_IS_FULL  (getTXBufferSize() >= macBufferSize)
-
 #define CARRIER_SENSE_INTERVAL 0.0001
-
 #define DRIFTED_TIME(time) ((time) * cpuClockDrift)
-
 #define EV   ev.disabled() ? (ostream&)ev : ev
-
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 
-
-
 Define_Module(TunableMacModule);
-
-
 
 void TunableMacModule::initialize()
 {
@@ -79,18 +66,9 @@ void TunableMacModule::initialize()
 		CASTALIA_DEBUG << "\n[Mac_" << self <<"] t= " << simTime() << ": State changed to MAC_STATE_DEFAULT (initializing)";
 
 
-	schedTXBuffer = new MAC_GenericFrame*[MAC_BUFFER_ARRAY_SIZE];
-	headTxBuffer = 0;
-	tailTxBuffer = 0;
-
-	maxSchedTXBufferSizeRecorded = 0;
-
 	epsilon = 0.000001;
-
 	disabled = 1;
-
 	beaconSN = 0;
-
 	backoffTimes = 0;
 
 	//duty cycle references
@@ -98,9 +76,7 @@ void TunableMacModule::initialize()
 	dutyCycleWakeupMsg = NULL;
 	
 	selfCheckTXBufferMsg = NULL;
-	
 	selfExitCSMsg = NULL;
-	
 	rxOutMessage = NULL;
 
 	potentiallyDroppedBeacons = 0;
@@ -152,7 +128,7 @@ void TunableMacModule::handleMessage(cMessage *msg)
 		 *--------------------------------------------------------------------------------------------------------------*/
 		case NETWORK_FRAME:
 		{
-			if(!BUFFER_IS_FULL)
+			if(TXBuffer.size() < macBufferSize)
 			{
 				Network_GenericFrame *rcvNetDataFrame = check_and_cast<Network_GenericFrame*>(msg);
 				//create the MACFrame from the Network Data Packet (encapsulation)
@@ -160,6 +136,7 @@ void TunableMacModule::handleMessage(cMessage *msg)
 
 				for( int i = 0; i< numTx; i++ )	// place at the TX buffer as many copies of the message as allowed by the parameter numTx
 				{
+
 					if (genk_dblrand(0) < probTx )  // for each try check with probTx, notice that we are using generator 1 not 0
 					{
 							// get the random offset for this try
@@ -176,7 +153,6 @@ void TunableMacModule::handleMessage(cMessage *msg)
 
 								// schedule a new TX
 								scheduleAt(simTime() + DRIFTED_TIME(random_offset + i*reTxInterval) + epsilon, new MAC_ControlMessage("initiate a TX after receiving a NETWORK_FRAME", MAC_SELF_INITIATE_TX));
-
 							}
 							else
 							{
@@ -214,7 +190,7 @@ void TunableMacModule::handleMessage(cMessage *msg)
 		{
 			if(macState == MAC_STATE_DEFAULT) // there is no point to do the following things when the Mac is already in TX mode
 			{								  // and moreover if it is in MAC_STATE_EXPECTING_RX or MAC_STATE_CARRIER_SENSING then we should't start a new TX
-				if(!(BUFFER_IS_EMPTY))
+				if(!TXBuffer.empty())
 				{
 					if(carrierSense)  //with MAC-triggered carrier sense
 					{
@@ -284,7 +260,7 @@ void TunableMacModule::handleMessage(cMessage *msg)
 		 *--------------------------------------------------------------------------------------------------------------*/
 		case MAC_SELF_CHECK_TX_BUFFER:
 		{
-			 if(!(BUFFER_IS_EMPTY))
+			 if(!TXBuffer.empty())
 			 {
 			 	 // if there is something to Tx AND we are not expecting Rx AND we are not in MAC_STATE_CARRIER_SENSING
 			 	 if ( (macState == MAC_STATE_DEFAULT) || (macState == MAC_STATE_TX) )
@@ -333,7 +309,8 @@ void TunableMacModule::handleMessage(cMessage *msg)
 
 
 					// SEND THE DATA FRAME TO RADIO BUFFER
-					MAC_GenericFrame *dataFrame = popTxBuffer();
+					MAC_GenericFrame *dataFrame = TXBuffer.front();
+					TXBuffer.pop();
 
 					sendDelayed(dataFrame, beacon_offset, "toRadioModule");
 					setRadioState(MAC_2_RADIO_ENTER_TX, beacon_offset+epsilon);
@@ -469,20 +446,19 @@ void TunableMacModule::handleMessage(cMessage *msg)
 		 *--------------------------------------------------------------------------------------------------------------*/
 		case MAC_FRAME_SELF_PUSH_TX_BUFFER:
 		{
-			if(!(BUFFER_IS_FULL))
+			if(TXBuffer.size() < macBufferSize)
 			{
 				MAC_GenericFrame *dataFrame = check_and_cast<MAC_GenericFrame*>(msg);
 
 				// create a new copy of the message because dataFrame will be deleted outside the switch statement
 				MAC_GenericFrame *duplMsg = (MAC_GenericFrame *)dataFrame->dup(); //because theFrame will be deleted after the main switch in the handleMessage()
-				pushBuffer(duplMsg);
+				duplMsg->setKind(MAC_FRAME);
+				TXBuffer.push(duplMsg);
 			}
 			else
 			{
 				MAC_ControlMessage *fullBuffMsg = new MAC_ControlMessage("MAC buffer is full Radio->Mac", MAC_2_NETWORK_FULL_BUFFER);
-
 				send(fullBuffMsg, "toNetworkModule");
-				
 				CASTALIA_DEBUG  << "\n[Mac_"<< self <<"] t= " << simTime() << ": WARNING: SchedTxBuffer FULL!!! Network frame is discarded.\n";
 			}
 
@@ -1294,63 +1270,41 @@ void TunableMacModule::handleMessage(cMessage *msg)
 	msg = NULL;		// safeguard
 }
 
-
-
 void TunableMacModule::finish()
 {
 	MAC_GenericFrame *macMsg;
 
-	while(!BUFFER_IS_EMPTY)
+	while(!TXBuffer.empty())
 	{
-		macMsg = popTxBuffer();
-
+		macMsg = TXBuffer.front();
+		TXBuffer.pop();
 		cancelAndDelete(macMsg);
-
 	  	macMsg = NULL;
 	}
-	delete[] schedTXBuffer;
 
 	if(printPotentiallyDropped)
 		CASTALIA_DEBUG << "\n[Mac" << self << "]  Dropped Packets at MAC module while receiving:\t (" << potentiallyDroppedBeacons << ") beacons   and   (" << potentiallyDroppedDataFrames << ") data frames";
-
 }
 
 
 void TunableMacModule::readIniFileParameters(void)
 {
 	printPotentiallyDropped = par("printPotentiallyDroppedPacketsStatistics");
-
 	printDebugInfo = par("printDebugInfo");
-
 	printStateTransitions = par("printStateTransitions");
-
 	dutyCycle = par("dutyCycle");
-
 	listenInterval = ((double)par("listenInterval"))/1000.0;				// just convert msecs to secs
-
 	beaconIntervalFraction = par("beaconIntervalFraction");
-
 	probTx = par("probTx");
-
 	numTx = par("numTx");
-
 	randomTxOffset = ((double)par("randomTxOffset"))/1000.0;		// just convert msecs to secs
-
 	reTxInterval = ((double)par("reTxInterval"))/1000.0;			// just convert msecs to secs
-
 	maxMACFrameSize = par("maxMACFrameSize");
-
 	macFrameOverhead = par("macFrameOverhead");
-
 	beaconFrameSize = par("beaconFrameSize");
-
 	ACKFrameSize = par("ACKFrameSize");
-
 	macBufferSize = par("macBufferSize");
-
 	carrierSense = par("carrierSense");
-
-
 	backoffType = par("backoffType");
 	switch(backoffType)
 	{
@@ -1369,14 +1323,9 @@ void TunableMacModule::readIniFileParameters(void)
 			opp_error("\n[Mac]:\n Illegal value of parameter \"backoffType\" in omnetpp.ini.");
 			break;}
 	}
-
 	backoffBaseValue = ((double)par("backoffBaseValue"))/1000.0;			// just convert msecs to secs
-
 	randomBackoff = par("randomBackoff");
 }
-
-
-
 
 void TunableMacModule::setRadioState(MAC_ControlMessageType typeID, double delay)
 {
@@ -1457,74 +1406,6 @@ int TunableMacModule::encapsulateNetworkFrame(Network_GenericFrame *networkFrame
 
 	return 1;
 }
-
-
-
-int TunableMacModule::pushBuffer(MAC_GenericFrame *theFrame)
-{
-	if(theFrame == NULL)
-	{
-		CASTALIA_DEBUG << "\n[Mac_" << self << "] t= " << simTime() << ": WARNING: Trying to push NULL MAC_GenericFrame to the MAC_Buffer!!\n";
-		return 0;
-	}
-
-	tailTxBuffer = (++tailTxBuffer)%(MAC_BUFFER_ARRAY_SIZE); //increment the tailTxBuffer pointer. If reached the end of array, then start from position [0] of the array
-
-	if (tailTxBuffer == headTxBuffer)
-	{
-		// reset tail pointer
-		if(tailTxBuffer == 0)
-			tailTxBuffer = MAC_BUFFER_ARRAY_SIZE-1;
-		else
-			tailTxBuffer--;
-		CASTALIA_DEBUG << "\n[Mac_" << self << "] t= " << simTime() << ": WARNING: SchedTxBuffer FULL!!! value to be Tx not added to buffer\n";
-		return 0;
-	}
-
-	theFrame->setKind(MAC_FRAME);
-
-	if (tailTxBuffer==0)
-		schedTXBuffer[MAC_BUFFER_ARRAY_SIZE-1] = theFrame;
-	else
-		schedTXBuffer[tailTxBuffer-1] = theFrame;
-
-
-	int currLen = getTXBufferSize();
-	if (currLen > maxSchedTXBufferSizeRecorded)
-		maxSchedTXBufferSizeRecorded = currLen;
-
-	return 1;
-}
-
-
-MAC_GenericFrame* TunableMacModule::popTxBuffer()
-{
-
-	if (tailTxBuffer == headTxBuffer) {
-		ev << "\nTrying to pop  EMPTY TxBuffer!!";
-		tailTxBuffer--;  // reset tail pointer
-		return NULL;
-	}
-
-	MAC_GenericFrame *pop_message = schedTXBuffer[headTxBuffer];
-
-	headTxBuffer = (++headTxBuffer)%(MAC_BUFFER_ARRAY_SIZE);
-
-	return pop_message;
-}
-
-
-
-int TunableMacModule::getTXBufferSize(void)
-{
-	int size = tailTxBuffer - headTxBuffer;
-	if ( size < 0 )
-		size += MAC_BUFFER_ARRAY_SIZE;
-
-	return size;
-}
-
-
 
 int TunableMacModule::deliver2NextHop(const char *nextHop)
 {

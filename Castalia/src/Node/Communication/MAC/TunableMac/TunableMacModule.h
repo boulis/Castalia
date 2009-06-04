@@ -16,8 +16,9 @@
 #define TUNABLEMACMODULE
 
 #include <vector>
+#include <queue>
 #include <omnetpp.h>
-//#include "App_GenericDataPacket_m.h"
+
 #include "App_ControlMessage_m.h"
 #include "NetworkGenericFrame_m.h"
 #include "NetworkControlMessage_m.h"
@@ -52,21 +53,21 @@ class TunableMacModule : public cSimpleModule
 	// parameters and variables
 		
 		/*--- The .ned file's parameters ---*/
-		double dutyCycle;			// sleeping interval / sleeping + listening intervals
+		double dutyCycle;		// sleeping interval / sleeping + listening intervals
 		double listenInterval;		// in secs, note: parammeter in omnetpp.ini in msecs
 		double beaconIntervalFraction;
-		double probTx;				// probability of a single transmission to happen
-		int numTx;					// when we have something to send, how many times do we try to try to transmit it. We say "try" because probTx might be < 1
+		double probTx;			// probability of a single transmission to happen
+		int numTx;			// when we have something to send, how many times do we try to try to transmit it. We say "try" because probTx might be < 1
 		double randomTxOffset;		// when have somethingnto transmit, don't do it immediatelly
 		double reTxInterval;		// the interval between retransmissions, in msec but after a time [0..randomTxOffset] chosen randomly (uniform)
 		int maxMACFrameSize;		//in bytes
 		int macFrameOverhead;		//in bytes
 		int beaconFrameSize;		//in bytes
-		int ACKFrameSize;			//in bytes
-		int macBufferSize;			//in # of messages
-		bool carrierSense;			//true or false for using CS before every checkTXBuffer
-		int backoffType;			//can be 0 or 1 or 2 or 3
-		double backoffBaseValue;		//the backoff value
+		int ACKFrameSize;		//in bytes
+		int macBufferSize;		//in # of messages
+		bool carrierSense;		//true or false for using CS before every checkTXBuffer
+		int backoffType;		//can be 0 or 1 or 2 or 3
+		double backoffBaseValue;	//the backoff value
 		bool randomBackoff;
 		int phyLayerOverhead;
 		bool printDebugInfo;
@@ -74,21 +75,17 @@ class TunableMacModule : public cSimpleModule
 		bool printPotentiallyDropped;
 		
 		/*--- Custom class parameters ---*/
-		int self;					// the node's ID
+		int self;			// the node's ID
 		RadioModule *radioModule;	//a pointer to the object of the Radio Module (used for direct method calls)
 		ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
 		double radioDelayForValidCS;
 		double radioDataRate;
 		int macState;
 		
-		
-		MAC_GenericFrame **schedTXBuffer;		// a buffer that can hold up to 9 values to get trasmitted
-		int headTxBuffer;
-		int tailTxBuffer;
-		
-		int maxSchedTXBufferSizeRecorded;
+		queue <MAC_GenericFrame*> TXBuffer;
+
 		double sleepInterval;		// in secs
-		double epsilon;				//used to keep/manage the order between two messages that are sent at the same simulation time
+		double epsilon;			//used to keep/manage the order between two messages that are sent at the same simulation time
 		double cpuClockDrift;
 		int disabled;
 		int beaconSN;
@@ -123,9 +120,6 @@ class TunableMacModule : public cSimpleModule
 		void createACKFrame(MAC_GenericFrame *retFrame);
 		int isBeacon(MAC_GenericFrame *theFrame);
 		int encapsulateNetworkFrame(Network_GenericFrame *networkFrame, MAC_GenericFrame *retFrame);
-		int pushBuffer(MAC_GenericFrame *theMsg);
-		MAC_GenericFrame* popTxBuffer();
-		int getTXBufferSize(void);
 		int deliver2NextHop(const char *nextHop);
 };
 

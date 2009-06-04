@@ -12,9 +12,6 @@
 #include <cmath>	
 #include "TMacModule.h"
 
-#define MAC_BUFFER_ARRAY_SIZE macBufferSize+1
-#define BUFFER_IS_EMPTY  (headTxBuffer==tailTxBuffer)
-#define BUFFER_IS_FULL  (getTXBufferSize() >= macBufferSize)
 #define DRIFTED_TIME(time) ((time) * cpuClockDrift)
 #define EMPTY_ADDR -2
 #define BROADCAST_ADDR -1
@@ -33,9 +30,10 @@
 
 Define_Module(TMacModule);
 
-
 void TMacModule::initialize() {
-    readIniFileParameters();
+	
+	readIniFileParameters();
+	
 	//--------------------------------------------------------------------------------
 	//------- Follows code for the initialization of the class member variables ------
 
@@ -50,6 +48,7 @@ void TMacModule::initialize() {
 
 	phyLayerOverhead = radioModule->par("phyFrameOverhead");
 	totalSimTime = ev.config()->getAsTime("General", "sim-time-limit");
+	
 	//get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
 	//instead of using extra messages & message types for tighlty coupled operations.
 	cModule *parentParent = parentModule()->parentModule();
@@ -57,18 +56,12 @@ void TMacModule::initialize() {
 	    resMgrModule = check_and_cast<ResourceGenericManager*>(parentParent->submodule("nodeResourceMgr"));
 	} else
 	    opp_error("\n[MAC]:\n Error in geting a valid reference to  nodeResourceMgr for direct method calls.");
+	
 	cpuClockDrift = resMgrModule->getCPUClockDrift();
 
-	schedTXBuffer = new MAC_GenericFrame*[MAC_BUFFER_ARRAY_SIZE];
-	headTxBuffer = 0;
-	tailTxBuffer = 0;
-	macState = MAC_STATE_SETUP;
-    
-	maxSchedTXBufferSizeRecorded = 0;
-
 	epsilon = 0.000001f; //senza f 1*10^(-6)  con 1*16^(-6)
-
 	disabled = 1;		//TMAC is ready to send only before at least one schedule is choose
+	macState = MAC_STATE_SETUP;
 
 	//duty cycle references
 	currentSleepMsg = NULL;
@@ -134,7 +127,7 @@ void TMacModule::handleMessage(cMessage *msg) {
 	 * Sent by the Application submodule. We need to push it into the buffer and schedule its forwarding to the Radio buffer for TX.
 	 *--------------------------------------------------------------------------------------------------------------*/
 	case NETWORK_FRAME: {
-	    if (BUFFER_IS_FULL) {
+	    if (TXBuffer.size() >= macBufferSize) {
 		send(new MAC_ControlMessage("MAC buffer is full Radio->Mac", MAC_2_NETWORK_FULL_BUFFER), "toNetworkModule");
 		CASTALIA_DEBUG << "WARNING: SchedTxBuffer FULL! Application packet is dropped";
 		break;
@@ -149,7 +142,8 @@ void TMacModule::handleMessage(cMessage *msg) {
 
 	    //try to encapsulate packet and add it to TX buffer
 	    if(encapsulateNetworkFrame(rcvNetDataFrame, dataFrame)) {
-	    	pushBuffer(dataFrame);
+		rcvNetDataFrame->setKind(MAC_FRAME);
+	    	TXBuffer.push(dataFrame);
 		CASTALIA_DEBUG << "Application packet successfuly buffered";
 	    } else {
 		cancelAndDelete(dataFrame);
@@ -203,7 +197,7 @@ void TMacModule::handleMessage(cMessage *msg) {
 	 *--------------------------------------------------------------------------------------------------------------*/
 	case MAC_SELF_INITIATE_TX: {
 	    // can only initiate a transmission when in active state and buffer is not empty
-	    if (macState != MAC_STATE_ACTIVE || (BUFFER_IS_EMPTY && !needResync)) break;
+	    if (macState != MAC_STATE_ACTIVE || (TXBuffer.empty() && !needResync)) break;
 			
 	    //generate randomContendOffset for this transmission
 	    randomContendOffset = genk_dblrand(1)*contentionPeriod;
@@ -332,7 +326,10 @@ void TMacModule::handleMessage(cMessage *msg) {
 	}
 	
 	case MAC_TIMER_WFCTS: {
-	    if (getTXBufferSize() > 1) pushBuffer(popTxBuffer());
+	    if (TXBuffer.size() > 1) {
+		TXBuffer.push(TXBuffer.front());
+		TXBuffer.pop();
+	    }
 	    resetDefaultState();
 	    if(msg == waitForCtsTimeout) waitForCtsTimeout = NULL;
 	    break;
@@ -345,7 +342,10 @@ void TMacModule::handleMessage(cMessage *msg) {
 	}
 	
 	case MAC_TIMER_WFACK: {
-	    if (getTXBufferSize() > 1) pushBuffer(popTxBuffer());
+	    if (TXBuffer.size() > 1) {
+		TXBuffer.push(TXBuffer.front());
+		TXBuffer.pop();
+	    }
 	    resetDefaultState();
 	    if(msg == waitForAckTimeout) waitForAckTimeout = NULL;
 	    break;
@@ -365,12 +365,12 @@ void TMacModule::handleMessage(cMessage *msg) {
 
 void TMacModule::finish() {
     MAC_GenericFrame *macMsg;
-    while(!BUFFER_IS_EMPTY) {
-	macMsg = popTxBuffer();
+    while(!TXBuffer.empty()) {
+	macMsg = TXBuffer.front();
+	TXBuffer.pop();
 	cancelAndDelete(macMsg);
   	macMsg = NULL;
     }
-    delete[] schedTXBuffer;
 	
     if(printPotentiallyDropped)
     	CASTALIA_DEBUG <<"Dropped Packets at MAC module while receiving:\t " <<  potentiallyDroppedDataFrames << " data frames";
@@ -441,7 +441,7 @@ void TMacModule::resetDefaultState()  {
 	if (needResync) {
 	    scheduleSyncFrame(genk_dblrand(1)*contentionPeriod);
 	    return;
-	} else if (!BUFFER_IS_EMPTY) {
+	} else if (!TXBuffer.empty()) {
 	    changeState(useRtsCts ? MAC_CARRIER_SENSE_FOR_TX_RTS : MAC_CARRIER_SENSE_FOR_TX_DATA);
 	    if (carrierSenseMsg != NULL && carrierSenseMsg->isScheduled()) cancelAndDelete(carrierSenseMsg);
 	    carrierSenseMsg = new MAC_ControlMessage("Enter CARRIER SENSE after waiting", MAC_SELF_PERFORM_CARRIER_SENSE);
@@ -454,60 +454,6 @@ void TMacModule::resetDefaultState()  {
 	currentSleepMsg =  new MAC_ControlMessage("put_radio_to_sleep", MAC_SELF_SET_RADIO_SLEEP);		
 	scheduleAt(simTime() + DRIFTED_TIME(listenTimeout), currentSleepMsg);
     } 
-}
-
-int TMacModule::pushBuffer(MAC_GenericFrame *theFrame) {
-    if(theFrame == NULL) {
-	CASTALIA_DEBUG <<"WARNING: Trying to push NULL MAC_GenericFrame to the MAC_Buffer!";
-	return 0;
-    }
-
-    tailTxBuffer = (++tailTxBuffer)%(MAC_BUFFER_ARRAY_SIZE); //increment the tailTxBuffer pointer. If reached the end of array, then start from position [0] of the array
-    if (tailTxBuffer == headTxBuffer) {
-	// reset tail pointer
-	if(tailTxBuffer == 0) tailTxBuffer = MAC_BUFFER_ARRAY_SIZE-1;
-	else tailTxBuffer--;
-	CASTALIA_DEBUG << "WARNING: SchedTxBuffer FULL!!! value to be Tx not added to buffer";
-	return 0;
-    }
-    
-    theFrame->setKind(MAC_FRAME);
-    if (tailTxBuffer==0) schedTXBuffer[MAC_BUFFER_ARRAY_SIZE-1] = theFrame;
-    else schedTXBuffer[tailTxBuffer-1] = theFrame;
-
-    int currLen = getTXBufferSize();
-    if (currLen > maxSchedTXBufferSizeRecorded)
-    	maxSchedTXBufferSizeRecorded = currLen;
-
-    return 1;
-}
-
-MAC_GenericFrame* TMacModule::popTxBuffer() {
-    if (tailTxBuffer == headTxBuffer) {
-        ev << "\nTrying to pop EMPTY TxBuffer!!";
-        tailTxBuffer--;  // reset tail pointer
-        return NULL;
-    }
-
-    MAC_GenericFrame *pop_message = schedTXBuffer[headTxBuffer];
-    headTxBuffer = (++headTxBuffer)%(MAC_BUFFER_ARRAY_SIZE);
-    return pop_message;
-}
-
-MAC_GenericFrame* TMacModule::peekTxBuffer() {
-    if (tailTxBuffer == headTxBuffer) {
-	ev << "\nTrying to peek EMPTY TxBuffer!";
-	return NULL;
-    }
-    
-    MAC_GenericFrame *peek_message = schedTXBuffer[headTxBuffer];
-    return peek_message;
-}
-
-int TMacModule::getTXBufferSize(void) {
-    int size = tailTxBuffer - headTxBuffer;
-    if ( size < 0 ) size += MAC_BUFFER_ARRAY_SIZE;
-    return size;
 }
 
 void TMacModule::updateNav(double t) {
@@ -651,12 +597,12 @@ void TMacModule::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	
 	case MAC_PROTO_CTS_FRAME: {
 	    if(macState == MAC_STATE_WAIT_FOR_CTS && rcvFrame->getHeader().destID == self) {
-		if(BUFFER_IS_EMPTY) {
+		if(TXBuffer.empty()) {
 		    CASTALIA_DEBUG << "WARNING: invalid MAC_STATE_WAIT_FOR_CTS while buffer is empty";
 		    resetDefaultState();
 		    break;
 		}
-		MAC_GenericFrame *dataFrame = peekTxBuffer();
+		MAC_GenericFrame *dataFrame = TXBuffer.front();
 		if(rcvFrame->getHeader().srcID == currentAdr) { 
 		    if(waitForCtsTimeout != NULL && waitForCtsTimeout->isScheduled()) {
 			cancelAndDelete(waitForCtsTimeout);
@@ -707,13 +653,13 @@ void TMacModule::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	
 	case MAC_PROTO_ACK_FRAME: {
 	    if (macState == MAC_STATE_WAIT_FOR_ACK && rcvFrame->getHeader().destID == self) {
-		MAC_GenericFrame *dataFrame = peekTxBuffer();
+		MAC_GenericFrame *dataFrame = TXBuffer.front();
 		if (rcvFrame->getHeader().srcID == dataFrame->getHeader().destID) {
 		    if(waitForAckTimeout != NULL && waitForAckTimeout->isScheduled()) {
 		        cancelAndDelete(waitForAckTimeout);
 		        waitForAckTimeout = NULL;
 	    	    }
-		    popTxBuffer();
+		    TXBuffer.pop();
 		    CASTALIA_DEBUG << "Transmission succesful to " << dataFrame->getHeader().destID;
 		    resetDefaultState();
 		} else {
@@ -739,12 +685,12 @@ void TMacModule::processMacFrame(MAC_GenericFrame *rcvFrame) {
 void TMacModule::carrierIsClear() {
     switch(macState) {
 	case MAC_CARRIER_SENSE_FOR_TX_RTS: {
-	    if (BUFFER_IS_EMPTY) {
+	    if (TXBuffer.empty()) {
 		CASTALIA_DEBUG << "WARNING! BUFFER_IS_EMPTY in MAC_CARRIER_SENSE_FOR_TX_RTS, will reset state";
 		resetDefaultState();
 		break;
 	    }	
-	    MAC_GenericFrame *dataFrame = peekTxBuffer();
+	    MAC_GenericFrame *dataFrame = TXBuffer.front();
 	    rtsFrame = new MAC_GenericFrame("RTS message", MAC_FRAME);
     	    rtsFrame->setKind(MAC_FRAME) ;
 	    rtsFrame->getHeader().srcID = self;
@@ -792,15 +738,15 @@ void TMacModule::carrierIsClear() {
 	}
 					
 	case MAC_CARRIER_SENSE_FOR_TX_DATA: {
-	    if (BUFFER_IS_EMPTY) {
+	    if (TXBuffer.empty()) {
 		CASTALIA_DEBUG << "WARNING: Invalid MAC_CARRIER_SENSE_FOR_TX_DATA while TX buffer is empty";
 		resetDefaultState();
 		break;
 	    }
 	    changeState(MAC_STATE_WAIT_FOR_ACK);
 	    waitForAckTimeout = new MAC_ControlMessage("Wait for ACK (timeout expired)", MAC_TIMER_WFACK);
-	    scheduleAt(simTime() + DRIFTED_TIME(FLENGTH(peekTxBuffer()->getHeader().NAV)), waitForAckTimeout);
-	    send(peekTxBuffer(),"toRadioModule"); 
+	    scheduleAt(simTime() + DRIFTED_TIME(FLENGTH(TXBuffer.front()->getHeader().NAV)), waitForAckTimeout);
+	    send(TXBuffer.front(),"toRadioModule"); 
 	    setRadioState(MAC_2_RADIO_ENTER_TX, epsilon);
 	    break;
 	}

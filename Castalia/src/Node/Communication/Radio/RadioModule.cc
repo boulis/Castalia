@@ -15,23 +15,11 @@
 
 #include "RadioModule.h"
 
-#define RADIO_BUFFER_ARRAY_SIZE bufferSize+1
-
-#define BUFFER_IS_EMPTY  (headTxBuffer==tailTxBuffer)
-
-#define BUFFER_IS_FULL  (getRadioBufferSize() >= bufferSize)
-
 #define EV   ev.disabled() ? (ostream&)ev : ev
-
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
-
 #define CONSUME_ENERGY(a) resMgrModule->consumeEnergy(a)
 
-
-
 Define_Module(RadioModule);
-
-
 
 void RadioModule::initialize() {
 
@@ -46,11 +34,6 @@ void RadioModule::initialize() {
 	isCSValid = 0;
 	scheduleAt(simTime()+delayCSValid, new Radio_ControlMessage("Radio self set carrier sense indication as valid NOW", RADIO_SELF_VALIDATE_CS));
 
-	//radioBuffer = new cQueue("radioBuffer");
-	radioBuffer = new MAC_GenericFrame*[RADIO_BUFFER_ARRAY_SIZE];
-	headTxBuffer = 0;
-	tailTxBuffer = 0;
-
 	txPowerLevels.clear();
 	const char *tmpLevelsStr, *token;
 	tmpLevelsStr =  par("txPowerLevels");
@@ -60,8 +43,6 @@ void RadioModule::initialize() {
 
 	if(txPowerConsumptionPerLevel.size() != txPowerLevels.size())
 		opp_error("\n[Radio]:\n Initialization error in RadioModule: parameters txPowerLevels=%d (of Radio) and txPowerLevels=%d (of WChannel) have not the same number of elements.", txPowerLevels.size(), txPowerConsumptionPerLevel.size());
-
-	maxBufferSizeRecorded = 0;
 
 	startSleepingTime = 0.0f;
 
@@ -77,13 +58,9 @@ void RadioModule::initialize() {
 
 
 	changingState = 0;
-
 	nextState = -1;
-
 	nextTxMode = -1;
-
 	nextPowerLevel = -1;
-
 	disabled = 0;
 
 	valuesVector.setName("Radio Vector");
@@ -400,28 +377,19 @@ void RadioModule::handleMessage(cMessage *msg)
 		 *--------------------------------------------------------------------------------------------------------------*/
 		case MAC_FRAME:
 		{
-			if(!BUFFER_IS_FULL)
+			if(radioBuffer.size() < bufferSize)
 			{
 				MAC_GenericFrame *dataFrame = check_and_cast<MAC_GenericFrame*>(msg);
 
 				// create a new copy of the message because dataFrame will be deleted outside the switch statement
 				MAC_GenericFrame *duplMsg = (MAC_GenericFrame *)dataFrame->dup(); //because theFrame will be deleted after the main switch in the handleMessage()
 
-				if(!pushBuffer(duplMsg))
-				{
-					Radio_ControlMessage *fullBuffMsg = new Radio_ControlMessage("Radio buffer is full Radio->Mac", RADIO_2_MAC_FULL_BUFFER);
-
-					send(fullBuffMsg, "toMacModule");
-
-					CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": WARNING: The buffer of the Radio is Full!\n";
-				}
+				radioBuffer.push(duplMsg);
 			}
 			else
 			{				
 				Radio_ControlMessage *fullBuffMsg = new Radio_ControlMessage("Radio buffer is full Radio->Mac", RADIO_2_MAC_FULL_BUFFER);
-
 				send(fullBuffMsg, "toMacModule");
-
 				CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": WARNING: Radio Buffer is FULL!!! MAC data frame is dropped.\n";
 			}
 			break;
@@ -552,7 +520,7 @@ void RadioModule::handleMessage(cMessage *msg)
 		{			
 			if(radioState == RADIO_STATE_TX)
 			{
-				if(!BUFFER_IS_EMPTY)
+				if(!radioBuffer.empty())
 				{
 
 					double txTime = popAndSendToChannel();
@@ -756,11 +724,12 @@ void RadioModule::finish()
 {	
 	MAC_GenericFrame *macMsg;
 
-	while(!BUFFER_IS_EMPTY)
+	while(!radioBuffer.empty())
 	{
-	  macMsg = popBuffer();
-		cancelAndDelete(macMsg);
-	  macMsg = NULL;
+	    macMsg = radioBuffer.front();
+	    radioBuffer.pop();
+	    cancelAndDelete(macMsg);
+	    macMsg = NULL;
 	}
 
 	simtime_t now = simTime();
@@ -795,8 +764,6 @@ void RadioModule::finish()
 		CASTALIA_DEBUG << "\n\n[Radio_" << self << "] DROPPED (not successfully received) packets breakdown\n(example causes: radio not listening for the whole or part of the duration of a packet's transmission)";
 		CASTALIA_DEBUG << "\n[Radio_" << self << "] Number of dropped Packets at Radio module: \t(" << droppedBeacons << ") beacons   and   (" << droppedDataFrames << ") data frames";
 	}
-
-	delete [] radioBuffer;
 }
 
 
@@ -891,65 +858,14 @@ void RadioModule::senseCarrier(double interval) {
 }
 
 
-int RadioModule::pushBuffer(MAC_GenericFrame *theFrame)
-{
-	if(theFrame == NULL)
-	{
-		CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": WARNING: Trying to push  NULL MAC_GenericFrame to the Radio_Buffer!!\n";
-		return 0;
-	}
-
-	tailTxBuffer = (++tailTxBuffer)%(RADIO_BUFFER_ARRAY_SIZE);
-
-	if (tailTxBuffer == headTxBuffer)
-	{
-		// reset tail pointer
-		if(tailTxBuffer == 0)
-			tailTxBuffer = RADIO_BUFFER_ARRAY_SIZE-1;
-		else
-			tailTxBuffer--;
-		CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": WARNING: radioBuffer FULL!!! value to be Tx not added to buffer.\n";
-		return 0;
-	}
-
-	if (tailTxBuffer==0)
-		radioBuffer[RADIO_BUFFER_ARRAY_SIZE-1] = theFrame;
-	else
-		radioBuffer[tailTxBuffer-1] = theFrame;
-
-
-	int currLen = getRadioBufferSize();
-	if (currLen > maxBufferSizeRecorded)
-		maxBufferSizeRecorded = currLen;
-
-	return 1;
-}
-
-
-MAC_GenericFrame* RadioModule::popBuffer()
-{
-	if (tailTxBuffer == headTxBuffer) {
-		CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": WARNING: Trying to pop EMPTY Radio Buffer!\n";
-		tailTxBuffer--;  // reset tail pointer
-		return NULL;
-	}
-
-	MAC_GenericFrame *pop_message = radioBuffer[headTxBuffer];
-	radioBuffer[headTxBuffer] = NULL;
-
-	headTxBuffer = (++headTxBuffer)%(RADIO_BUFFER_ARRAY_SIZE);
-
-	return pop_message;
-}
-
-
 // SOS: it must be called if we previously have checked the radioBuffer to be NON EMPTY!!!!!
 double RadioModule::popAndSendToChannel()
 {
 	//this message 'll hold the popped frame from the buffer
 	double txTime = 0.0;
 
-	MAC_GenericFrame *poppedMacFrame = popBuffer();
+	MAC_GenericFrame *poppedMacFrame = radioBuffer.front();
+	radioBuffer.pop();
 
 	if(poppedMacFrame != NULL)
 	{
@@ -1039,15 +955,6 @@ int RadioModule::getTotalTxPowerLevels(void)
 	return (int)txPowerLevels.size();
 }
 
-
-int RadioModule::getRadioBufferSize(void)
-{
-	int size = tailTxBuffer - headTxBuffer;
-	if ( size < 0 )
-		size += RADIO_BUFFER_ARRAY_SIZE;
-
-	return size;
-}
 
 int RadioModule::isBeacon(MAC_GenericFrame *theFrame)
 {

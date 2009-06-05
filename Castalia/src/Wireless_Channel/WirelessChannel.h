@@ -222,6 +222,7 @@ class WirelessChannel : public cSimpleModule {
 		int parseFloat(const char *, float *);
 		void printRxSignalTable(void);
 		void updatePathLossElement(int,int,float);
+		double estimateCustomModulationSNR(double, double *);
 		float calculateProb(float, int);
 };
 

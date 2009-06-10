@@ -183,7 +183,7 @@ $class["F"] = 0;
 $class["G"] = 0;
 $class["H"] = 0;
 $class["I"] = 0;
-$class["j"] = 0;
+$class["J"] = 0;
 
 for($currRun=1; $currRun<count($allRuns);  $currRun++)
 {

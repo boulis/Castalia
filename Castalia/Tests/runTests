@@ -1,0 +1,168 @@
+#!/usr/bin/python
+import os, sys, commands
+
+savedFileTypes = {}
+exceptions = []
+
+# This function will process a line from omnetpp.ini file, located at 'location' 
+# The line should contain a reference to a parameter file of type 'filetype' 
+# (filetype can be PRRMap for example). The file, pointed by 'line' will be
+# saved to test repository, and a new line, referencing the file from repository
+# (not the original file) will be returned
+def saveFile(filetype,line,location):
+    pos = line.find("=")
+    if (pos == -1): return line
+    pos = pos + 1
+    start = line[:pos]
+    file = line[pos:]
+    pos = file.find("#")
+    if (pos != -1): file = file[:pos]
+    file = file.strip(' "')
+    if (len(file) == 0): return line
+
+    if (savedFileTypes.has_key(filetype)): savedFiles = savedFileTypes[filetype]
+    else:
+	savedFiles = {}
+	savedFileTypes[filetype] = savedFiles
+
+    if (not savedFiles.has_key(file)):
+	newFile = location + "/" + filetype + str(len(savedFiles.keys())) + ".txt"
+	if (commands.getoutput("cp " + file + " " + newFile) == ""):
+	    savedFiles[file] = '"' + newFile + '"'
+	else:
+	    quit("ERROR while creating a copy of input file " + file)
+
+    return start + " " + savedFiles[file]
+
+# This function will process the file, clearing any lines which contain a substring
+# from the exceptions array
+def cleanFile(file):
+    if (len(exceptions) == 0): return
+    f = open(file,"r")
+    lines = f.readlines()
+    f.close()
+    f = open(file,"w")
+    for line in lines:
+	ok = 1
+	for test in exceptions:
+	    if (line.find(test) != -1): 
+		ok = 0
+		break
+	if (ok): f.write(line)
+    f.close()
+    return
+
+#initialise important paths
+pathToTests = sys.path[0]
+os.chdir(pathToTests + "/../");
+pathToCastalia = os.getcwd()
+pathToBin = pathToCastalia + "/bin/CastaliaBin"
+pathToSims = pathToCastalia + "/Simulations"
+pathToParams = pathToSims + "/Parameter_Include_Files"
+pathToExtract = pathToParams + "/extractOmnetppINI"
+pathToTestTargets = pathToTests + "/targets.txt"
+pathToExceptions = pathToTests + "/exceptions.txt"
+pathToRepository = pathToTests + "/Repository"
+pathToNedfiles = pathToCastalia + "/nedfiles.lst"
+
+if (not os.path.exists(pathToTestTargets) or not os.path.isfile(pathToTestTargets)):
+    quit("ERROR: targets.txt file is missing\n  " + pathToTestTargets)
+
+f = open(pathToTestTargets,"r")
+testDirs = f.read().split("\n")
+f.close()
+
+snapshot = 0
+for arg in sys.argv[1:]:
+    if (arg == 'snapshot'): 
+	snapshot = 1
+	continue
+    if (arg == 'run'): 
+	continue
+    quit("ERROR: unexpected argument: " + arg)
+
+if (snapshot and os.path.exists(pathToRepository)):
+    commands.getoutput("rm -rf " + pathToRepository)
+    
+if (os.path.exists(pathToExceptions) and os.path.isfile(pathToExceptions)):
+    f = open(pathToExceptions,"r")
+    exceptions = f.read().split("\n")
+    f.close()
+
+if (not os.path.exists(pathToBin) or not os.path.isfile(pathToBin)):
+    quit("ERROR: CastaliaBin not found (need to run make?)\n  " + pathToBin)
+
+for curDir in testDirs:
+    curTestDir = pathToRepository + "/" + curDir
+    
+    if (snapshot):
+	savedFileTypes = {}
+	curPath = pathToSims + "/" + curDir
+	print "Extracting snapshot from " + curDir + " ... "	
+	
+	if (not os.path.exists(curPath) or not os.path.isdir(curPath)):
+	    print "WARNING: bad simulation path " + curDir + ", will skip"
+	    break
+
+	if (not os.path.exists(curPath + "/omnetpp.ini") or not os.path.isfile(curPath + "/omnetpp.ini")):
+	    print "WARNING: bad simulation in " + curDir + ", no omnetpp.ini file found, will skip"
+	    break
+	
+	os.makedirs(curTestDir)
+	os.chdir(curPath)
+	inifile = commands.getoutput(pathToExtract);
+	f = open(curTestDir + "/omnetpp.ini","w")
+	lines = inifile.split("\n")
+	for line in lines:
+	    if (line.find("preload-ned-files") != -1): 
+		line = "preload-ned-files = *.ned @" + pathToNedfiles + "\n"
+	    elif (line.find("PRRMapFile =") != -1):
+		line = saveFile('PRRMap',line,curTestDir)
+	    elif (line.find("temporalModelParametersFile =") != -1):
+		line = saveFile('temporalModel',line,curTestDir)
+	    elif (line.find("pathLossMapFile =") != -1):
+		line = saveFile('pathLossMap',line,curTestDir)
+	    f.write(line + "\n")
+        f.close()
+        
+    	os.chdir(curTestDir)
+	commands.getoutput(pathToBin + " > Castalia-Primary-Output.base")
+	cleanFile("Castalia-Primary-Output.base")
+	
+	if (os.path.exists(curTestDir + "/Castalia-Debug.txt")):
+	    commands.getoutput("mv Castalia-Debug.txt Castalia-Debug.base")
+	    cleanFile("Castalia-Debug.base")
+	else:
+	    commands.getoutput("touch Castalia-Debug.base")
+	
+    else:
+	sys.stdout.write("Testing " + curDir + " .... ")
+	sys.stdout.flush()
+	
+	if (not os.path.exists(curTestDir) or not os.path.exists(curTestDir + "/omnetpp.ini")):
+	    print "ERROR:"
+	    quit(curDir + " not found in repository run '" + sys.argv[0] + " snapshot' to recreate repository")
+	
+	os.chdir(curTestDir)
+	commands.getoutput(pathToBin + " > Castalia-Primary-Output.txt")
+	cleanFile("Castalia-Primary-Output.txt")
+	
+	if (not os.path.exists(curTestDir + "/Castalia-Debug.txt")):
+	    commands.getoutput("touch Castalia-Debug.txt")
+	else:
+	    cleanFile("Castalia-Debug.txt")
+
+	diff_primary = commands.getoutput("diff Castalia-Primary-Output.txt Castalia-Primary-Output.base")
+	diff_debug = commands.getoutput("diff Castalia-Debug.txt Castalia-Debug.base")
+	commands.getoutput("rm Castalia-Debug.txt")
+	commands.getoutput("rm Castalia-Primary-Output.txt")
+	
+	if (diff_primary or diff_debug):
+	    print "FAILED:"
+	    if (diff_primary): print "Differences in Castalia-Primary-Output:\n" + diff_primary
+	    if (diff_debug): print "Differences in Castalia-Debug:\n" + diff_debug
+	    print "\n"
+	else:
+	    print "PASSED"
+
+

@@ -1,0 +1,2 @@
+** Event #
+Time for Wireless Channel module initialization

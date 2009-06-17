@@ -56,7 +56,7 @@ if test $? == 0; then
 	
 	echo -e "\n===========================================================\n\n\n***********************************************************\nSimulation's parameter settings were\n"  >> Castalia-Primary-Output.txt
 
-	source $castaliaHome_RelativePath/Simulations/Parameter_Include_Files/extractOmnetppINI  >> Castalia-Primary-Output.txt
+	$castaliaHome_RelativePath/Simulations/Parameter_Include_Files/extractOmnetppINI  >> Castalia-Primary-Output.txt
 	
 	echo -e "\n----------------------------\nEnd of simulation\n---------------------------\n\n\n\n\n"  >> Castalia-Primary-Output.txt
 fi

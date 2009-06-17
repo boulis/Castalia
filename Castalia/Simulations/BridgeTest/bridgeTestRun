@@ -78,7 +78,7 @@ include ../Parameter_Include_Files/resourceMgr_2AAbatteries.ini
 include ../Parameter_Include_Files/nodeSensorDevMgr_Accelerometer.ini
 include ".($ideal ? WC_IDEAL : WC_REAL)."
 include ".($ideal ? R_IDEAL : R_REAL)."
-include ./MAC_Tunable.ini
+include ../Parameter_Include_Files/T_MAC.ini
 include ../Parameter_Include_Files/Routing_simpleTree.ini
 
 SN.node[*].networkInterface.MAC.dutyCycle = $duty_cycle

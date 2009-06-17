@@ -1,7 +1,8 @@
+#!/usr/bin/python
 # ***************************************************************************************
 # *  Copyright: National ICT Australia,  2007, 2008, 2009				*
 # *  Developed at the Networks and Pervasive Computing program				*
-# *  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis				*
+# *  Author(s): Yuriy Tselishchev							*
 # *  This file is distributed under the terms in the attached LICENSE file.		*
 # *  If you do not find this file, copies can be found by writing to:			*
 # *											*
@@ -10,25 +11,21 @@
 # *											*
 # **************************************************************************************/
 
+def read_file(name):
+    f = open(name,"r")
+    lines = f.readlines()
+    f.close()
 
-#!/bin/bash
-
-lineRUN=`cat omnetpp.ini | grep -n "\[Run 1]"`
-lineRUN=${lineRUN%:*}
-head -n $(($lineRUN-1)) omnetpp.ini | grep ^[^#^"include"]
-cat omnetpp.ini | grep ^"include"  > temporaryIncludes.txt
-
-exec < temporaryIncludes.txt
-while read line
-do
-	INCLUDE_FILE=${line#* }
-	cat $INCLUDE_FILE | grep ^[^#]
-done
-
-if [ -a temporaryIncludes.txt ]; then
-	rm -f temporaryIncludes.txt
-fi
-
-lineTOTAL=`cat omnetpp.ini | wc -l`
-lineRUN=$(($lineTOTAL-$lineRUN+2))
-tail -n $lineRUN omnetpp.ini
+    for line in lines:
+	line = line.strip()
+	if (len(line) == 0 or line[0] == '#'): continue
+	if (line.find("include") == 0):
+	    file = line[8:]
+	    pos = file.find(" #")
+	    if (pos != -1): file = file[:pos]
+	    read_file(file)
+	else: print line
+    
+    return
+    
+read_file("omnetpp.ini")

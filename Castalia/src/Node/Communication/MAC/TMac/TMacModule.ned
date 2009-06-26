@@ -12,31 +12,31 @@
 simple TMacModule
 
     parameters:
-		printDebugInfo: bool,
-    	        //printDroppedPacketsStatistics:	bool,
-	        printPotentiallyDroppedPacketsStatistics:	bool,
-    	        printStateTransitions:	bool,
+		//debug parameters
+		printDebugInfo		: const,
+    	        printStateTransitions	: const,
     
+		//mac layer parameters
 		maxMACFrameSize		: const,	// in bytes
+		maxTxRetries		: const,
 		macFrameOverhead	: const,	// in 802.15.4 = 5 + (4-->20) bytes
+		macBufferSize		: const,	//in number of frames
 		
+		//mac layer packet sizes
 		ackFrameSize		: const,	// in 802.15.4 is always fix-sized = 5 bytes
 		syncFrameSize		: const,	
 		rtsFrameSize		: const,	
 		ctsFrameSize		: const,
 		
-		macBufferSize		: const,	//in number of frames
-			
-		backoffType		: const,	// 0-->(backoff = sleepinterval), 1-->(backoff = constant value), 2-->(backoff = multiplying value - e.g. 1*a, 2*a, 3*a, 4*a ...), 3-->(backoff = exponential value - e.g. 2, 4, 8, 16, 32...),4->backoff = listenTimeout
-		backoffBaseValue	: const,	// the backoff base value in ms
-		resyncTimer		: const,	//timer for re-sending SYNC msg
-		syncSetupTime		: bool,
+		//TMAC algorithm parameters			
+		allowSinkSync		: const,
+		resyncTime		: const,	//timer for re-sending SYNC msg
 		contentionPeriod	: const,
 		listenTimeout		: const,	//15 ms, is the timeout TA(Activation event)
+		waitTimeout		: const,
 		useFrts			: const,	//enable/disable FRTS (Future Request To Send)
 		useRtsCts		: const,	
 		frameTime		: const;	//frame time (standard = 610ms)
-
 		
 
     gates:

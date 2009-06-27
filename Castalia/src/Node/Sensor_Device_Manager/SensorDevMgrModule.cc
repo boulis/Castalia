@@ -142,7 +142,13 @@ void SensorDevMgrModule::handleMessage(cMessage *msg)
 			int sensorIndex = phyReply->getSensorIndex();
 			double theValue = phyReply->getValue();
 			
-			// add the sensor's Bias and the random noise  to the value that the Physical process returned. 
+			// process the limitations of the sensing device (sensitivity, resoultion and saturation)
+			if (theValue < sensorSensitivity[sensorIndex]) theValue = sensorSensitivity[sensorIndex];
+			if (theValue > sensorSaturation[sensorIndex]) theValue = sensorSaturation[sensorIndex];
+			theValue = sensorResolution[sensorIndex]*lrint(theValue/sensorResolution[sensorIndex]);
+			
+			
+			// add the sensor's Bias and the random noise 
 			theValue += sensorBias[sensorIndex];
 			theValue += normal(0, sensorNoiseSigma[sensorIndex], 1);
 			
@@ -231,9 +237,9 @@ void SensorDevMgrModule::parseStringParams(void)
     
     //get the samplerate for each sensor device and calculate the minSamplingIntervals (that is every how many ms to request a sample from the physical process)
     minSamplingIntervals.clear();
-	parameterStr = par("maxSampleRates");
-	cStringTokenizer ratesTokenizer(parameterStr);
-	while ( (token = ratesTokenizer.nextToken()) != NULL )
+    parameterStr = par("maxSampleRates");
+    cStringTokenizer ratesTokenizer(parameterStr);
+    while ( (token = ratesTokenizer.nextToken()) != NULL )
     {
     	sampleInterval = (double)(1.0f / atof(token));
     	minSamplingIntervals.push_back(sampleInterval);
@@ -241,9 +247,9 @@ void SensorDevMgrModule::parseStringParams(void)
     
     //get the type of each sensor device (just a description e.g.: light, temperature etc.)
     sensorTypes.clear();
-	parameterStr = par("sensorTypes");
-	cStringTokenizer typesTokenizer(parameterStr);
-	while ( (token = typesTokenizer.nextToken()) != NULL )
+    parameterStr = par("sensorTypes");
+    cStringTokenizer typesTokenizer(parameterStr);
+    while ( (token = typesTokenizer.nextToken()) != NULL )
     {
     	string sensorType(token);
     	sensorTypes.push_back(sensorType);
@@ -252,33 +258,57 @@ void SensorDevMgrModule::parseStringParams(void)
     // get the bias sigmas for each sensor device
     sensorBiasSigma.clear();
     parameterStr = par("devicesBias");
-	cStringTokenizer biasSigmaTokenizer(parameterStr);
-	while ( (token = biasSigmaTokenizer.nextToken()) != NULL )
+    cStringTokenizer biasSigmaTokenizer(parameterStr);
+    while ( (token = biasSigmaTokenizer.nextToken()) != NULL )
     	sensorBiasSigma.push_back((double)atof(token));
     
     
     // get the bias sigmas for each sensor device
     sensorNoiseSigma.clear();
     parameterStr = par("devicesNoise");
-	cStringTokenizer noiseSigmaTokenizer(parameterStr);
-	while ( (token = noiseSigmaTokenizer.nextToken()) != NULL )
+    cStringTokenizer noiseSigmaTokenizer(parameterStr);
+    while ( (token = noiseSigmaTokenizer.nextToken()) != NULL )
     	sensorNoiseSigma.push_back((double)atof(token));
     
+
+    sensorSensitivity.clear();
+    parameterStr = par("devicesSensitivity");
+    cStringTokenizer sensitivityTokenizer(parameterStr);
+        while ( (token = noiseSigmaTokenizer.nextToken()) != NULL )
+        sensorSensitivity.push_back((double)atof(token));
+
+    sensorResolution.clear();
+    parameterStr = par("devicesSensitivity");
+    cStringTokenizer resolutionTokenizer(parameterStr);
+        while ( (token =  resolutionTokenizer.nextToken()) != NULL )
+        sensorResolution.push_back((double)atof(token));
+
+    sensorSaturation.clear();
+    parameterStr = par("devicesSensitivity");
+    cStringTokenizer saturationTokenizer(parameterStr);
+        while ( (token = saturationTokenizer.nextToken()) != NULL )
+        sensorSaturation.push_back((double)atof(token));
+                            
     
     totalSensors = par("numSensingDevices");
     
     int totalPhyProcesses = gateSize("toNodeContainerModule");
     
     //check for malformed parameter string in the omnet.ini file
-    int aSz, bSz, cSz, dSz, eSz, fSz;
+    int aSz, bSz, cSz, dSz, eSz, fSz, mSz, rSz, sSz;
     aSz = (int)pwrConsumptionPerDevice.size();
     bSz = (int)minSamplingIntervals.size();
     cSz = (int)sensorTypes.size();
     dSz = (int)corrPhyProcess.size();
     eSz = (int)sensorBiasSigma.size();
     fSz = (int)sensorNoiseSigma.size();
+    mSz = (int)sensorSensitivity.size();
+    rSz = (int)sensorResolution.size();
+    sSz = (int)sensorSaturation.size();
     
-    if( (totalPhyProcesses < totalSensors) || (aSz != totalSensors) || (bSz != totalSensors) || (cSz != totalSensors) || (dSz != totalSensors)|| (eSz != totalSensors)|| (fSz != totalSensors))
+    if( (totalPhyProcesses < totalSensors) || (aSz != totalSensors) || (bSz != totalSensors) || 
+	(cSz != totalSensors) || (dSz != totalSensors) || (eSz != totalSensors) || (fSz != totalSensors) || 
+	(mSz != totalSensors) || (rSz != totalSensors) || (sSz != totalSensors))
     	opp_error("\n[Sensor Device Manager]: The parameters of the sensor device manager are not initialized correctly in omnet.ini file.");
 }
 

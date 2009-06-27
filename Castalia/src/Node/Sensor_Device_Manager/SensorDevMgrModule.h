@@ -42,6 +42,10 @@ class SensorDevMgrModule : public cSimpleModule
 		vector <double> sensorBiasSigma;
 		vector <double> sensorNoiseSigma;
 		
+		vector <double> sensorSensitivity;
+		vector <double> sensorResolution;
+		vector <double> sensorSaturation;
+		
 	/*--- Custom class member variables ---*/
 		int self;	// the node's ID
 		double self_xCoo;

@@ -35,7 +35,7 @@ my $help;
 my $alg;
 
 GetOptions("n=i" => \$n, "sim=s" => \$sim, "ideal" => \$ideal, "time=i" => \$time, 
-    "algorithm=i" => \$alg, "result" => \$print_result, "duty=f" => \$duty_cycle,
+    "algorithm=i" => \$alg, "raw" => \$print_result, "duty=f" => \$duty_cycle,
     "listen" => \$listen, "help" => \$help);
     
 if ($help) {
@@ -45,7 +45,7 @@ bridgeTestRun has the following options:
     -s, --sim 		simulation topology to use, avaliable values are ".join(",", keys %$conf).", default is 40x10
     -i, --ideal		use ideal wireless channel, default is realistic
     -t, --time		run each simulation for this duration (in seconds), default is 600
-    -r, --result	print out raw results from each simulation, only averaged results are printed by default
+    -r, --raw		print out raw results from each simulation, only averaged results are printed by default
     -h, --help		print this message
 
     -a, --algorithm	communication stack to use, supported values are:

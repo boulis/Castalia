@@ -273,17 +273,17 @@ void SensorDevMgrModule::parseStringParams(void)
     sensorSensitivity.clear();
     parameterStr = par("devicesSensitivity");
     cStringTokenizer sensitivityTokenizer(parameterStr);
-        while ( (token = noiseSigmaTokenizer.nextToken()) != NULL )
+        while ( (token = sensitivityTokenizer.nextToken()) != NULL )
         sensorSensitivity.push_back((double)atof(token));
 
     sensorResolution.clear();
-    parameterStr = par("devicesSensitivity");
+    parameterStr = par("devicesResolution");
     cStringTokenizer resolutionTokenizer(parameterStr);
         while ( (token =  resolutionTokenizer.nextToken()) != NULL )
         sensorResolution.push_back((double)atof(token));
 
     sensorSaturation.clear();
-    parameterStr = par("devicesSensitivity");
+    parameterStr = par("devicesSaturation");
     cStringTokenizer saturationTokenizer(parameterStr);
         while ( (token = saturationTokenizer.nextToken()) != NULL )
         sensorSaturation.push_back((double)atof(token));

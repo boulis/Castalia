@@ -141,17 +141,16 @@ void SensorDevMgrModule::handleMessage(cMessage *msg)
 			phyReply = check_and_cast<PhyProcess_GenericMessage*>(msg);
 			int sensorIndex = phyReply->getSensorIndex();
 			double theValue = phyReply->getValue();
+				
+			// add the sensor's Bias and the random noise 
+			theValue += sensorBias[sensorIndex];
+			theValue += normal(0, sensorNoiseSigma[sensorIndex], 1);
 			
 			// process the limitations of the sensing device (sensitivity, resoultion and saturation)
 			if (theValue < sensorSensitivity[sensorIndex]) theValue = sensorSensitivity[sensorIndex];
 			if (theValue > sensorSaturation[sensorIndex]) theValue = sensorSaturation[sensorIndex];
 			theValue = sensorResolution[sensorIndex]*lrint(theValue/sensorResolution[sensorIndex]);
-			
-			
-			// add the sensor's Bias and the random noise 
-			theValue += sensorBias[sensorIndex];
-			theValue += normal(0, sensorNoiseSigma[sensorIndex], 1);
-			
+		
 			sensorLastValue[sensorIndex] = theValue;
 			
 			SensorDevMgr_GenericMessage *readingMsg;

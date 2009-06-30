@@ -42,7 +42,6 @@ enum MAC_ControlMessageType
 
 	MAC_2_NETWORK_FULL_BUFFER = 2014;
 	
-	
 	//TMAC specific control msg
 	MAC_SELF_SYNC_SETUP 	  = 201;
 	MAC_SELF_SYNC_CREATE	  = 202;

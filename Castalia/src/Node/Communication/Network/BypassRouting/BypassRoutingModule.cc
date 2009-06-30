@@ -199,20 +199,19 @@ void BypassRoutingModule::handleMessage(cMessage *msg)
 
 		case MAC_2_NETWORK_FULL_BUFFER:
 		{
-			/*
-			 * TODO:
-			 * add your code here to manage the situation of a full MAC buffer.
-			 * Apparently we 'll have to stop sending messages and enter into listen or sleep mode (depending on the Network protocol that we implement).
-			 */
-			 
-			 Network_ControlMessage *fullBuffMsg = new Network_ControlMessage("Network buffer is full Mac->Network->Application", NETWORK_2_APP_FULL_BUFFER);
-			 
-			 send(fullBuffMsg, "toCommunicationModule");
-			 
-			 CASTALIA_DEBUG << "\n[Network_"<< self <<"] t= " << simTime() << ": WARNING: MAC_2_NET_FULL_BUFFER received because the MAC buffer is full.\n";
-			 break;
-		}
+		    /*
+		     * TODO: add your code here to manage the situation of a full MAC buffer. 
+		     * Right now the message is being forwarded to App layer
+		     * Apparently we 'll have to stop sending messages and enter into 
+		     * listen or sleep mode (depending on the Network protocol that we implement).
+		     */
 
+		    send(new Network_ControlMessage("Network buffer is full Mac->Network->Application", 
+			    MAC_2_APP_FULL_BUFFER), "toCommunicationModule");
+			 
+		    CASTALIA_DEBUG << "\n[Network_"<< self <<"] t= " << simTime() << ": WARNING: MAC_2_NET_FULL_BUFFER received because the MAC buffer is full.\n";
+		    break;
+		}
 
 
 		/*--------------------------------------------------------------------------------------------------------------

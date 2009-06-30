@@ -95,6 +95,8 @@ void throughputTest_ApplicationModule::initialize()
 	packet_spacing = 1/float(packet_rate);
 	packet_info_table.clear();
 	total_packets_received = 0;
+	packets_lost_at_mac = 0;
+	packets_lost_at_network = 0;
 }
 
 
@@ -284,8 +286,17 @@ void throughputTest_ApplicationModule::handleMessage(cMessage *msg)
 			 * add your code here to manage the situation of a full Network/Routing buffer.
 			 * Apparently we 'll have to stop sending messages and enter into listen or sleep mode (depending on the Application protocol that we implement).
 			 */
-			 CASTALIA_DEBUG << "\n[Application_"<< self <<"] t= " << simTime() << ": WARNING: NETWORK_2_APP_FULL_BUFFER received because the Network buffer is full.\n";
-			 break;
+			packets_lost_at_network++;
+			CASTALIA_DEBUG << "\n[Application_"<< self <<"] t= " << simTime() << ": WARNING: NETWORK_2_APP_FULL_BUFFER received because the Network buffer is full.\n";
+			break;
+		}
+		
+		
+		case MAC_2_APP_FULL_BUFFER:
+		{
+			packets_lost_at_mac++;
+			CASTALIA_DEBUG << "\n[Application_"<< self <<"] t= " << simTime() << ": WARNING: MAC_2_APP_FULL_BUFFER received because the MAC buffer is full.\n";
+			break;
 		}
 
 
@@ -350,7 +361,10 @@ void throughputTest_ApplicationModule::finish()
 	}
 
 	// output the spent energy of the node
-	EV <<  "Node [" << self << "] spent energy: " << resMgrModule->getSpentEnergy() << "\n";
+	EV << "Node [" << self << "] spent energy: " << resMgrModule->getSpentEnergy() << "\n";
+	if (packets_lost_at_network || packets_lost_at_mac) {
+	    EV << "Node [" << self << "] lost packets due to buffer overflow: " << packets_lost_at_mac << "(MAC), " << packets_lost_at_network << "(Network)\n";
+	}
 
 	//close the output stream that CASTALIA_DEBUG is writing to
 	DebugInfoWriter::closeStream();

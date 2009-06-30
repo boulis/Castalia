@@ -24,6 +24,8 @@ enum Network_ControlMessageType
 	NETWORK_SELF_CHECK_TX_BUFFER = 3004;
 	NETWORK_SELF_BOOTSTRAP_NET_SETUP = 3005;
 	NETWORK_SELF_TOPOLOGY_SETUP_TIMEOUT = 3006;	
+	
+	MAC_2_APP_FULL_BUFFER = 3007;	// used to forward full buffer messages from MAC to App layer
 };
 
 

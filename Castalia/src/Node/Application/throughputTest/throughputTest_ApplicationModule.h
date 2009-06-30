@@ -71,6 +71,8 @@ class throughputTest_ApplicationModule : public cSimpleModule
 		float packet_spacing;
 		vector <packet_info> packet_info_table; // this table records the number of packets received by node 0 from each other node
 		int total_packets_received;
+		int packets_lost_at_mac;
+		int packets_lost_at_network;
 		
 	protected:
 		virtual void initialize();

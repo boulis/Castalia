@@ -2,7 +2,7 @@
 
 use Getopt::Long;
 
-use constant WC_IDEAL => "../Parameter_Include_Files/WChannel/Simple_Interference_Model/WChannel_Ideal.ini";
+use constant WC_IDEAL => "../Parameter_Include_Files/WChannel/No_Interference/WChannel_Ideal.ini";
 use constant WC_REAL => "../Parameter_Include_Files/WChannel/Additive_Interference_Model/WChannel_Realistic.ini";
 use constant R_IDEAL => "../Parameter_Include_Files/Radio/TelosB_CC2420/radio_CC2420_IDEALmodulation.ini";
 use constant R_REAL => "../Parameter_Include_Files/Radio/TelosB_CC2420/radio_CC2420.ini";
@@ -177,6 +177,7 @@ my $node_res;
 my $simlen;
 my $total_version_packets = 0;
 my $curr_run = 0;
+my $max_energy = 0;
 
 for my $line (@lines) {
     if ($line =~ /Calling finish\(\) at end of Run \#(\d+)/) {
@@ -200,6 +201,8 @@ for my $line (@lines) {
 	add_stat("Overall reception", "$curr_run:$1", $2, 1);
     } elsif ($line =~ /^Node \d+ ran out of energy at (\d+)/) {
 	$simlen = $1 if !$simlen || $simlen > $1;
+    } elsif ($line =~ /^Node \[(\d+)\] spent energy: (\d+)/) {
+	if ($1 != 0 && $2 > $max_energy) { $max_energy = $2; }
     }
 }
 
@@ -225,14 +228,6 @@ sub add_stat {
 }
 
 sub print_stat {
-    if ($simlen) {
-	my $days = $simlen/86400;
-	my $h = int($simlen/3600);
-	$simlen -= $h*3600;
-	my $m = int($simlen/60);
-	$simlen -= $m*60;
-	printf "First node ran out of energy at %.2d:%.2d:%.2d, (%.2f days)\n",$h,$m,$simlen,$days;
-    }
     for my $k (sort keys %$stat) {
 	my $s = $stat->{$k};
 	my $c = 0;
@@ -246,6 +241,18 @@ sub print_stat {
 	}
 	$c = $c ? sprintf("[%.2f%] ",$c) : "";
 	printf "$k %.2f% $c$s->{good_sum}/$s->{total_sum}\n", $s->{total_sum} > 0 ? $s->{good_sum}*100/$s->{total_sum} : 0, $c;
+    }
+    if ($simlen) {
+	my $days = $simlen/86400;
+	my $h = int($simlen/3600);
+	$simlen -= $h*3600;
+	my $m = int($simlen/60);
+	$simlen -= $m*60;
+	printf "First node ran out of energy at %.2d:%.2d:%.2d, (%.2f days)\n",$h,$m,$simlen,$days;
+    } elsif ($max_energy) {
+	$max_energy = $max_energy/$time;
+	$energyPerDay = $max_energy*60*60*24;
+	printf "Maximum energy consumption at a single node was %.4f J/second, or %.0f J/day\n", $max_energy, $energyPerDay;
     }
 }
 

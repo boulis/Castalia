@@ -77,7 +77,8 @@ void TMacModule::initialize() {
     
 	//try to obtain the value of isSink parameter from application module
 	if(parentParent->findSubmodule("nodeApplication") != -1) {
-	    isSink = parentParent->submodule("nodeApplication")->par("isSink");
+	    cModule *tmpApplication = parentParent->submodule("nodeApplication");
+	    isSink = tmpApplication->hasPar("isSink") ? tmpApplication->par("isSink") : false;
 	} else {
 	    isSink = false;
 	}
@@ -136,7 +137,7 @@ void TMacModule::handleMessage(cMessage *msg) {
 	    if (isSink && allowSinkSync) {
 		createPrimarySchedule();
 	    } else {
-		scheduleAt(simTime() + (allowSinkSync ? DRIFTED_TIME(resyncTime) : 0 ),
+		scheduleAt(simTime() + (allowSinkSync ? DRIFTED_TIME(2*frameTime) : 0 ),
 		    new MAC_ControlMessage("waiting for a SYNC msg", MAC_SELF_SYNC_SETUP));
 	    }
 	    break;
@@ -219,6 +220,7 @@ void TMacModule::handleMessage(cMessage *msg) {
 	    
 	    // schedule wakeup messages for secondary schedules within the current frame only
 	    for (int i = 1; i < scheduleTable.size(); i++) {
+		if (scheduleTable[i].offset < 0) { scheduleTable[i].offset += frameTime; }
 		scheduleAt(simTime() + DRIFTED_TIME(scheduleTable[i].offset),
 		    new MAC_ControlMessage("Secondary schedule wakeup", MAC_SELF_WAKEUP_SILENT));
 	    }

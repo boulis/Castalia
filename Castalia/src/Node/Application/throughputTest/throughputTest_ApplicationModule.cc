@@ -337,9 +337,6 @@ void throughputTest_ApplicationModule::handleMessage(cMessage *msg)
 
 void throughputTest_ApplicationModule::finish()
 {
-	// output the spent energy of the node
-	//EV <<  "Node [" << self << "] spent energy: " << resMgrModule->getSpentEnergy() << "\n";
-
 	// print out the number of packets received from each node by node 0, and also the total number
 	if(self==0)
 	{
@@ -351,6 +348,9 @@ void throughputTest_ApplicationModule::finish()
 		}
 		EV << "total number of packets received is: " << total_packets_received << "\n";
 	}
+
+	// output the spent energy of the node
+	EV <<  "Node [" << self << "] spent energy: " << resMgrModule->getSpentEnergy() << "\n";
 
 	//close the output stream that CASTALIA_DEBUG is writing to
 	DebugInfoWriter::closeStream();

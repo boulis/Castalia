@@ -84,6 +84,7 @@ class TMacModule : public cSimpleModule
 	bool useRtsCts;
 	bool useFRTS;		
 	double frameTime;
+	bool disableTAextension;
 
 	/*--- General MAC variable ---*/
 	bool isSink;

@@ -182,7 +182,15 @@ void TMacModule::handleMessage(cMessage *msg) {
 	 */
 	case MAC_SELF_CHECK_TA: {
 	    if (activationTimeout <= simTime()) {
-	    	if (macState != MAC_STATE_ACTIVE && macState != MAC_STATE_ACTIVE_SILENT && macState != MAC_STATE_SLEEP) {
+		//if disableTAextension is on, then we will behave as SMAC - simply go to sleep if the active period is over
+		if (disableTAextension) {
+	    	    primaryWakeup = false;
+	    	    // update MAC and RADIO states
+	    	    setRadioState(MAC_2_RADIO_ENTER_SLEEP);
+	    	    setMacState(MAC_STATE_SLEEP);
+		
+		//otherwise, check MAC state and extend active period or go to sleep    
+	    	} else if (macState != MAC_STATE_ACTIVE && macState != MAC_STATE_ACTIVE_SILENT && macState != MAC_STATE_SLEEP) {
 	    	    extendActivePeriod();
 	    	} else {
 		    performCarrierSense(MAC_CARRIER_SENSE_BEFORE_SLEEP);
@@ -255,7 +263,7 @@ void TMacModule::handleMessage(cMessage *msg) {
 	 * these packets to allow for better and cleaner code structure
 	 */
 	case MAC_FRAME: {
-	    extendActivePeriod();
+	    if (!disableTAextension) extendActivePeriod();
 	    processMacFrame(check_and_cast<MAC_GenericFrame*>(msg));
 	    break;
 	}
@@ -350,7 +358,7 @@ void TMacModule::handleMessage(cMessage *msg) {
 	 */
 	case RADIO_2_MAC_SENSED_CARRIER: {
 	    if (macState == MAC_STATE_SETUP || macState == MAC_STATE_SLEEP) break;
-	    extendActivePeriod();
+	    if (!disableTAextension) extendActivePeriod();
 	    if (macState != MAC_STATE_WAIT_FOR_ACK && macState != MAC_STATE_WAIT_FOR_DATA &&
 		macState != MAC_STATE_WAIT_FOR_CTS) setMacState(MAC_STATE_ACTIVE_SILENT);
 	    break;
@@ -456,6 +464,7 @@ void TMacModule::readIniFileParameters(void) {
     useFRTS = par("useFrts");
     useRtsCts = par("useRtsCts");
     maxTxRetries = par("maxTxRetries");
+    disableTAextension = par("disableTAextension");
 }
 
 

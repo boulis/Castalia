@@ -36,7 +36,8 @@ simple TMacModule
 		waitTimeout		: const,
 		useFrts			: const,	//enable/disable FRTS (Future Request To Send)
 		useRtsCts		: const,	
-		frameTime		: const;	//frame time (standard = 610ms)
+		frameTime		: const,	//frame time (standard = 610ms)
+		disableTAextension	: const;	//disabling TA extension effectively creates an SMAC
 		
 
     gates:

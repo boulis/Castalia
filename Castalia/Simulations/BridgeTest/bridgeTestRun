@@ -8,6 +8,7 @@ use constant R_IDEAL => "../Parameter_Include_Files/Radio/TelosB_CC2420/radio_CC
 use constant R_REAL => "../Parameter_Include_Files/Radio/TelosB_CC2420/radio_CC2420.ini";
 use constant MAC_TUNABLE => "./MAC_Tunable.ini";
 use constant MAC_TMAC => "../Parameter_Include_Files/T_MAC.ini";
+use constant MAC_SMAC => "../Parameter_Include_Files/S_MAC.ini";
 use constant ROUTING_MP => "../Parameter_Include_Files/Routing_multipathRings.ini";
 use constant ROUTING_ST => "../Parameter_Include_Files/Routing_simpleTree.ini";
 use constant ROUTING_BP => "../Parameter_Include_Files/Routing_bypass.ini";
@@ -54,6 +55,8 @@ bridgeTestRun has the following options:
 			3 - Tunable MAC with broadcasts (no routing)
 			4 - TMAC with simple tree routing
 			5 - TMAC with broadcasts (no routing)
+			6 - SMAC with simple tree routing
+			7 - SMAC with broadcasts (no routing)
 			any other value defaults to 1
 			NOTE that multipath rings uses broadcast packets only, so it is not compatible with TMAC
 
@@ -69,8 +72,10 @@ $n = 1 unless $n > 1;
 $time = 600 unless $time && $time > 0;
 $duty_cycle = 1 unless $duty_cycle > 0 and $duty_cycle < 1;
 $listen = 100 * $duty_cycle unless $listen > 0;
-$alg = 1 unless $alg && $alg > 0 && $alg < 6;
+$alg = 1 unless $alg && $alg > 0 && $alg < 8;
 my $tmac = ($alg == 4 || $alg == 5);
+my $smac = ($alg == 6 || $alg == 7);
+my $broadcast = ($alg == 3 || $alg == 5 || $alg == 7);
 
 my $ini = "
 
@@ -96,9 +101,9 @@ include ../Parameter_Include_Files/resourceMgr_2AAbatteries.ini
 include ../Parameter_Include_Files/nodeSensorDevMgr_Accelerometer.ini
 include ".($ideal ? WC_IDEAL : WC_REAL)."
 include ".($ideal ? R_IDEAL : R_REAL)."
-include ".($tmac ? MAC_TMAC : MAC_TUNABLE)."
-include ".(($alg == 1 || $alg == 4) ? ROUTING_ST : ($alg == 3 ? ROUTING_BP : ROUTING_MP))."
-".(!$tmac ? "
+include ".($tmac ? MAC_TMAC : ($smac ? MAC_SMAC : MAC_TUNABLE))."
+include ".($broadcast ? ROUTING_BP : ($alg == 2 ? ROUTING_MP : ROUTING_ST))."
+".(!$tmac && !$smac ? "
 SN.node[*].networkInterface.MAC.dutyCycle = $duty_cycle
 SN.node[*].networkInterface.MAC.listenInterval = $listen
 " : "")."
@@ -112,7 +117,7 @@ SN.node[*].nodeApplication.packetHeaderOverhead = 8 #in bytes
 
 SN.node[*].nodeApplication.reportTreshold = 10
 SN.node[*].nodeApplication.reportInterval = 1000
-SN.node[*].nodeApplication.broadcastReports = ".(($alg == 3 || $alg == 5) ? "true" : "false")."
+SN.node[*].nodeApplication.broadcastReports = ".($broadcast ? "true" : "false")."
 
 SN.numPhysicalProcesses = 1
 SN.physicalProcessModuleName = \"CarsPhysicalProcess\"

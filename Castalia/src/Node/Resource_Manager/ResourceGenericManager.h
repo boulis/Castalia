@@ -33,8 +33,8 @@ class ResourceGenericManager : public cSimpleModule
 		double cpuClockDrift;
 		double initialEnergy;
 		double ramSize;
-		double periodicEnergy;
-		double periodicTimer;
+		double baselineNodePower;
+		double periodicEnergyCalculationInterval;
 		
 	/*--- Custom class parameters ---*/
 		double remainingEnergy;

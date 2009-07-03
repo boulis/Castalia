@@ -33,13 +33,14 @@ void ResourceGenericManager::initialize()
 	cpuClockDrift = normal(0, sigmaCPUClockDrift);  //using the "0" rng generator of the ResourceGenericManager module 
 	initialEnergy = par("initialEnergy");
 	ramSize = par("ramSize");
-	periodicEnergy = par("periodicEnergy");
-	periodicTimer = par("periodicTimer");
+	baselineNodePower = par("baselineNodePower");
+	periodicEnergyCalculationInterval = par("periodicEnergyCalculationInterval");
 
-	if (periodicEnergy > 0 && periodicTimer > 0) {
-	    periodicTimer = periodicTimer / 1000;
-	    periodicEnergy = (periodicEnergy / 1000) * periodicTimer;
-	    scheduleAt(simTime()+ periodicTimer, new ResourceGenericManager_Message("Periodic energy message", RESOURCE_MGR_PERIODIC_ENERGY));
+	if (baselineNodePower > 0 && periodicEnergyCalculationInterval > 0) {
+	    periodicEnergyCalculationInterval = periodicEnergyCalculationInterval / 1000;
+	    baselineNodePower = (baselineNodePower / 1000) * periodicEnergyCalculationInterval;
+	    scheduleAt(simTime()+ periodicEnergyCalculationInterval, 
+		new ResourceGenericManager_Message("Periodic energy message", RESOURCE_MGR_PERIODIC_ENERGY));
 	}
 	
 	remainingEnergy = initialEnergy;
@@ -57,9 +58,10 @@ void ResourceGenericManager::handleMessage(cMessage *msg)
 	switch (msgKind) {
 	    
 	    case RESOURCE_MGR_PERIODIC_ENERGY: {
-		consumeEnergy(periodicEnergy);
+		consumeEnergy(baselineNodePower);
 		if (remainingEnergy > 0) {
-		    scheduleAt(simTime()+ periodicTimer, new ResourceGenericManager_Message("Periodic energy message", RESOURCE_MGR_PERIODIC_ENERGY));
+		    scheduleAt(simTime()+ periodicEnergyCalculationInterval, 
+			new ResourceGenericManager_Message("Periodic energy message", RESOURCE_MGR_PERIODIC_ENERGY));
 		}
 	    }
 	    

@@ -31,8 +31,8 @@ simple ResourceGenericManager
 		sigmaCPUClockDrift:	numeric,	// the standard deviation of the Drift of the CPU
 		
 		initialEnergy:		numeric, // energy of the node in Joules
-		periodicEnergy: 	numeric, // periodic energy spending, in watts
-		periodicTimer:		numeric; // periodic timer for calculating periodic energy spending, in msec
+		baselineNodePower: 	numeric, // in watts
+		periodicEnergyCalculationInterval: numeric; // periodic timer for calculating periodic energy spending, in msec
 
 	gates:
         	out:	toSensorDevManager, toApplication, toNetwork, toMac, toRadio;

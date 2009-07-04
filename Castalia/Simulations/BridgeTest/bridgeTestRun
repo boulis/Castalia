@@ -28,7 +28,6 @@ my $sim;
 my $n;
 my $ideal;
 my $time;
-my $broadcast;
 my $print_result;
 my $duty_cycle;
 my $listen;
@@ -37,7 +36,7 @@ my $alg;
 
 GetOptions("n=i" => \$n, "sim=s" => \$sim, "ideal" => \$ideal, "time=i" => \$time, 
     "algorithm=i" => \$alg, "raw" => \$print_result, "duty=f" => \$duty_cycle,
-    "listen" => \$listen, "help" => \$help);
+    "listen=i" => \$listen, "help" => \$help);
     
 if ($help) {
     print "

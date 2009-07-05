@@ -1,5 +1,16 @@
 
 
+Castalia 2.1: Changes from ver 2.0
+------------------------------------------
+- T-MAC fully tested and debugged
+- S-MAC implemented as variant of T-MAC
+- Replaced buffer implementations with std <queue>
+- parsePRRMap() debugged and complete functionality
+- Automated test suite implemented, look in Tests/
+- 3 more parameters for sensing devices
+
+
+
 Castalia 2.0: Major changes from ver 1.3
 ------------------------------------------
 

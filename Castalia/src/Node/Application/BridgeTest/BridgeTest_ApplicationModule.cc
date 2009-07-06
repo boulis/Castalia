@@ -128,7 +128,7 @@ void BridgeTest_ApplicationModule::handleMessage(cMessage *msg)
 			disabled = 0;
 			
 			if (isSink) {
-			    scheduleAt(simTime(), new App_ControlMessage("Application self message (reprogram nodes)", APP_TIMER_1));
+			    scheduleAt(simTime()+ 10, new App_ControlMessage("Application self message (reprogram nodes)", APP_TIMER_1));
 			} else {
 			    scheduleAt(simTime(), new App_ControlMessage("Application self message (request sample)", APP_SELF_REQUEST_SAMPLE));
 			}

@@ -185,6 +185,7 @@ void TMacModule::handleMessage(cMessage *msg) {
 		//if disableTAextension is on, then we will behave as SMAC - simply go to sleep if the active period is over
 		if (disableTAextension) {
 	    	    primaryWakeup = false;
+	    	    
 	    	    // update MAC and RADIO states
 	    	    setRadioState(MAC_2_RADIO_ENTER_SLEEP);
 	    	    setMacState(MAC_STATE_SLEEP);
@@ -279,7 +280,7 @@ void TMacModule::handleMessage(cMessage *msg) {
 	     * then MAC was set to MAC_STATE_ACTIVE_SILENT. In this case we can not transmit 
 	     * and there is no point to perform carrier sense
 	     */ 
-	    if(macState == MAC_STATE_ACTIVE_SILENT) break;	
+	    if(macState == MAC_STATE_ACTIVE_SILENT || macState == MAC_STATE_SLEEP) break;
 	    
 	    // At this stage MAC can only be in one of the states MAC_CARRIER_SENSE_...
 	    if(macState != MAC_CARRIER_SENSE_FOR_TX_RTS && macState != MAC_CARRIER_SENSE_FOR_TX_CTS && 

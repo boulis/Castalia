@@ -26,7 +26,7 @@ simple BridgeTest_ApplicationModule
 	isSink: bool,
 	broadcastReports: bool,
 	reportTreshold: numeric,
-	reportInterval: numeric;
+	sampleInterval: numeric;
 
     gates:
         out:	toCommunicationModule, toSensorDeviceManager;

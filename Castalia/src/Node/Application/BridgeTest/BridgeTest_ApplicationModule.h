@@ -56,7 +56,7 @@ class BridgeTest_ApplicationModule : public cSimpleModule
 		int packetHeaderOverhead;
 		int constantDataPayload;
 		int reportTreshold;
-		double reportInterval;
+		double sampleInterval;
 		bool isSink;
 		bool broadcastReports;
 		
@@ -80,6 +80,8 @@ class BridgeTest_ApplicationModule : public cSimpleModule
 		int currentVersion;
 		int currentVersionPacket;
 		int currSentSampleSN;
+		int currentSampleAccumulated;
+		int maxSampleAccumulated;
 		int totalVersionPackets;
 		int routingLevel;
 		vector <version_info> version_info_table;

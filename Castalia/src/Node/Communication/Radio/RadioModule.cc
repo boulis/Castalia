@@ -332,41 +332,35 @@ void RadioModule::handleMessage(cMessage *msg)
 			switch(radioState)
 			{
 			 	case RADIO_STATE_TX:
-					{
-					  //it is impossible to receive from the MAC a Carrier Sense strobe while radio is in TX because in this radio state the isCarrierSenseValid() returns false
-			
-					CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": WARNING: Radio received from MAC sense carrier command while in TX state!\n";
-				exit(0);
-					}
+				{
+				    //it is impossible to receive from the MAC a Carrier Sense strobe while radio is in TX because in this radio state the isCarrierSenseValid() returns false
+				    CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": WARNING: Radio received from MAC sense carrier command while in TX state!\n";
+				}
 
 				case RADIO_STATE_SLEEP:
-					{
-					 //it is impossible to receive from the MAC a Carrier Sense strobe while radio is in SLEEP because in this radio state the isCarrierSenseValid() returns false
-			
-					CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": WARNING: Radio received from MAC sense carrier command while in SLEEP state!\n";
-				exit(0);
-					}
+				{
+				    //it is impossible to receive from the MAC a Carrier Sense strobe while radio is in SLEEP because in this radio state the isCarrierSenseValid() returns false
+				    CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": WARNING: Radio received from MAC sense carrier command while in SLEEP state!\n";
+				}
+				
 				case RADIO_STATE_LISTEN:
-					{
+				{
 					 
-				     // send the delayed messages to the wireless channel
-				     WChannel_GenericMessage *message;
+				    // send the delayed messages to the wireless channel
+				    WChannel_GenericMessage *message;
 
-				     message = new WChannel_GenericMessage("instant carrier sense", WC_CARRIER_SENSE_INSTANTANEOUS);
+				    message = new WChannel_GenericMessage("instant carrier sense", WC_CARRIER_SENSE_INSTANTANEOUS);
 				    // send the WC_CARRIER_SENSE_INSTANTANEOUS message to the Wireless channel to perform the instantaneous CSing	
-				     message->setSrcAddress(self);
-				     send( message, "toCommunicationModule");
-				     break;
-					}
+				    message->setSrcAddress(self);
+				    send( message, "toCommunicationModule");
+				    break;
+				}
+				
 				default:
-					{
-					CASTALIA_DEBUG <<"WARNING--> unknown Radio state";
-					exit(0);
-					}
-	
+				{
+				    CASTALIA_DEBUG <<"WARNING: received MAC_2_RADIO_SENSE_CARRIER_INSTANTANEOUS in unknown Radio state: "<< radioState;
+				}
 			}	
-			
-			
 			break;
 		}
 

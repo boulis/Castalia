@@ -33,10 +33,11 @@ my $duty_cycle;
 my $listen;
 my $help;
 my $alg;
+my $sample;
 
 GetOptions("n=i" => \$n, "sim=s" => \$sim, "ideal" => \$ideal, "time=i" => \$time, 
     "algorithm=i" => \$alg, "raw" => \$print_result, "duty=f" => \$duty_cycle,
-    "listen=i" => \$listen, "help" => \$help);
+    "listen=i" => \$listen, "help" => \$help, "physical=i" => \$sample);
     
 if ($help) {
     print "
@@ -46,6 +47,7 @@ bridgeTestRun has the following options:
     -i, --ideal		use ideal wireless channel, default is realistic
     -t, --time		run each simulation for this duration (in seconds), default is 600
     -r, --raw		print out raw results from each simulation, only averaged results are printed by default
+    -p, --physical	rate of physical process sampling, in ms (default is 100ms or 10hz)
     -h, --help		print this message
 
     -a, --algorithm	communication stack to use, supported values are:
@@ -69,6 +71,7 @@ bridgeTestRun has the following options:
 $sim = $conf->{$sim} || $conf->{"40x10"};
 $n = 1 unless $n > 1;
 $time = 600 unless $time && $time > 0;
+$sample = 100 unless $sample && $sample > 0;
 $duty_cycle = 1 unless $duty_cycle > 0 and $duty_cycle < 1;
 $listen = 100 * $duty_cycle unless $listen > 0;
 $alg = 1 unless $alg && $alg > 0 && $alg < 8;
@@ -108,14 +111,14 @@ SN.node[*].networkInterface.MAC.listenInterval = $listen
 " : "")."
 SN.node[*].appModuleName = \"BridgeTest_ApplicationModule\"
 SN.node[*].nodeApplication.applicationID = \"bridgeTest\"
-SN.node[*].nodeApplication.printDebugInfo = true
+SN.node[*].nodeApplication.printDebugInfo = false
 SN.node[*].nodeApplication.priority = 1
 
 SN.node[*].nodeApplication.maxAppPacketSize = 70    #in bytes
 SN.node[*].nodeApplication.packetHeaderOverhead = 8 #in bytes
 
 SN.node[*].nodeApplication.reportTreshold = 10
-SN.node[*].nodeApplication.reportInterval = 1000
+SN.node[*].nodeApplication.sampleInterval = $sample
 SN.node[*].nodeApplication.broadcastReports = ".($broadcast ? "true" : "false")."
 
 SN.numPhysicalProcesses = 1
@@ -125,7 +128,7 @@ SN.physicalProcess[0].description = \"Cars\"
 SN.physicalProcess[0].max_num_cars = 5
 SN.physicalProcess[0].car_speed = 16
 SN.physicalProcess[0].car_value = 30
-SN.physicalProcess[0].car_interarrival = 60
+SN.physicalProcess[0].car_interarrival = 20
 
 SN.physicalProcess[0].point1_x_coord = 0
 SN.physicalProcess[0].point1_y_coord = ".($sim->{y}/2)."

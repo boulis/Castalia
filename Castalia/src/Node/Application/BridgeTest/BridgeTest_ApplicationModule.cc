@@ -31,6 +31,8 @@
 #define REPROGRAM_PACKET_DELAY 0.5
 #define NO_ROUTING_LEVEL -1
 
+#define SAMPLE_SIZE 12
+
 #define REPORT_PACKET "Report packet"
 #define VERSION_PACKET "Version packet"
 
@@ -72,8 +74,7 @@ void BridgeTest_ApplicationModule::initialize()
 	packetHeaderOverhead = par("packetHeaderOverhead");
 	isSink = par("isSink");
 	reportTreshold = par("reportTreshold");
-	reportInterval = par("reportInterval");
-	reportInterval = reportInterval/1000;
+	sampleInterval = (double)par("sampleInterval")/1000;
 	broadcastReports = par("broadcastReports");
 	
 	char buff[30];
@@ -95,8 +96,13 @@ void BridgeTest_ApplicationModule::initialize()
 	 currentVersion = 0;
 	 currSentSampleSN = 0;
 	 outOfEnergy = 0;
-	 div_t tmp_div = div(REPROGRAM_PAYLOAD,maxAppPacketSize-packetHeaderOverhead);
+	 currentSampleAccumulated = 0;
+
+	 div_t tmp_div;
+	 tmp_div = div(REPROGRAM_PAYLOAD,maxAppPacketSize-packetHeaderOverhead);
 	 totalVersionPackets = tmp_div.rem > 0 ? tmp_div.quot + 1 : tmp_div.quot;
+	 tmp_div = div(maxAppPacketSize-packetHeaderOverhead,SAMPLE_SIZE);
+	 maxSampleAccumulated = tmp_div.quot * SAMPLE_SIZE;
 	 
 	 routingLevel = (isSink)?0:NO_ROUTING_LEVEL;
 	 
@@ -149,7 +155,7 @@ void BridgeTest_ApplicationModule::handleMessage(cMessage *msg)
 			requestSampleFromSensorManager();
 		
 			// schedule a message (sent to ourself) to request a new sample
-			scheduleAt(simTime()+DRIFTED_TIME(reportInterval), new App_ControlMessage("Application self message (request sample)", APP_SELF_REQUEST_SAMPLE));
+			scheduleAt(simTime()+DRIFTED_TIME(sampleInterval), new App_ControlMessage("Application self message (request sample)", APP_SELF_REQUEST_SAMPLE));
 			
 			break;
 		}
@@ -276,15 +282,18 @@ void BridgeTest_ApplicationModule::handleMessage(cMessage *msg)
 			    CASTALIA_DEBUG << "\n[Application_"<< self <<"] t= " << simTime() << ": Sink recieved SENSOR_READING (while it shouldnt) " << sensValue << " (int)"<<(int)sensValue;
 			}
 			
+			currentSampleAccumulated += SAMPLE_SIZE;
+			if (currentSampleAccumulated < maxSampleAccumulated) break;
 			if (broadcastReports) {
-			    send2NetworkDataPacket(BROADCAST, REPORT_PACKET, (int)sensValue, currSentSampleSN, packetHeaderOverhead+6);
+			    send2NetworkDataPacket(BROADCAST, REPORT_PACKET, (int)sensValue, currSentSampleSN, currentSampleAccumulated);
 			    currSentSampleSN++;
 			} else if (routingLevel != NO_ROUTING_LEVEL) {
-			    send2NetworkDataPacket(SINK, REPORT_PACKET, (int)sensValue, currSentSampleSN, packetHeaderOverhead+6);
+			    send2NetworkDataPacket(SINK, REPORT_PACKET, (int)sensValue, currSentSampleSN, currentSampleAccumulated);
 			    currSentSampleSN++;
 			} else {
 			    CASTALIA_DEBUG << "\n[Application_"<< self <<"] t= " << simTime() << ": unable to report: " << sensValue << " (int)"<<(int)sensValue;
 			}
+			currentSampleAccumulated = 0;
 			break;
 		}
 		
@@ -358,11 +367,11 @@ void BridgeTest_ApplicationModule::handleMessage(cMessage *msg)
 	    }
 		
 		
-		default:
-		{
-			CASTALIA_DEBUG << "\\n[Application_"<< self <<"] t= " << simTime() << ": WARNING: received packet of unknown type";
-			break;
-		}
+	    default:
+	    {
+	    	CASTALIA_DEBUG << "\n[Application_"<< self <<"] t= " << simTime() << ": WARNING no handler for message type "<<msgKind;
+	    	break;
+	    }
 	}
 	
 	delete msg;

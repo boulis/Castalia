@@ -334,13 +334,24 @@ void RadioModule::handleMessage(cMessage *msg)
 			 	case RADIO_STATE_TX:
 				{
 				    //it is impossible to receive from the MAC a Carrier Sense strobe while radio is in TX because in this radio state the isCarrierSenseValid() returns false
-				    CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": WARNING: Radio received from MAC sense carrier command while in TX state!\n";
+				    CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << 
+					": ERROR: Radio received from MAC sense carrier command while in TX state!\n";
+
+				    fprintf(stderr,"***************************************************************************");
+				    fprintf(stderr,"* ERROR: Radio received from MAC sense carrier command while in TX state! *");
+				    fprintf(stderr,"***************************************************************************");
 				}
 
 				case RADIO_STATE_SLEEP:
 				{
 				    //it is impossible to receive from the MAC a Carrier Sense strobe while radio is in SLEEP because in this radio state the isCarrierSenseValid() returns false
-				    CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": WARNING: Radio received from MAC sense carrier command while in SLEEP state!\n";
+				    CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << 
+					": ERROR: Radio received from MAC sense carrier command while in SLEEP state!\n";
+				    
+				    fprintf(stderr,"******************************************************************************");
+				    fprintf(stderr,"* ERROR: Radio received from MAC sense carrier command while in SLEEP state! *");
+				    fprintf(stderr,"******************************************************************************");
+
 				}
 				
 				case RADIO_STATE_LISTEN:
@@ -358,7 +369,8 @@ void RadioModule::handleMessage(cMessage *msg)
 				
 				default:
 				{
-				    CASTALIA_DEBUG <<"WARNING: received MAC_2_RADIO_SENSE_CARRIER_INSTANTANEOUS in unknown Radio state: "<< radioState;
+				    CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << 
+					": ERROR: Radio received MAC_2_RADIO_SENSE_CARRIER_INSTANTANEOUS in unknown Radio state: "<< radioState<<"\n";
 				}
 			}	
 			break;
@@ -588,7 +600,7 @@ void RadioModule::handleMessage(cMessage *msg)
 		 *--------------------------------------------------------------------------------------------------------------*/
 		case RADIO_SELF_VALIDATE_CS:
 		{			
-			if(!isCSValid)
+			if(radioState == RADIO_STATE_LISTEN && !isCSValid)
 				isCSValid = 1;
 
 			break;

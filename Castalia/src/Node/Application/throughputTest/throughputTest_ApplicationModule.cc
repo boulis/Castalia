@@ -75,7 +75,12 @@ void throughputTest_ApplicationModule::initialize()
 
 	constantDataPayload = par("constantDataPayload");
 
-	packet_rate = par("packet_rate");
+	packet_rate = hasPar("packet_rate") ? par("packet_rate") : 0;
+	
+	nextRecipient = hasPar("nextRecipient") ? par("nextRecipient") : 0;
+	
+	sprintf(selfAddr, "%i", self);
+	sprintf(dstAddr, "%i", nextRecipient);
 
 	char buff[30];
 	sprintf(buff, "Application Vector of Node %d", self);
@@ -92,11 +97,12 @@ void throughputTest_ApplicationModule::initialize()
 	/**
 	  ADD HERE INITIALIZATION CODE HERE FOR YOUR APPLICATION
 	 **/
-	packet_spacing = 1/float(packet_rate);
+	packet_spacing = packet_rate > 0 ? 1/float(packet_rate) : -1;
 	packet_info_table.clear();
 	total_packets_received = 0;
 	packets_lost_at_mac = 0;
 	packets_lost_at_network = 0;
+	dataSN = 0;
 }
 
 
@@ -130,7 +136,9 @@ void throughputTest_ApplicationModule::handleMessage(cMessage *msg)
 			 ******* EXAMPLE  *****************
 			  scheduleAt(simTime(), new App_ControlMessage("timer 1", APP_TIMER_1));
 			 **********************************************************************/
-			scheduleAt(simTime() + DRIFTED_TIME(packet_spacing), new App_ControlMessage("timer 1", APP_TIMER_1));
+			if (packet_spacing > 0 && self != nextRecipient) {
+			    scheduleAt(simTime() + DRIFTED_TIME(packet_spacing), new App_ControlMessage("timer 1", APP_TIMER_1));
+			}
 
 			break;
 		}
@@ -169,7 +177,14 @@ void throughputTest_ApplicationModule::handleMessage(cMessage *msg)
 			    SEQUENCE NUMBER: sequenceNumber
 			    RSSI(dBm):    rssi
 			**/
-			update_packets_received(atoi(msgSender.c_str()));
+			
+			if (nextRecipient == self) {
+			    update_packets_received(atoi(msgSender.c_str()),sequenceNumber);
+			} else {
+			    throughputTest_DataPacket *dupPacket = check_and_cast<throughputTest_DataPacket *>(rcvPacket->dup());
+			    dupPacket->getHeader().destination = dstAddr;
+			    send(dupPacket,"toCommunicationModule");
+			}
 
 			CASTALIA_DEBUG << "[APP_" << self << "] Packet received from node "<<msgSender<<" at time "<<simTime() << "\n";
 
@@ -182,28 +197,10 @@ void throughputTest_ApplicationModule::handleMessage(cMessage *msg)
 		 *--------------------------------------------------------------------------------------------------------------*/
 		case APP_TIMER_1:
 		{
-			/***
-			 ***   ADD YOUR CODE HERE (optional)
-			 ***/
-
-			//Example : how to broadcast a value
-			/*
-			 *  int data2send = 10000;
-			 *  send2NetworkDataPacket(BROADCAST, data2send, 1);
-			 */
-
-
-			if(self != 0)
-			{
-				int data2send = 10000;
-				char dest[256];
-				sprintf(dest, "%i", 0);
-				send2NetworkDataPacket(dest,data2send,1);
-			}
-
-			scheduleAt(simTime() + DRIFTED_TIME(packet_spacing), new App_ControlMessage("timer1", APP_TIMER_1));
-
-			break;
+		    send2NetworkDataPacket(dstAddr,10000,dataSN);
+		    dataSN++;
+    		    scheduleAt(simTime() + DRIFTED_TIME(packet_spacing), new App_ControlMessage("timer1", APP_TIMER_1));
+		    break;
 		}
 
 
@@ -349,13 +346,13 @@ void throughputTest_ApplicationModule::handleMessage(cMessage *msg)
 void throughputTest_ApplicationModule::finish()
 {
 	// print out the number of packets received from each node by node 0, and also the total number
-	if(self==0)
+	if(self == nextRecipient)
 	{
 		EV << "\n\n** Node [" << self << "] received from:\n";
-		for(int i=0; i<(int)packet_info_table.size(); i++)
-		{
-			EV << "[" << self << "<--" << packet_info_table[i].sourceID << "]\t -->\t " << packet_info_table[i].packets_received << "\n";
-			total_packets_received = total_packets_received + packet_info_table[i].packets_received;
+		for(map<int,packet_info>::iterator i = packet_info_table.begin();
+		    i != packet_info_table.end(); i++) {
+			EV << "[" << self << "<--" << i->first << "]\t -->\t " << i->second.packets_received.size() << "\n";
+			total_packets_received += i->second.packets_received.size();
 		}
 		EV << "total number of packets received is: " << total_packets_received << "\n";
 	}
@@ -385,9 +382,7 @@ void throughputTest_ApplicationModule::send2NetworkDataPacket(const char *destID
 
 		packet2Net->getHeader().applicationID = applicationID.c_str();
 
-		char tmpAddr[256];
-		sprintf(tmpAddr, "%i", self);
-		packet2Net->getHeader().source = tmpAddr;
+		packet2Net->getHeader().source = selfAddr;
 
 		packet2Net->getHeader().destination = destID;
 
@@ -415,31 +410,10 @@ void throughputTest_ApplicationModule::requestSampleFromSensorManager()
 
 
 // this method updates the number of packets received by node 0 from other nodes
-void throughputTest_ApplicationModule::update_packets_received(int srcID)
+void throughputTest_ApplicationModule::update_packets_received(int srcID, int SN)
 {
-	int i=0, pos=-1;
-	int tblSize = (int)packet_info_table.size();
-
-	for(i=0; i<tblSize; i++)
-	{
-		if(packet_info_table[i].sourceID == srcID)
-		pos = i;
-	}
-
-	if(pos == -1)
-	{
-		packet_info newInfo;
-		newInfo.sourceID = srcID;
-		newInfo.packets_received = 1;
-		packet_info_table.push_back(newInfo);
-	}
-
-	else
-	{
-		packet_info_table[pos].packets_received++;
-	}
+    packet_info_table[srcID].packets_received[SN]++;
 }
-
 
 
 

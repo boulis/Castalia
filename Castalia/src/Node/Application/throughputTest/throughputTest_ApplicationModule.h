@@ -18,7 +18,7 @@
 
 #include <omnetpp.h>
 #include <string>
-#include <vector>
+#include <map>
 #include "SensorDevMgr_GenericMessage_m.h"
 
 /*** 
@@ -36,10 +36,8 @@ using namespace std;
 
 struct packet_info
 {
-	int sourceID;
-	int packets_received;
+    map <int, bool> packets_received;
 };
-
 
 class throughputTest_ApplicationModule : public cSimpleModule 
 {
@@ -69,11 +67,16 @@ class throughputTest_ApplicationModule : public cSimpleModule
 		   ADD HERE YOUR CUSTOM private MEMBER VARIABLES AND FUNCTIONS
 		 **/
 		float packet_spacing;
-		vector <packet_info> packet_info_table; // this table records the number of packets received by node 0 from each other node
+		map <int, packet_info> packet_info_table; // this table records the number of packets received by node 0 from each other node
 		int total_packets_received;
 		int packets_lost_at_mac;
 		int packets_lost_at_network;
+		int dataSN;
+		int nextRecipient;
 		
+		char selfAddr[16];
+		char dstAddr[16];
+    		
 	protected:
 		virtual void initialize();
 		virtual void handleMessage(cMessage *msg);
@@ -94,7 +97,7 @@ class throughputTest_ApplicationModule : public cSimpleModule
 		/**
 		   ADD HERE YOUR CUSTOM protected MEMBER VARIABLES AND FUNCTIONS
 		 **/
-		void update_packets_received(int srcID);
+		void update_packets_received(int srcID, int SN);
 
 	public:
 		/**

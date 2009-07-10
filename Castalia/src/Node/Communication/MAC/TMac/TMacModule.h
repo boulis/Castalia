@@ -8,7 +8,7 @@
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia
  *      Attention:  License Inquiry.
  ***************************************************************************/
- 
+
 #ifndef TMACMODULE
 #define TMACMODULE
 
@@ -33,18 +33,18 @@ enum MacStates {
     MAC_STATE_SETUP = 100,
     MAC_STATE_SLEEP = 101,
     MAC_STATE_ACTIVE = 102,
-    MAC_STATE_ACTIVE_SILENT = 103,		
-    MAC_STATE_IN_TX = 104,		
-    
+    MAC_STATE_ACTIVE_SILENT = 103,
+    MAC_STATE_IN_TX = 104,
+
     MAC_CARRIER_SENSE_FOR_TX_RTS = 110,    //These states are used to distinguish whether we are trying to TX
-    MAC_CARRIER_SENSE_FOR_TX_DATA = 111,   // Data OR Cts OR Rts OR Ack  
+    MAC_CARRIER_SENSE_FOR_TX_DATA = 111,   // Data OR Cts OR Rts OR Ack
     MAC_CARRIER_SENSE_FOR_TX_CTS = 112,
     MAC_CARRIER_SENSE_FOR_TX_ACK = 113,
     MAC_CARRIER_SENSE_FOR_TX_SYNC = 114,
     MAC_CARRIER_SENSE_BEFORE_SLEEP = 115,
-    
-    MAC_STATE_WAIT_FOR_DATA = 120,        
-    MAC_STATE_WAIT_FOR_CTS = 121,        
+
+    MAC_STATE_WAIT_FOR_DATA = 120,
+    MAC_STATE_WAIT_FOR_CTS = 121,
     MAC_STATE_WAIT_FOR_ACK = 122,
 };
 
@@ -54,36 +54,37 @@ struct TMacSchedule {
     int SN;
 };
 
-class TMacModule : public cSimpleModule 
+class TMacModule : public cSimpleModule
 {
-	private: 
+	private:
 	// parameters and variables
-		
+
 	/*--- A map from int value of state to its description (used in debug) ---*/
 	map <int, string> stateDescr;
 	map <string, int> packetsSent;
-	
+
 	/*--- The .ned file's parameters ---*/
 	bool printDebugInfo;
+	bool printDroppedPackets;
 	bool printStateTransitions;
 
 	int maxMACFrameSize;		//in bytes
 	int maxTxRetries;
 	int macFrameOverhead;		//in bytes
 	int macBufferSize;		//in # of messages
-		
+
 	int ackFrameSize;		//in bytes
 	int syncFrameSize;		//in bytes
 	int rtsFrameSize;		//in bytes
 	int ctsFrameSize;		//in bytes
-		
+
 	bool allowSinkSync;
 	int resyncTime;
 	double contentionPeriod;
 	double listenTimeout;
 	double waitTimeout;
 	bool useRtsCts;
-	bool useFRTS;		
+	bool useFRTS;
 	double frameTime;
 	bool disableTAextension;
 
@@ -100,9 +101,9 @@ class TMacModule : public cSimpleModule
 	double epsilon;				//used to keep/manage the order between two messages that are sent at the same simulation time
 	double cpuClockDrift;
 	double totalSimTime;
-	
+
 	/*--- TMAC state variables  ---*/
-	int macState;			
+	int macState;
 	int txAddr;			//current communication peer (can be BROADCAST)
 	int txRetries;			//number of transmission attempts to txAddr (when reaches 0 - packet is dropped)
 	bool primaryWakeup;		//used to distinguish between primary and secondary schedules
@@ -113,7 +114,7 @@ class TMacModule : public cSimpleModule
 	MAC_ControlMessage *carrierSenseMsg;
 	MAC_ControlMessage *nextFrameMsg;
 	MAC_ControlMessage *macTimeoutMsg;
-	
+
 	/*--- TMAC activation timeout variable ---*/
 	double activationTimeout;	//time untill MAC_CHECK_TA message arrival
 
@@ -131,10 +132,10 @@ class TMacModule : public cSimpleModule
 
 	/*--- TMAC transmission buffer ---*/
 	queue <Network_GenericFrame *> TXBuffer;
-	
+
 	/*--- TMAC Schedule table (list of effective schedules) ---*/
 	vector <TMacSchedule> scheduleTable;
-		
+
 	protected:
 	virtual void initialize();
 	virtual void handleMessage(cMessage *msg);
@@ -146,7 +147,7 @@ class TMacModule : public cSimpleModule
 	void createACKFrame(MAC_GenericFrame *retFrame);
 	int deliver2NextHop(const char *nextHop);
 	void resetDefaultState();
-	void setMacState(int newState);	
+	void setMacState(int newState);
 	void createPrimarySchedule();
 	void scheduleSyncFrame(double when);
 	void processMacFrame(MAC_GenericFrame *rcvFrame);

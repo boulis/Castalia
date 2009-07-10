@@ -8,8 +8,8 @@
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia
  *      Attention:  License Inquiry.
  ***************************************************************************/
- 
-#include <cmath>	
+
+#include <cmath>
 #include "TMacModule.h"
 
 #define DRIFTED_TIME(time) ((time) * cpuClockDrift)
@@ -19,13 +19,9 @@
 #define BASIC_INFO "\n[MAC-"<<self<<"-"<<simTime()<<"] "
 #define CASTALIA_DEBUG CASTALIA_DEBUG_OLD << BASIC_INFO
 
-/************************************************************************************************
- *						TMAC						*
- ************************************************************************************************/
-
 #define NAV_EXTENSION 		0.0001
-
 #define TX_TIME(x)		(phyLayerOverhead + x)*1/(1000*radioDataRate/8.0)		//x are in BYTES
+
 
 Define_Module(TMacModule);
 
@@ -33,7 +29,7 @@ void TMacModule::initialize() {
 	readIniFileParameters();
 
 	//Initialise state descriptions	used in debug output
-	
+
 	if (printStateTransitions) {
 	    stateDescr[100] = "MAC_STATE_SETUP";
 	    stateDescr[101] = "MAC_STATE_SLEEP";
@@ -50,7 +46,7 @@ void TMacModule::initialize() {
 	    stateDescr[121] = "MAC_STATE_WAIT_FOR_CTS";
 	    stateDescr[122] = "MAC_STATE_WAIT_FOR_ACK";
 	}
-	
+
 	//initialization of the class member variables
 
 	self = parentModule()->parentModule()->index();
@@ -59,12 +55,12 @@ void TMacModule::initialize() {
 	//instead of using extra messages & message types for tighlty coupled operations.
 	radioModule = check_and_cast<RadioModule*>(gate("toRadioModule")->toGate()->ownerModule());
 	radioDataRate = (double) radioModule->par("dataRate");
-	radioDelayForSleep2Listen = ((double) radioModule->par("delaySleep2Listen"))/1000.0;	
+	radioDelayForSleep2Listen = ((double) radioModule->par("delaySleep2Listen"))/1000.0;
 	radioDelayForValidCS = ((double) radioModule->par("delayCSValid"))/1000.0; //parameter given in ms in the omnetpp.ini
 
 	phyLayerOverhead = radioModule->par("phyFrameOverhead");
 	totalSimTime = ev.config()->getAsTime("General", "sim-time-limit");
-	
+
 	//get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
 	//instead of using extra messages & message types for tighlty coupled operations.
 	cModule *parentParent = parentModule()->parentModule();
@@ -72,9 +68,9 @@ void TMacModule::initialize() {
 	    resMgrModule = check_and_cast<ResourceGenericManager*>(parentParent->submodule("nodeResourceMgr"));
 	} else
 	    opp_error("\n[MAC]:\n Error in geting a valid reference to  nodeResourceMgr for direct method calls.");
-	
+
 	cpuClockDrift = resMgrModule->getCPUClockDrift();
-    
+
 	//try to obtain the value of isSink parameter from application module
 	if(parentParent->findSubmodule("nodeApplication") != -1) {
 	    cModule *tmpApplication = parentParent->submodule("nodeApplication");
@@ -84,8 +80,8 @@ void TMacModule::initialize() {
 	}
 
 	epsilon = 0.000001f; //senza f 1*10^(-6)  con 1*16^(-6)
-	disabled = 1;		
-	
+	disabled = 1;
+
 	/**************************************************************************************************
 	*			TMAC specific intialize
 	**************************************************************************************************/
@@ -94,16 +90,16 @@ void TMacModule::initialize() {
         rtsTxTime = ((double)(rtsFrameSize + macFrameOverhead + phyLayerOverhead)) * 8.0 / (1000.0 * radioDataRate);
 	ackTxTime = ((double)(ackFrameSize + macFrameOverhead + phyLayerOverhead)) * 8.0 / (1000.0 * radioDataRate);
 	ctsTxTime = ((double)(ctsFrameSize + macFrameOverhead + phyLayerOverhead)) * 8.0 / (1000.0 * radioDataRate);
-	
+
 	syncFrame = NULL;
 	rtsFrame = NULL;
 	ackFrame= NULL;
 	ctsFrame = NULL;
-	
+
 	carrierSenseMsg = NULL;
 	nextFrameMsg = NULL;
 	macTimeoutMsg = NULL;
-	
+
 	macState = MAC_STATE_SETUP;
 	scheduleTable.clear();
 	primaryWakeup = true;
@@ -121,7 +117,7 @@ void TMacModule::handleMessage(cMessage *msg) {
 
     switch (msgKind) {
 
-	/* This message is sent by the Application submodule in order to start/switch-on 
+	/* This message is sent by the Application submodule in order to start/switch-on
 	 * the MAC submodule.
 	 */
 	case APP_NODE_STARTUP: {
@@ -130,7 +126,7 @@ void TMacModule::handleMessage(cMessage *msg) {
 	    MAC_ControlMessage *csMsg = new MAC_ControlMessage("carrier sense strobe MAC->radio", MAC_2_RADIO_SENSE_CARRIER);
 	    csMsg->setSense_carrier_interval(totalSimTime);
 	    sendDelayed(csMsg,radioDelayForSleep2Listen+radioDelayForValidCS+epsilon ,"toRadioModule");
-		
+
 	    // initialise scheduling event (if this node is the sink and allowSinkSync is true, then
 	    // new primary schedule can be created right now, otherwise send MAC_SELF_SYNC_SETUP message
 	    // to self to start contending to be the author of a schedule
@@ -143,9 +139,9 @@ void TMacModule::handleMessage(cMessage *msg) {
 	    break;
 	}
 
-	
+
 	/* This message indicates that a packet is received from upper layer (Network)
-	 * First we check that the MAC buffer is capable of holding the new packet, also check 
+	 * First we check that the MAC buffer is capable of holding the new packet, also check
 	 * that length does not exceed the valid mac frame size. Then store a copy of the packet
 	 * is stored in transmission buffer. We dont need to encapsulate the message here - it will
 	 * be done separately for each transmission attempt
@@ -153,23 +149,23 @@ void TMacModule::handleMessage(cMessage *msg) {
 	case NETWORK_FRAME: {
 	    if (TXBuffer.size() >= macBufferSize) {
 		send(new MAC_ControlMessage("MAC buffer is full Radio->Mac", MAC_2_NETWORK_FULL_BUFFER), "toNetworkModule");
-		CASTALIA_DEBUG << "WARNING: SchedTxBuffer FULL! Application packet is dropped";
+		if (printDroppedPackets) CASTALIA_DEBUG << "WARNING: SchedTxBuffer FULL! Application/network layer packet is dropped";
 		break;
 	    }
-	    
+
 	    Network_GenericFrame *dataFrame = check_and_cast<Network_GenericFrame*>(msg->dup());
 	    if (dataFrame->byteLength() + macFrameOverhead > maxMACFrameSize) {
-		CASTALIA_DEBUG << "WARNING: Oversied packet dropped. Packet size:" << dataFrame->byteLength() 
+		if (printDroppedPackets) CASTALIA_DEBUG << "WARNING: Oversized packet dropped. Packet size:" << dataFrame->byteLength()
 		    << ", MAC overhead:" << macFrameOverhead << ", max MAC frame size:" << maxMACFrameSize;
 		cancelAndDelete(dataFrame);
 	    } else {
 		TXBuffer.push(dataFrame);
-		CASTALIA_DEBUG << "Packet accepted from network layer, buffer state: "<<TXBuffer.size()<<"/"<<macBufferSize;
+		if (printDroppedPackets) CASTALIA_DEBUG << "Packet accepted from network layer, buffer state: "<<TXBuffer.size()<<"/"<<macBufferSize;
 		if (TXBuffer.size() == 1) checkTxBuffer();
 	    }
 	    break;
 	}
-	
+
 
 	// These messages from the radio are currently unused
 	case RADIO_2_MAC_STARTED_TX: { break; }
@@ -185,12 +181,12 @@ void TMacModule::handleMessage(cMessage *msg) {
 		//if disableTAextension is on, then we will behave as SMAC - simply go to sleep if the active period is over
 		if (disableTAextension) {
 	    	    primaryWakeup = false;
-	    	    
+
 	    	    // update MAC and RADIO states
 	    	    setRadioState(MAC_2_RADIO_ENTER_SLEEP);
 	    	    setMacState(MAC_STATE_SLEEP);
-		
-		//otherwise, check MAC state and extend active period or go to sleep    
+
+		//otherwise, check MAC state and extend active period or go to sleep
 	    	} else if (macState != MAC_STATE_ACTIVE && macState != MAC_STATE_ACTIVE_SILENT && macState != MAC_STATE_SLEEP) {
 	    	    extendActivePeriod();
 	    	} else {
@@ -209,13 +205,13 @@ void TMacModule::handleMessage(cMessage *msg) {
 	     * primaryWakeup to true here.
 	     */
 	    primaryWakeup = true;
-	    
-	    // record the current time and extend activation timeout 
+
+	    // record the current time and extend activation timeout
 	    currentFrameStart = activationTimeout = simTime();
 	    extendActivePeriod();
-	    
-	    // schedule the message to start the next frame. Also check for frame offsets 
-	    // (if we received a RESYNC packet, frame start time could had been shifted due to 
+
+	    // schedule the message to start the next frame. Also check for frame offsets
+	    // (if we received a RESYNC packet, frame start time could had been shifted due to
 	    // clock drift - in this case it is necessary to rebroadcast this resync further)
 	    nextFrameMsg = new MAC_ControlMessage("Frame started", MAC_SELF_FRAME_START);
 	    scheduleAt(simTime() + DRIFTED_TIME(frameTime), nextFrameMsg);
@@ -224,16 +220,16 @@ void TMacModule::handleMessage(cMessage *msg) {
 		scheduleTable[0].offset = 0;
 		needResync = 1;
 	    } else {
-		CASTALIA_DEBUG << "New frame started";
+		if (printStateTransitions) CASTALIA_DEBUG << "New frame started";
 	    }
-	    
+
 	    // schedule wakeup messages for secondary schedules within the current frame only
 	    for (int i = 1; i < scheduleTable.size(); i++) {
 		if (scheduleTable[i].offset < 0) { scheduleTable[i].offset += frameTime; }
 		scheduleAt(simTime() + DRIFTED_TIME(scheduleTable[i].offset),
 		    new MAC_ControlMessage("Secondary schedule wakeup", MAC_SELF_WAKEUP_SILENT));
 	    }
-	    
+
 	    // finally, if we were sleeping, need to wake up the radio. And reset the internal MAC
 	    // state (to start contending for transmissions if needed)
 	    if (macState == MAC_STATE_SLEEP) setRadioState(MAC_2_RADIO_ENTER_LISTEN);
@@ -243,10 +239,10 @@ void TMacModule::handleMessage(cMessage *msg) {
 	    }
 	    break;
 	}
-	
+
 	/* This is the wakeup message for secondary schedule.
 	 * here we only wake up the radio and extend activation timeout for listening.
-	 * NOTE that default state for secondary schedules is MAC_STATE_ACTIVE_SILENT 
+	 * NOTE that default state for secondary schedules is MAC_STATE_ACTIVE_SILENT
 	 */
 	case MAC_SELF_WAKEUP_SILENT: {
 	    activationTimeout = simTime();
@@ -257,10 +253,10 @@ void TMacModule::handleMessage(cMessage *msg) {
 	    }
 	    break;
 	}
-		
-	
+
+
 	/* We recieved a MAC packet from the lower layer (Physical, or radio)
-	 * A separate function had been created to handle the task of processing 
+	 * A separate function had been created to handle the task of processing
 	 * these packets to allow for better and cleaner code structure
 	 */
 	case MAC_FRAME: {
@@ -268,54 +264,54 @@ void TMacModule::handleMessage(cMessage *msg) {
 	    processMacFrame(check_and_cast<MAC_GenericFrame*>(msg));
 	    break;
 	}
-	
-	
+
+
 	/* This self message indicates that carrier sense has to be performed
 	 */
 	case MAC_SELF_PERFORM_CARRIER_SENSE: {
 	    if (msg == carrierSenseMsg) carrierSenseMsg = NULL;
-	
+
 	    /* First it is important to check for valid MAC state
-	     * If we heard something on the radio while waiting to start carrier sense, 
-	     * then MAC was set to MAC_STATE_ACTIVE_SILENT. In this case we can not transmit 
+	     * If we heard something on the radio while waiting to start carrier sense,
+	     * then MAC was set to MAC_STATE_ACTIVE_SILENT. In this case we can not transmit
 	     * and there is no point to perform carrier sense
-	     */ 
+	     */
 	    if(macState == MAC_STATE_ACTIVE_SILENT || macState == MAC_STATE_SLEEP) break;
-	    
+
 	    // At this stage MAC can only be in one of the states MAC_CARRIER_SENSE_...
-	    if(macState != MAC_CARRIER_SENSE_FOR_TX_RTS && macState != MAC_CARRIER_SENSE_FOR_TX_CTS && 
+	    if(macState != MAC_CARRIER_SENSE_FOR_TX_RTS && macState != MAC_CARRIER_SENSE_FOR_TX_CTS &&
 		    macState != MAC_CARRIER_SENSE_FOR_TX_SYNC && macState != MAC_CARRIER_SENSE_FOR_TX_DATA &&
 		    macState != MAC_CARRIER_SENSE_FOR_TX_ACK && macState != MAC_CARRIER_SENSE_BEFORE_SLEEP) {
 		CASTALIA_DEBUG << "WARNING: bad MAC state for MAC_SELF_PERFORM_CARRIER_SENSE";
 		break;
 	    }
-	    
+
 	    /* Here we check for validiry of carrier sense of the radio module
-	     * (This can be seen as checking the pin which is the indicator of wether 
+	     * (This can be seen as checking the pin which is the indicator of wether
 	     * carrier sensed pin is valid or not)
 	     */
 	    int isCarrierSenseValid_ReturnCode = radioModule->isCarrierSenseValid();
 	    if(isCarrierSenseValid_ReturnCode == 1) {
 	        /* If carrier sense indication of Radio is Valid, then we can
-	         * send a command to perform Carrier Sense to the radio (i.e. check the 
+	         * send a command to perform Carrier Sense to the radio (i.e. check the
 	         * actual carrier sense pin)
 	         */
 	        send(new MAC_ControlMessage("carrier sense strobe MAC->radio", MAC_2_RADIO_SENSE_CARRIER_INSTANTANEOUS), "toRadioModule");
 	    } else {
-	        // carrier sense indication of Radio is NOT Valid and isCarrierSenseValid_ReturnCode 
+	        // carrier sense indication of Radio is NOT Valid and isCarrierSenseValid_ReturnCode
 	        // holds the cause for the non valid carrier sense indication
     		switch(isCarrierSenseValid_ReturnCode) {
-    		    
-    		    case RADIO_IN_TX_MODE: 
-    			/* This can happen if we did not allow sufficient time to the radio 
-			 * to finish the previous transmission. So we try to resend the 
+
+    		    case RADIO_IN_TX_MODE:
+    			/* This can happen if we did not allow sufficient time to the radio
+			 * to finish the previous transmission. So we try to resend the
 			 * carrier sense message with a delay
 			 */
 			CASTALIA_DEBUG << "WARNING: carrier sense while radio is in TX mode";
 			scheduleAt(simTime() + DRIFTED_TIME(radioDelayForValidCS), new MAC_ControlMessage("Enter carrier sense state MAC->MAC", MAC_SELF_PERFORM_CARRIER_SENSE));
-			break; 
-		
-		    case RADIO_SLEEPING: 
+			break;
+
+		    case RADIO_SLEEPING:
 			// This should not happen unless MAC and radio states get out of sync for an
 			// unknown reason. We will try to wake up the radio to synchronise the states
 			CASTALIA_DEBUG << "Radio is not ready to carrier sense yet ... will retry shortly";
@@ -324,13 +320,13 @@ void TMacModule::handleMessage(cMessage *msg) {
 			    scheduleAt(simTime() + DRIFTED_TIME(radioDelayForValidCS), new MAC_ControlMessage("Enter carrier sense state MAC->MAC", MAC_SELF_PERFORM_CARRIER_SENSE));
 			}
 			break;
-		    
-		    case RADIO_NON_READY: 
+
+		    case RADIO_NON_READY:
 			// Radio is not ready yet, resend the message to retry carrier sense after delay
 		        scheduleAt(simTime() + DRIFTED_TIME(radioDelayForValidCS), new MAC_ControlMessage("Enter carrier sense state MAC->MAC", MAC_SELF_PERFORM_CARRIER_SENSE));
 		        break;
-		        
-		    default: 
+
+		    default:
 			//Unknown reason for carrier sense fail
 		        CASTALIA_DEBUG << "Carrier sense indication of Radio is not valid: "<<isCarrierSenseValid_ReturnCode;
 		        resetDefaultState();
@@ -339,9 +335,9 @@ void TMacModule::handleMessage(cMessage *msg) {
 	    }
 	    break;
 	}
-	
-	
-	/* This message is a response from the radio to our request to preform carrier sense 
+
+
+	/* This message is a response from the radio to our request to preform carrier sense
 	 * A separate function had been created to handle the task of processing
 	 * this even to allow for better and cleaner code structure
 	 */
@@ -351,7 +347,7 @@ void TMacModule::handleMessage(cMessage *msg) {
 	}
 
 
-	/* This message is a response from the radio to our request to preform carrier sense 
+	/* This message is a response from the radio to our request to preform carrier sense
 	 * Since we are hearing some communication on the radio we need to do two things:
 	 * 1 - extend our active period
 	 * 2 - set MAC state to MAC_STATE_ACTIVE_SILENT unless we are actually expecting to receive
@@ -372,13 +368,13 @@ void TMacModule::handleMessage(cMessage *msg) {
 	    break;
 	}
 
-	
+
 	// Energy is depleted, MAC can no longer operate
 	case RESOURCE_MGR_OUT_OF_ENERGY: {
 	    disabled = 1;
 	    break;
-	}	
-		
+	}
+
 
 	/* This message is received when the timeout to hear a schedule packet has expired
 	 * at this stage, MAC is able to create its own schedule after a random offset
@@ -386,12 +382,12 @@ void TMacModule::handleMessage(cMessage *msg) {
 	 */
 	case MAC_SELF_SYNC_SETUP: {
 	    if (macState == MAC_STATE_SETUP) {
-		scheduleAt(simTime() + DRIFTED_TIME(genk_dblrand(1)*frameTime), 
+		scheduleAt(simTime() + DRIFTED_TIME(genk_dblrand(1)*frameTime),
 		    new MAC_ControlMessage("waiting for a SYNC msg", MAC_SELF_SYNC_CREATE));
 	    }
-	    break;		    
+	    break;
 	}
-	
+
 
 	/* This message is received when random offset selected for creating a new schedule
 	 * has expired. If at this stage still no schedule was received, MAC creates its own schedule
@@ -401,10 +397,10 @@ void TMacModule::handleMessage(cMessage *msg) {
 	    if (macState == MAC_STATE_SETUP) createPrimarySchedule();
 	    break;
 	}
-	
-	
+
+
 	/* This message is received only if this node is the author of its own primary schedule
-	 * It is required to rebroadcast a SYNC packet and also schedule a self message 
+	 * It is required to rebroadcast a SYNC packet and also schedule a self message
 	 * for the next RESYNC procedure.
 	 */
 	case MAC_SELF_SYNC_RENEW: {
@@ -412,13 +408,13 @@ void TMacModule::handleMessage(cMessage *msg) {
 	    scheduleTable[0].SN++;
 	    needResync = 1;
 	    scheduleAt(simTime() + DRIFTED_TIME(resyncTime),
-	        new MAC_ControlMessage("initiate resync procedure", MAC_SELF_SYNC_RENEW));    
+	        new MAC_ControlMessage("initiate resync procedure", MAC_SELF_SYNC_RENEW));
 	    break;
 	}
-	
+
 
 	/* This is a general timeout message. Here MAC just resets its internal state to default
-	 * (This can happen for example when MAC is waiting for an ACK packet which has not been 
+	 * (This can happen for example when MAC is waiting for an ACK packet which has not been
 	 * received)
 	 */
 	case MAC_TIMEOUT: {
@@ -426,8 +422,8 @@ void TMacModule::handleMessage(cMessage *msg) {
 	    resetDefaultState();
 	    break;
 	}
-	
-	
+
+
 	default: {
 	    CASTALIA_DEBUG << "WARNING: received packet of unknown type";
 	    break;
@@ -436,7 +432,7 @@ void TMacModule::handleMessage(cMessage *msg) {
     }//end_of_switch
 
     delete msg;
-    msg = NULL;		// safeguard		
+    msg = NULL;		// safeguard
 }
 
 
@@ -458,18 +454,19 @@ void TMacModule::finish() {
 
 void TMacModule::readIniFileParameters(void) {
     printDebugInfo = par("printDebugInfo");
+    printDroppedPackets = par("printDroppedPackets");
     printStateTransitions = par("printStateTransitions");
     maxMACFrameSize = par("maxMACFrameSize");
     macFrameOverhead = par("macFrameOverhead");
     ackFrameSize = par("ackFrameSize");
     macBufferSize = par("macBufferSize");
-    frameTime = ((double)par("frameTime"))/1000.0;		// just convert msecs to secs 									
+    frameTime = ((double)par("frameTime"))/1000.0;		// just convert msecs to secs
     syncFrameSize = par("syncFrameSize");
     rtsFrameSize = par("rtsFrameSize");
     ctsFrameSize = par("ctsFrameSize");
     resyncTime =  par("resyncTime");
     allowSinkSync = par("allowSinkSync");
-    contentionPeriod = ((double)par("contentionPeriod"))/1000.0;		// just convert msecs to secs 
+    contentionPeriod = ((double)par("contentionPeriod"))/1000.0;		// just convert msecs to secs
     listenTimeout = ((double)par("listenTimeout"))/1000.0;		// TA: just convert msecs to secs (15ms default);
     waitTimeout = ((double)par("waitTimeout"))/1000.0;
     useFRTS = par("useFrts");
@@ -511,7 +508,7 @@ void TMacModule::setRadioPowerLevel(int powLevel, double delay) {
  * 2 -  Check if MAC is in the primary schedule wakeup (if so, MAC is able to start transmissions
  *	of either SYNC, RTS or DATA packets after a random contention offset.
  * 3 -  IF this is not primary wakeup, MAC can only listen, thus set state to MAC_STATE_ACTIVE_SILENT
- */	
+ */
 void TMacModule::resetDefaultState()  {
     if (activationTimeout <= simTime()) {
 	performCarrierSense(MAC_CARRIER_SENSE_BEFORE_SLEEP);
@@ -519,10 +516,10 @@ void TMacModule::resetDefaultState()  {
 	if (needResync) {
 	    scheduleSyncFrame(genk_dblrand(1)*contentionPeriod);
 	    return;
-	} 
+	}
 	while (!TXBuffer.empty()) {
 	    if (txRetries <= 0) {
-		CASTALIA_DEBUG << "Transmission failed to " << txAddr;
+		if (printStateTransitions) CASTALIA_DEBUG << "Transmission failed to " << txAddr;
 		popTxBuffer();
 	    } else {
 		if (useRtsCts && txAddr != BROADCAST_ADDR) {
@@ -532,9 +529,9 @@ void TMacModule::resetDefaultState()  {
 		}
 		return;
 	    }
-	} 
+	}
 	setMacState(MAC_STATE_ACTIVE);
-    } else { 
+    } else {
 	//primaryWakeup == false
 	setMacState(MAC_STATE_ACTIVE_SILENT);
     }
@@ -575,7 +572,7 @@ void TMacModule::setMacState(int newState) {
     macState = newState;
 }
 
-/* This function will create a SYNC frame based on the current schedule table 
+/* This function will create a SYNC frame based on the current schedule table
  * Note that only SYNC frames of primary schedule can be created. Secondary schedule
  * SYNC frames are never created
  */
@@ -585,7 +582,7 @@ void TMacModule::scheduleSyncFrame(double delay) {
 	return;
     }
     TMacSchedule sch = scheduleTable[0];
-    if (syncFrame) cancelAndDelete(syncFrame); 
+    if (syncFrame) cancelAndDelete(syncFrame);
     syncFrame = new MAC_GenericFrame("SYNC message", MAC_FRAME);
     syncFrame->setKind(MAC_FRAME) ;
     syncFrame->getHeader().srcID = self;
@@ -598,17 +595,17 @@ void TMacModule::scheduleSyncFrame(double delay) {
 }
 
 
-/* This function will update schedule table with the given values for wakeup time, 
+/* This function will update schedule table with the given values for wakeup time,
  * schedule ID and schedule SN
  */
 void TMacModule::updateScheduleTable(double wakeup, int ID, int SN) {
-    // First, search through existing schedules 
+    // First, search through existing schedules
     for (int i = 0; i < scheduleTable.size(); i++) {
 	//If schedule already exists
-        if (scheduleTable[i].ID == ID) { 
+        if (scheduleTable[i].ID == ID) {
     	    //And SN is greater than ours, then update
-    	    if (scheduleTable[i].SN < SN) {	
-    		
+    	    if (scheduleTable[i].SN < SN) {
+
     		//Calculate new frame offset for this schedule
     		double new_offset = simTime() - currentFrameStart + wakeup - frameTime;
     		CASTALIA_DEBUG << "Resync successful for ID:"<<ID<<" old offset:"<<scheduleTable[i].offset<<" new offset:"<<new_offset;
@@ -617,25 +614,25 @@ void TMacModule::updateScheduleTable(double wakeup, int ID, int SN) {
 
     		if (i == 0) {
     		    //If the update came for primary schedule, then the next frame message has to be rescheduled
-    		    cancelAndDelete(nextFrameMsg);            
+    		    cancelAndDelete(nextFrameMsg);
     		    nextFrameMsg = new MAC_ControlMessage("Frame started", MAC_SELF_FRAME_START);
     		    scheduleAt(simTime() + DRIFTED_TIME(wakeup),nextFrameMsg);
     		    currentFrameStart += new_offset;
     		} else {
-    		    //This is not primary schedule, scheck that offset value falls within the 
-    		    //interval: 0 < offset < frameTime 
+    		    //This is not primary schedule, scheck that offset value falls within the
+    		    //interval: 0 < offset < frameTime
     		    if (scheduleTable[i].offset < 0) scheduleTable[i].offset += frameTime;
     		    if (scheduleTable[i].offset > frameTime) scheduleTable[i].offset -= frameTime;
     		}
-    		
+
 	    } else if (scheduleTable[i].SN > SN) {
-		/* TMAC received a sync with lower SN than what currently stored in the 
-		 * schedule table. With current TMAC implementation, this is not possible, 
-		 * however in future it may be neccesary to implement a unicast sync packet 
+		/* TMAC received a sync with lower SN than what currently stored in the
+		 * schedule table. With current TMAC implementation, this is not possible,
+		 * however in future it may be neccesary to implement a unicast sync packet
 		 * here to notify the source of this packet with the updated schedule
 		 */
 	    }
-	    
+
 	    //found and updated the schedule, nothing else need to be done
 	    return;
 	}
@@ -646,51 +643,51 @@ void TMacModule::updateScheduleTable(double wakeup, int ID, int SN) {
     newSch.ID = ID;
     newSch.SN = SN;
     CASTALIA_DEBUG << "Creating schedule ID:"<<ID<<", SN:"<<SN<<", wakeup:"<<wakeup;
-    
+
     //Calculate the offset for the new schedule
     if (currentFrameStart == -1) {
         //If currentFrameStart is -1 then this schedule will be the new primary schedule
         //and it's offset will always be 0
 	newSch.offset = 0;
     } else {
-	//This schedule is not primary, it is necessary to calculate the offset from primary 
-	//schedule for this new schedule 
+	//This schedule is not primary, it is necessary to calculate the offset from primary
+	//schedule for this new schedule
 	newSch.offset = simTime() - currentFrameStart + wakeup - frameTime;
     }
-    
+
     //Add new schedule to the table
     scheduleTable.push_back(newSch);
 
     //If the new schedule is primary, more things need to be done:
     if (currentFrameStart == -1) {
-	//This is new primary schedule, and since SYNC packet was received at this time, it is 
-	//safe to assume that nodes of this schedule are active and listening right now, 
+	//This is new primary schedule, and since SYNC packet was received at this time, it is
+	//safe to assume that nodes of this schedule are active and listening right now,
 	//so active period can be safely extended
 	currentFrameStart = activationTimeout = simTime();
 	currentFrameStart += wakeup - frameTime;
 	extendActivePeriod();
-	
+
 	//create and schedule the next frame message
 	nextFrameMsg = new MAC_ControlMessage("First frame start", MAC_SELF_FRAME_START);
 	scheduleAt(simTime() + DRIFTED_TIME(wakeup), nextFrameMsg);
-	
+
 	//this flag indicates that this schedule has to be rebroadcasted
 	needResync = 1;
-	
+
 	//MAC is reset to default state, allowing it to initiate and accept transmissions
 	resetDefaultState();
     }
 }
 
-/* This function will handle a MAC frame received from the lower layer (physical or radio) 
+/* This function will handle a MAC frame received from the lower layer (physical or radio)
  */
 void TMacModule::processMacFrame(MAC_GenericFrame *rcvFrame) {
 
     switch (rcvFrame->getHeader().frameType) {
-    	
+
 	/* received a RTS frame */
 	case MAC_PROTO_RTS_FRAME: {
-	    //If this node is the destination, reply with a CTS, otherwise 
+	    //If this node is the destination, reply with a CTS, otherwise
 	    //set a timeout and keep silent for the duration of communication
 	    if (rcvFrame->getHeader().destID == self) {
 		if (ctsFrame) cancelAndDelete(ctsFrame);
@@ -708,7 +705,7 @@ void TMacModule::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	    }
 	    break;
 	}
-	
+
 	/* received a CTS frame */
 	case MAC_PROTO_CTS_FRAME: {
 	    //If this CTS comes as a response to previously sent RTS, data transmission can be started
@@ -716,14 +713,14 @@ void TMacModule::processMacFrame(MAC_GenericFrame *rcvFrame) {
 		if(TXBuffer.empty()) {
 		    CASTALIA_DEBUG << "WARNING: invalid MAC_STATE_WAIT_FOR_CTS while buffer is empty";
 		    resetDefaultState();
-		} else if(rcvFrame->getHeader().srcID == txAddr) { 
+		} else if(rcvFrame->getHeader().srcID == txAddr) {
 		    clearTimeout();
 	            performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_DATA);
 		} else {
 		    CASTALIA_DEBUG << "WARNING: recieved unexpected CTS from "<<rcvFrame->getHeader().srcID;
 		    resetDefaultState();
 		}
-	    
+
 	    //If CTS is overheared from other transmission, keep silent
 	    } else if (macState == MAC_CARRIER_SENSE_FOR_TX_RTS && useFRTS) {
 	        //FRTS would need to be implemented here, for now just keep silent
@@ -734,32 +731,32 @@ void TMacModule::processMacFrame(MAC_GenericFrame *rcvFrame) {
 		updateTimeout(rcvFrame->getHeader().NAV - ctsTxTime);
 		setMacState(MAC_STATE_ACTIVE_SILENT);
 	    }
-	    
+
 	    break;
 	}
-	
+
 	/* received DATA frame */
 	case MAC_PROTO_DATA_FRAME: {
 	    int destAddr = rcvFrame->getHeader().destID;
-	    
+
 	    // If this is not broadcast frame and destination is not this node, do nothing
 	    if (destAddr != BROADCAST_ADDR && destAddr != self) break;
-	    
+
 	    // Otherwise forward the frame to upper layer
 	    Network_GenericFrame *netDataFrame;
 	    netDataFrame = check_and_cast<Network_GenericFrame *>(rcvFrame->decapsulate());
 	    netDataFrame->setRssi(rcvFrame->getRssi());
 	    send(netDataFrame, "toNetworkModule");
-	    
+
 	    // If the frame was sent to broadcast address, nothing else needs to be done
 	    if (destAddr == BROADCAST_ADDR) break;
-	    
+
 	    // If MAC was expecting this frame, clear the timeout
 	    if (macState == MAC_STATE_WAIT_FOR_DATA) clearTimeout();
-	    
+
 	    // Create and send an ACK frame (since this node is the destination for DATA frame)
 	    if (ackFrame) cancelAndDelete(ackFrame);
-	    ackFrame = new MAC_GenericFrame("ACK message", MAC_FRAME);  
+	    ackFrame = new MAC_GenericFrame("ACK message", MAC_FRAME);
 	    ackFrame->setKind(MAC_FRAME);
 	    ackFrame->getHeader().srcID = self;
 	    ackFrame->getHeader().destID = rcvFrame->getHeader().srcID;
@@ -768,14 +765,14 @@ void TMacModule::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	    performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_ACK);
 	    break;
 	}
-	
+
 	/* received ACK frame */
 	case MAC_PROTO_ACK_FRAME: {
 	    // If MAC was expecting this ack, then it is a successful transmission
 	    // otherwise do nothing
 	    if (macState == MAC_STATE_WAIT_FOR_ACK && rcvFrame->getHeader().destID == self) {
 		if (rcvFrame->getHeader().srcID == txAddr) {
-		    CASTALIA_DEBUG << "Transmission succesful to " << txAddr;
+		    if (printStateTransitions) CASTALIA_DEBUG << "Transmission succesful to " << txAddr;
 		    clearTimeout();
 		    popTxBuffer();
 		    resetDefaultState();
@@ -785,45 +782,45 @@ void TMacModule::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	    }
 	    break;
 	}
-	
+
 	/* received SYNC frame */
 	case MAC_PROTO_SYNC_FRAME: {
 	    int destAddr = rcvFrame->getHeader().destID;
-	    // In current implementation SYNC frames area always broadcast, 
+	    // In current implementation SYNC frames area always broadcast,
 	    // however the destination address is checked anyway
 	    if (destAddr != BROADCAST_ADDR && destAddr != self) break;
-	    
+
 	    // Schedule table is updated with values from the SYNC frame
 	    updateScheduleTable(rcvFrame->getHeader().SYNC, rcvFrame->getHeader().SYNC_ID, rcvFrame->getHeader().SYNC_SN);
-	    
-	    // The state is reset to default allowing further transmissions in this frame 
-	    // (since SYNC frame does not intend to have an ACK or any other communications 
+
+	    // The state is reset to default allowing further transmissions in this frame
+	    // (since SYNC frame does not intend to have an ACK or any other communications
 	    // immediately after it)
 	    resetDefaultState();
-	    break;				
+	    break;
 	}
-	
+
 	default: {
 	    CASTALIA_DEBUG << "WARNING: unknown frame type received " << rcvFrame->getHeader().frameType;
 	}
-    }	
+    }
 }
 
 /* This function handles carrier clear message, received from the radio module.
- * That is sent in a response to previous request to perform a carrier sense 
+ * That is sent in a response to previous request to perform a carrier sense
  */
 void TMacModule::carrierIsClear() {
 
     switch(macState) {
-    
+
 	/* MAC requested carrier sense to transmit an RTS packet */
 	case MAC_CARRIER_SENSE_FOR_TX_RTS: {
 	    if (TXBuffer.empty()) {
 		CASTALIA_DEBUG << "WARNING! BUFFER_IS_EMPTY in MAC_CARRIER_SENSE_FOR_TX_RTS, will reset state";
 		resetDefaultState();
 		break;
-	    }	
-	    
+	    }
+
 	    // create and send RTS frame
 	    if (rtsFrame) cancelAndDelete(rtsFrame);
 	    rtsFrame = new MAC_GenericFrame("RTS message", MAC_FRAME);
@@ -837,18 +834,18 @@ void TMacModule::carrierIsClear() {
 	    if (useRtsCts) txRetries--;
 	    packetsSent["RTS"]++;
 	    rtsFrame = NULL;
-	    
+
 	    // update MAC and RADIO states
 	    setRadioState(MAC_2_RADIO_ENTER_TX);
 	    setMacState(MAC_STATE_WAIT_FOR_CTS);
-	    
-	    // create a timeout for expecting a CTS reply 
+
+	    // create a timeout for expecting a CTS reply
 	    updateTimeout(rtsTxTime + waitTimeout);
 
 	    break;
 	}
 
-	/* MAC requested carrier sense to transmit a SYNC packet */	
+	/* MAC requested carrier sense to transmit a SYNC packet */
 	case MAC_CARRIER_SENSE_FOR_TX_SYNC: {
 	    // SYNC packet was created in scheduleSyncPacket function
 	    if (syncFrame != NULL) {
@@ -864,18 +861,18 @@ void TMacModule::carrierIsClear() {
 		// update MAC and RADIO states
 		setRadioState(MAC_2_RADIO_ENTER_TX);
 		setMacState(MAC_STATE_IN_TX);
-		
+
 		// create a timeout for this transmission - nothing is expected in reply
 		// so MAC is only waiting for the RADIO to finish the packet transmission
 		updateTimeout(syncTxTime);
-		
+
 	    } else {
 		CASTALIA_DEBUG << "WARNING: Invalid MAC_CARRIER_SENSE_FOR_TX_SYNC while syncFrame undefined";
 		resetDefaultState();
 	    }
 	    break;
 	}
-	
+
 	/* MAC requested carrier sense to transmit a CTS packet */
 	case MAC_CARRIER_SENSE_FOR_TX_CTS: {
 	    // CTS packet was created when RTS was received
@@ -884,21 +881,21 @@ void TMacModule::carrierIsClear() {
 		send(ctsFrame, "toRadioModule");
 		packetsSent["CTS"]++;
 		ctsFrame = NULL;
-		
+
 		// update MAC and RADIO states
 		setRadioState(MAC_2_RADIO_ENTER_TX);
 		setMacState(MAC_STATE_WAIT_FOR_DATA);
-		
+
 		// create a timeout for expecting a DATA packet reply
 		updateTimeout(ctsTxTime + waitTimeout);
 
 	    } else {
 		CASTALIA_DEBUG << "WARNING: Invalid MAC_CARRIER_SENSE_FOR_TX_CTS while ctsFrame undefined";
 		resetDefaultState();
-	    } 
+	    }
 	    break;
 	}
-					
+
 	/* MAC requested carrier sense to transmit DATA packet */
 	case MAC_CARRIER_SENSE_FOR_TX_DATA: {
 	    if (TXBuffer.empty()) {
@@ -906,8 +903,8 @@ void TMacModule::carrierIsClear() {
 		resetDefaultState();
 		break;
 	    }
-	    
-	    // Create a new MAC frame, encapsulate the first network data packet from MAC 
+
+	    // Create a new MAC frame, encapsulate the first network data packet from MAC
 	    // transmission buffer and send it to the radio
 	    MAC_GenericFrame *macFrame = new MAC_GenericFrame("MAC data frame", MAC_FRAME);
 	    macFrame->setByteLength(macFrameOverhead); //extra bytes will be added after the encapsulation
@@ -915,27 +912,27 @@ void TMacModule::carrierIsClear() {
 	    macFrame->getHeader().destID = txAddr;
 	    macFrame->getHeader().frameType = MAC_PROTO_DATA_FRAME;
 	    macFrame->encapsulate(check_and_cast<Network_GenericFrame *>(TXBuffer.front()->dup()));
-	    send(macFrame,"toRadioModule"); 
+	    send(macFrame,"toRadioModule");
 	    packetsSent["DATA"]++;
-	    
+
 	    //update MAC state based on transmission time and destination address
 	    double txTime = TX_TIME(macFrame->byteLength());
-	    
+
 	    if (txAddr == BROADCAST_ADDR) {
 		// This packet is broadcast, so no reply will be received
-		// The packet can be cleared from transmission buffer 
+		// The packet can be cleared from transmission buffer
 		// and MAC timeout is only to allow RADIO to finish the transmission
 		popTxBuffer();
 		setMacState(MAC_STATE_IN_TX);
 		updateTimeout(txTime);
 	    } else {
-		// This packet is unicast, so MAC will be expecting an ACK 
+		// This packet is unicast, so MAC will be expecting an ACK
 		// packet in reply, so the timeout is longer
 		if (!useRtsCts) txRetries--;
 	        setMacState(MAC_STATE_WAIT_FOR_ACK);
 	        updateTimeout(txTime + waitTimeout);
 	    }
-	    
+
 	    //update RADIO state
 	    setRadioState(MAC_2_RADIO_ENTER_TX, epsilon);
 	    break;
@@ -949,28 +946,28 @@ void TMacModule::carrierIsClear() {
 		send(ackFrame, "toRadioModule");
 		packetsSent["ACK"]++;
 		ackFrame = NULL;
-		
+
 		// update MAC and RADIO states
 		setRadioState(MAC_2_RADIO_ENTER_TX, epsilon);
 		setMacState(MAC_STATE_IN_TX);
-		
+
 		// create a timeout for this transmission - nothing is expected in reply
 		// so MAC is only waiting for the RADIO to finish the packet transmission
 		updateTimeout(ackTxTime);
-		
+
 	    } else {
 	    	CASTALIA_DEBUG << "WARNING: Invalid MAC_STATE_WAIT_FOR_ACK while ackFrame undefined";
 	    	resetDefaultState();
 	    }
 	    break;
 	}
-	
+
 	/* MAC requested carrier sense before going to sleep */
 	case MAC_CARRIER_SENSE_BEFORE_SLEEP: {
 	    // primaryWakeup flag is cleared (in case the node will wake up in the current frame
 	    // for a secondary schedule)
 	    primaryWakeup = false;
-	    
+
 	    // update MAC and RADIO states
 	    setRadioState(MAC_2_RADIO_ENTER_SLEEP);
 	    setMacState(MAC_STATE_SLEEP);
@@ -981,7 +978,7 @@ void TMacModule::carrierIsClear() {
 
 /* This function will create a request to RADIO module to perform carrier sense.
  * MAC state is important when performing CS, so setMacState is always called here.
- * delay allows to perform a carrier sense after a choosen delay (useful for 
+ * delay allows to perform a carrier sense after a choosen delay (useful for
  * randomisation of transmissions)
  */
 void TMacModule::performCarrierSense(int newState, double delay) {
@@ -991,9 +988,9 @@ void TMacModule::performCarrierSense(int newState, double delay) {
     scheduleAt(simTime() + epsilon + (delay > 0 ? DRIFTED_TIME(delay) : 0), carrierSenseMsg);
 }
 
-/* This function will extend active period for MAC, ensuring that the remaining active 
+/* This function will extend active period for MAC, ensuring that the remaining active
  * time it is not less than listenTimeout value. Also a check TA message is scheduled here
- * to allow the node to go to sleep if activation timeout expires 
+ * to allow the node to go to sleep if activation timeout expires
  */
 void TMacModule::extendActivePeriod() {
     double curTime = simTime();
@@ -1013,11 +1010,11 @@ void TMacModule::checkTxBuffer() {
     txRetries = maxTxRetries;
 }
 
-/* This function will remove the first packet from MAC transmission buffer 
+/* This function will remove the first packet from MAC transmission buffer
  * checkTxBuffer is called in case there are still packets left in the buffer to transmit
  */
 void TMacModule::popTxBuffer() {
     cancelAndDelete(TXBuffer.front());
     TXBuffer.pop();
-    checkTxBuffer();	
+    checkTxBuffer();
 }

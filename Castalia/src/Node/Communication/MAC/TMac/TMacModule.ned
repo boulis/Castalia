@@ -14,6 +14,7 @@ simple TMacModule
     parameters:
 		//debug parameters
 		printDebugInfo		: const,
+		printDroppedPackets	: const,
     	        printStateTransitions	: const,
     
 		//mac layer parameters

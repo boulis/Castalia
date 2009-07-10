@@ -444,6 +444,16 @@ void TMacModule::finish() {
     while(!TXBuffer.empty()) {
         popTxBuffer();
     }
+    if (packetsSent.size() > 0) {
+	CASTALIA_DEBUG << "Sent packets breakdown: ";
+	int total = 0;
+	for (map<string,int>::iterator i = packetsSent.begin();
+	    i != packetsSent.end(); i++) {
+	    CASTALIA_DEBUG << i->first << ": " << i->second;
+	    total += i->second;
+	}
+	CASTALIA_DEBUG << "Total: " << total << "\n";
+    }
 }
 
 void TMacModule::readIniFileParameters(void) {
@@ -824,6 +834,8 @@ void TMacModule::carrierIsClear() {
  	    rtsFrame->getHeader().frameType = MAC_PROTO_RTS_FRAME;
 	    rtsFrame->setByteLength(rtsFrameSize);
 	    send(rtsFrame, "toRadioModule");
+	    if (useRtsCts) txRetries--;
+	    packetsSent["RTS"]++;
 	    rtsFrame = NULL;
 	    
 	    // update MAC and RADIO states
@@ -842,6 +854,8 @@ void TMacModule::carrierIsClear() {
 	    if (syncFrame != NULL) {
 		// Send SYNC packet to radio
 		send(syncFrame, "toRadioModule");
+
+		packetsSent["SYNC"]++;
 		syncFrame = NULL;
 
 		// Clear the resync flag
@@ -868,6 +882,7 @@ void TMacModule::carrierIsClear() {
 	    if (ctsFrame != NULL) {
 		// Send CTS packet to radio
 		send(ctsFrame, "toRadioModule");
+		packetsSent["CTS"]++;
 		ctsFrame = NULL;
 		
 		// update MAC and RADIO states
@@ -901,6 +916,7 @@ void TMacModule::carrierIsClear() {
 	    macFrame->getHeader().frameType = MAC_PROTO_DATA_FRAME;
 	    macFrame->encapsulate(check_and_cast<Network_GenericFrame *>(TXBuffer.front()->dup()));
 	    send(macFrame,"toRadioModule"); 
+	    packetsSent["DATA"]++;
 	    
 	    //update MAC state based on transmission time and destination address
 	    double txTime = TX_TIME(macFrame->byteLength());
@@ -914,9 +930,8 @@ void TMacModule::carrierIsClear() {
 		updateTimeout(txTime);
 	    } else {
 		// This packet is unicast, so MAC will be expecting an ACK 
-		// packet in reply. Here it is needed to decrement the 
-		// counter for transmission attemts and timeout is longer.
-		txRetries--;
+		// packet in reply, so the timeout is longer
+		if (!useRtsCts) txRetries--;
 	        setMacState(MAC_STATE_WAIT_FOR_ACK);
 	        updateTimeout(txTime + waitTimeout);
 	    }
@@ -932,6 +947,7 @@ void TMacModule::carrierIsClear() {
 	    if(ackFrame != NULL) {
 		// Send ACK packet to the radio
 		send(ackFrame, "toRadioModule");
+		packetsSent["ACK"]++;
 		ackFrame = NULL;
 		
 		// update MAC and RADIO states

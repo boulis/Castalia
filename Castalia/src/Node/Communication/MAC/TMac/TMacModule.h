@@ -61,6 +61,7 @@ class TMacModule : public cSimpleModule
 		
 	/*--- A map from int value of state to its description (used in debug) ---*/
 	map <int, string> stateDescr;
+	map <string, int> packetsSent;
 	
 	/*--- The .ned file's parameters ---*/
 	bool printDebugInfo;

@@ -19,12 +19,20 @@ simple throughputTest_ApplicationModule
 
     parameters:
     	applicationID:  string,
+    	
     	printDebugInfo:	bool,
-		priority 	  : const,
-		maxAppPacketSize  : const,	// in bytes
-		packetHeaderOverhead: const,	// in bytes
-		constantDataPayload:const,	// in bytes
-		packet_rate: const;   
+
+	latencyHistogramMin: 	const,
+	latencyHistogramMax: 	const,
+	latencyHistogramBuckets: const,
+	
+	nextRecipient: const,
+	
+	priority 	  : const,
+	maxAppPacketSize  : const,	// in bytes
+	packetHeaderOverhead: const,	// in bytes
+	constantDataPayload:const,	// in bytes
+	packet_rate: const;   
 
     gates:
         out:	toCommunicationModule, toSensorDeviceManager;

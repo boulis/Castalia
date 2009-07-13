@@ -33,7 +33,8 @@ message App_GenericDataPacket
     fields:
         AppHeaderInfo header;
         
-		// simulation-specific fields
-		double rssi;
-		string currentPathFromSource;
+	// simulation-specific fields
+	double rssi;
+	double timestamp;
+	string currentPathFromSource;
 };

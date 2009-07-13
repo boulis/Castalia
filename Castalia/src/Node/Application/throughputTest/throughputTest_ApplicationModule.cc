@@ -66,22 +66,24 @@ void throughputTest_ApplicationModule::initialize()
 	applicationID.assign(tmpID);
 
 	printDebugInfo = par("printDebugInfo");
-
+		
 	priority = par("priority");
-
 	maxAppPacketSize = par("maxAppPacketSize");
-
 	packetHeaderOverhead = par("packetHeaderOverhead");
-
 	constantDataPayload = par("constantDataPayload");
-
 	packet_rate = hasPar("packet_rate") ? par("packet_rate") : 0;
-	
 	nextRecipient = hasPar("nextRecipient") ? par("nextRecipient") : 0;
 	
 	sprintf(selfAddr, "%i", self);
 	sprintf(dstAddr, "%i", nextRecipient);
-
+	
+	latencyHistogramMin = hasPar("latencyHistogramMin") ? par("latencyHistogramMin") : 0;
+	latencyHistogramMax = hasPar("latencyHistogramMax") ? par("latencyHistogramMax") : 1000;
+	latencyHistogramBuckets = hasPar("latencyHistogramBuckets") ? par("latencyHistogramBuckets") : 50;
+	latencyHistogram.setRange(latencyHistogramMin,latencyHistogramMax);
+	latencyHistogram.setNumCells(latencyHistogramBuckets);
+	latencyOverflow = 0;
+	
 	char buff[30];
 	sprintf(buff, "Application Vector of Node %d", self);
 	appVector.setName(buff);
@@ -180,6 +182,9 @@ void throughputTest_ApplicationModule::handleMessage(cMessage *msg)
 			
 			if (nextRecipient == self) {
 			    update_packets_received(atoi(msgSender.c_str()),sequenceNumber);
+			    long latency = lround((simTime() - rcvPacket->getTimestamp())*1000);
+			    if (latency > latencyHistogramMax) latencyOverflow++; 
+			    latencyHistogram.collect(latency);
 			} else {
 			    throughputTest_DataPacket *dupPacket = check_and_cast<throughputTest_DataPacket *>(rcvPacket->dup());
 			    dupPacket->getHeader().destination = dstAddr;
@@ -354,9 +359,21 @@ void throughputTest_ApplicationModule::finish()
 			EV << "[" << self << "<--" << i->first << "]\t -->\t " << i->second.packets_received.size() << "\n";
 			total_packets_received += i->second.packets_received.size();
 		}
-		EV << "total number of packets received is: " << total_packets_received << "\n";
+		EV << "total number of packets received is: " << total_packets_received << "\n";	
 	}
-
+	
+	if (packet_info_table.size() > 0) {
+	    EV << "\npacket latency in ms:\n";
+	    EV << "  min: "<<latencyHistogram.min()<<",  max: "<<latencyHistogram.max()<<
+	      ",  avg: "<<latencyHistogram.mean()<<",  variance: "<<latencyHistogram.variance()<<"\n";
+	    EV << "Latency historgram from " << latencyHistogramMin << " to " << latencyHistogramMax << ":\n";
+	    for (int i=0; i<latencyHistogram.cells(); i++)
+	    {
+		EV << latencyHistogram.cell(i) << " ";
+	    }
+	    EV << "\nSamples above " << latencyHistogramMax << ": " << latencyOverflow << "\n\n";
+	}
+	
 	// output the spent energy of the node
 	EV << "Node [" << self << "] spent energy: " << resMgrModule->getSpentEnergy() << "\n";
 	if (packets_lost_at_network || packets_lost_at_mac) {
@@ -379,13 +396,11 @@ void throughputTest_ApplicationModule::send2NetworkDataPacket(const char *destID
 		throughputTest_DataPacket *packet2Net;
 		packet2Net = new throughputTest_DataPacket("Application Packet Application->Mac", APP_DATA_PACKET);
 		packet2Net->setData(data);
-
+		packet2Net->setTimestamp(simTime());
+		
 		packet2Net->getHeader().applicationID = applicationID.c_str();
-
 		packet2Net->getHeader().source = selfAddr;
-
 		packet2Net->getHeader().destination = destID;
-
 		packet2Net->getHeader().seqNumber = pckSeqNumber;
 
 		if(constantDataPayload > 0)

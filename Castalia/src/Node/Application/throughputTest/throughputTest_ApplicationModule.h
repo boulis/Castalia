@@ -20,6 +20,7 @@
 #include <string>
 #include <map>
 #include "SensorDevMgr_GenericMessage_m.h"
+#include <chist.h>
 
 /*** 
      You have to MODIFY the following "#define" statement by placing the
@@ -47,11 +48,21 @@ class throughputTest_ApplicationModule : public cSimpleModule
 	/*--- The .ned file's parameters ---*/
 		string applicationID;
 		bool printDebugInfo;
+
+		int latencyHistogramMin;
+		int latencyHistogramMax;
+		int latencyHistogramBuckets;
+
 		int priority;
 		int maxAppPacketSize;
 		int packetHeaderOverhead;
 		int constantDataPayload;
+		int nextRecipient;
 		double packet_rate;
+	
+	/*--- Latency calculation parameters ---*/
+		cLongHistogram latencyHistogram;
+		int latencyOverflow;
 		
 	/*--- Custom class parameters ---*/
 		int self;	// the node's ID
@@ -72,7 +83,6 @@ class throughputTest_ApplicationModule : public cSimpleModule
 		int packets_lost_at_mac;
 		int packets_lost_at_network;
 		int dataSN;
-		int nextRecipient;
 		
 		char selfAddr[16];
 		char dstAddr[16];

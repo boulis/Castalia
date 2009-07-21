@@ -645,8 +645,6 @@ void RadioModule::handleMessage(cMessage *msg)
 			}
 			else
 			{
-				CASTALIA_DEBUG << "\n[Radio_" << self << "] " << ((simTime() - startListeningTime) - currentRxDuration);
-				
 				if(printDropped)
 				{
 					if(isBeacon(macFrame))

@@ -42,7 +42,7 @@ enum MAC_ControlMessageType
 
 	MAC_2_NETWORK_FULL_BUFFER = 2014;
 	
-	//TMAC specific control msg
+	//TMAC specific control messages
 	MAC_SELF_SYNC_SETUP 	  = 201;
 	MAC_SELF_SYNC_CREATE	  = 202;
 	MAC_SELF_SYNC_RENEW	  = 203;
@@ -51,6 +51,12 @@ enum MAC_ControlMessageType
 	MAC_SELF_CHECK_TA 	  = 206;
 	
 	MAC_TIMEOUT = 210;
+	
+	//802.15.4 specific control messages
+
+	MAC_SELF_PERFORM_CCA = 301;
+	MAC_SELF_RESET_TX = 302;
+	MAC_SELF_BEACON_TIMEOUT = 303;
 };
 
 

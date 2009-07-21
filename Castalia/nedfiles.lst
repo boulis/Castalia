@@ -11,6 +11,7 @@
 ./src/Node/Communication/MAC/BypassMac/BypassMacModule.ned
 ./src/Node/Communication/MAC/TunableMac/TunableMacModule.ned
 ./src/Node/Communication/MAC/MacGenericModule.ned
+./src/Node/Communication/MAC/802154Mac/Mac_802.15.4_Module.ned
 ./src/Node/Communication/Radio/RadioModule.ned
 ./src/Node/Communication/CommunicationModule.ned
 ./src/Node/Communication/Network/BypassRouting/BypassRoutingModule.ned

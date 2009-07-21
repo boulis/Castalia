@@ -144,8 +144,7 @@ class TMacModule : public cSimpleModule
 	void setRadioState(MAC_ControlMessageType typeID, double delay=0);
 	void setRadioTxMode(Radio_TxMode txTypeID, double delay=0);
 	void setRadioPowerLevel(int powLevel, double delay=0);
-	void createACKFrame(MAC_GenericFrame *retFrame);
-	int deliver2NextHop(const char *nextHop);
+	
 	void resetDefaultState();
 	void setMacState(int newState);
 	void createPrimarySchedule();

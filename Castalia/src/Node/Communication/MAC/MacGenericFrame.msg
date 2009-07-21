@@ -33,6 +33,11 @@ enum MAC_ProtocolFrameType
 	MAC_PROTO_CTS_FRAME = 95;
 	MAC_PROTO_DS_FRAME  = 96;
 	MAC_PROTO_FRTS_FRAME = 97;
+	
+	MAC_802154_BEACON_FRAME = 1001;
+	MAC_802154_ASSOCIATE_FRAME = 1002
+	MAC_802154_DATA_FRAME = 1003;
+	MAC_802154_ACK_FRAME = 1004;
 };
 
 cplusplus {{
@@ -47,19 +52,35 @@ struct macHeaderInfo
 		int srcID;
 		int destID;
 	
-	//field for Tmac
+	//fields for Tmac
 		int dataSequenceNumber;
 		double NAV;
 		double SYNC;
 		int SYNC_ID;
 		int SYNC_SN;
+	
+	//fields for 802.15.4
+		int PANid;
+		int beaconOrder;
+		int frameOrder;
+		int BSN;
+		int CAPlength;
 };
 
+struct GTSspec
+{
+    fields:
+	int owner;
+	int start;
+	int length;
+}
 
 message MAC_GenericFrame
 {
     fields:
 	macHeaderInfo header;
+
+	GTSspec GTSlist[]; //for 802.15.4
 
 	double rssi;
 };

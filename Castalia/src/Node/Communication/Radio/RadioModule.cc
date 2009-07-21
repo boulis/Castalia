@@ -337,9 +337,9 @@ void RadioModule::handleMessage(cMessage *msg)
 				    CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << 
 					": ERROR: Radio received from MAC sense carrier command while in TX state!\n";
 
-				    fprintf(stderr,"***************************************************************************");
-				    fprintf(stderr,"* ERROR: Radio received from MAC sense carrier command while in TX state! *");
-				    fprintf(stderr,"***************************************************************************");
+				    fprintf(stderr,"***************************************************************************\n");
+				    fprintf(stderr,"* ERROR: Radio received from MAC sense carrier command while in TX state! *\n");
+				    fprintf(stderr,"***************************************************************************\n");
 				}
 
 				case RADIO_STATE_SLEEP:
@@ -348,9 +348,9 @@ void RadioModule::handleMessage(cMessage *msg)
 				    CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << 
 					": ERROR: Radio received from MAC sense carrier command while in SLEEP state!\n";
 				    
-				    fprintf(stderr,"******************************************************************************");
-				    fprintf(stderr,"* ERROR: Radio received from MAC sense carrier command while in SLEEP state! *");
-				    fprintf(stderr,"******************************************************************************");
+				    fprintf(stderr,"******************************************************************************\n");
+				    fprintf(stderr,"* ERROR: Radio received from MAC sense carrier command while in SLEEP state! *\n");
+				    fprintf(stderr,"******************************************************************************\n");
 
 				}
 				
@@ -620,13 +620,13 @@ void RadioModule::handleMessage(cMessage *msg)
 
 			double currentRxDuration;
 			currentRxDuration = frameLen * 8.0f / (1000.0f * dataRate);
+			
 
 			MAC_GenericFrame *macFrame;
 			macFrame = (check_and_cast<MAC_GenericFrame *>(rcvFrame->decapsulate()));
 			macFrame->setRssi(rcvFrame->getRssi());
 
-			
-			if((radioState == RADIO_STATE_LISTEN) && ((simTime() - startListeningTime) > currentRxDuration) )
+			if((radioState == RADIO_STATE_LISTEN) && ((simTime() - startListeningTime) >= currentRxDuration) )
 			{
 				if (macFrame->getHeader().frameType == MAC_PROTO_BEACON_FRAME)
 					CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": RX beacon from node " << (macFrame->getHeader()).srcID ;
@@ -645,6 +645,8 @@ void RadioModule::handleMessage(cMessage *msg)
 			}
 			else
 			{
+				CASTALIA_DEBUG << "\n[Radio_" << self << "] " << ((simTime() - startListeningTime) - currentRxDuration);
+				
 				if(printDropped)
 				{
 					if(isBeacon(macFrame))

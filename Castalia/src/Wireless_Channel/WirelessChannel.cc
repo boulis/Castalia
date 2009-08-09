@@ -294,6 +294,17 @@ void WirelessChannel::initialize() {
 	        	goodLinkSNRdB = 10.0 * log10(   (dataRate/noiseBandwidth) * pow(erfcInv(2.0 * ( 1.0 - pow(GOOD_LINK_PROB_THRESHOLD, 1.0/(8.0*maxPacketSize)) )), 2.0)   );
           		break;
 
+ 		case MODULATION_DIFFBPSK:
+	      		thresholdSNRdB = 10.0 * log10( -(dataRate/noiseBandwidth) * log( 2.0 * (1.0 -  pow(BAD_LINK_PROB_THRESHOLD, 1.0/(8.0*minPacketSize))) )   );
+	      		goodLinkSNRdB =  10.0 * log10( -(dataRate/noiseBandwidth) * log( 2.0 * (1.0 -  pow(GOOD_LINK_PROB_THRESHOLD, 1.0/(8.0*maxPacketSize))) )   );
+	          	break;
+
+		case MODULATION_DIFFQPSK:
+	      		thresholdSNRdB = 6.0;   // for more info look at the diffQPSK_SNR2BER function
+	      		goodLinkSNRdB =  12.2;  //  found in WCSupportFunctions.cc
+	          	break;
+
+
 		case MODULATION_CUSTOM:
 			thresholdSNRdB = customModulationArray[0].SNR;   // the first element of the SNR_TO_BER array
 			goodLinkSNRdB = customModulationArray[numOfCustomModulationValues-1].SNR;  // the last element of the SNR_TO_BER array
@@ -775,10 +786,17 @@ float WirelessChannel::calculateProb(float SNR_dB, int packetByteSize)
 	switch (modulationType){
 
 		case MODULATION_FSK:
-			return pow( 1.0 - 0.5 * exp( ((-0.5) * noiseBandwidth / dataRate)* pow(10.0, (SNR_dB/10.0))), (8.0*packetByteSize));
+			return pow( 1.0 - 0.5 * exp(((-0.5) * noiseBandwidth / dataRate)* pow(10.0, (SNR_dB/10.0))), (8.0*packetByteSize));
 
 		case MODULATION_PSK:
-          		return pow( 1.0 - 0.5 * erfc( sqrt(pow(10.0,(SNR_dB/10.0)) * noiseBandwidth / dataRate)), (8.0*packetByteSize));
+          	return pow( 1.0 - 0.5 * erfc(sqrt(pow(10.0,(SNR_dB/10.0)) * noiseBandwidth / dataRate)), (8.0*packetByteSize));
+
+		case MODULATION_DIFFBPSK:
+			return pow( 1.0 - 0.5 * exp((noiseBandwidth / dataRate)* pow(10.0, (SNR_dB/10.0))), (8.0*packetByteSize));
+
+		case MODULATION_DIFFQPSK:
+			return pow( 1.0 - diffQPSK_SNR2BER(SNR_dB), (8.0*packetByteSize));
+
 
 		case MODULATION_CUSTOM:
 		    if (goodLinkSNRdB - SNR_dB < SNR_dB - thresholdSNRdB) {
@@ -815,29 +833,19 @@ void WirelessChannel::readIniFileParameters(void)
 {
  	string tempDebugFname(parentModule()->par("debugInfoFilename"));
 	DebugInfoWriter::setDebugFileName(tempDebugFname);
-
 	printDebugInfo = par("printDebugInfo");
-
 	printStatistics = par("printStatistics");
 
 	onlyStaticNodes = par("onlyStaticNodes");
-
 	pathLossExponent = par("pathLossExponent");
-
 	sigma = par("sigma");
-
 	bidirectionalSigma = par("bidirectionalSigma");
-
 	PLd0 = par("PLd0");
-
 	d0 = par("d0");
 
 	pathLossMapFile = par("pathLossMapFile");
-
 	PRRMapFile = par("PRRMapFile");
-
 	temporalModelParametersFile = par("temporalModelParametersFile");
-
 
 	numOfNodes = parentModule()->par("numNodes");
 	xFieldSize = parentModule()->par("field_x");
@@ -883,6 +891,10 @@ void WirelessChannel::readIniFileParameters(void)
 		    modulationType = MODULATION_FSK;
 		} else if (strncmp(modulationTypeParam,"PSK",3) == 0) {
 		    modulationType = MODULATION_PSK;
+		} else if (strncmp(modulationTypeParam,"DiffBPSK",8) == 0) {
+		    modulationType = MODULATION_DIFFBPSK;
+		} else if (strncmp(modulationTypeParam,"DiffQPSK",8) == 0) {
+		    modulationType = MODULATION_DIFFQPSK;
 		} else if (strncmp(modulationTypeParam,"CUSTOM",6) == 0) {
 		    modulationType = MODULATION_CUSTOM;
 
@@ -1043,21 +1055,21 @@ void WirelessChannel::parsePrrMap(void)
     while (getline(f,s)) {
 	ct = s.c_str();				//ct points to the beginning of a line
 	while (ct[0] && (ct[0] == ' ' || ct[0] == '\t')) ct++;
-	
+
 	if (ct[0] == '#') continue;		//check for comments, then try to parse the value for source ID
 	if (parseInt(ct,&source)) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");
-	
+
 	while (ct[0] && ct[0] != ',') ct++;	//skip until ',' character, then try to parse the value for packet size
 	if (parseInt(++ct,&packetSize)) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");
-	
+
 	while (ct[0] && ct[0] != ',') ct++;	//skip until ',' character, then try to parse the value for source TX power
 	if (parseFloat(++ct,&sourceTxPower_db)) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");
-	
+
 	while (ct[0] && ct[0] != '>') ct++;	//skip until '>' character, then proceed to parse destination string
 	if (!ct[1]) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");
-	
 
-	//For easier calculation of SNR for custom modulation type, we create a temporary array of PRR values, 
+
+	//For easier calculation of SNR for custom modulation type, we create a temporary array of PRR values,
 	//mapping to corresponding BER values, given in customModulationArray
 	double * tmpCustomModulationPRR;
 	if (modulationType == MODULATION_CUSTOM) {
@@ -1066,35 +1078,47 @@ void WirelessChannel::parsePrrMap(void)
 		tmpCustomModulationPRR[i] = pow( 1.0 - customModulationArray[i].BER, 8.0*packetSize);
 	    }
 	}
-	
+
 	cStringTokenizer t(++ct,",");		//divide the rest of the strig with comma delimiter (to separate each individual destination)
 	while (ct = t.nextToken()) {
 	    //It is expected that each segment will begin with destination id
 	    if (parseInt(ct,&destination)) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");
-	    
+
 	    while (ct[0] && ct[0] != ':') ct++;	//skip untill ':' character, then parse the value for PRR
 	    if (parseFloat(ct+1,&PRR)) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");
-	    
+
 	    if (PRR <= 0) continue;		//if PRR is 0 or below, we cannot receive packets, so skip this element
 	    if (PRR >= 1) PRR = 0.9999;		//if PRR is 1, the value for SNR will be -infinity.
 						//To avoid that PRR is set to a value close to 1 but not equal to 1
 
-    	    
-    	    //Based on modulation type given PRR value can be converted to SNR value in Db
-    	    if (modulationType == MODULATION_FSK) {
-		tmpSNR_db = 10.0 * log10((-2.0*(dataRate/noiseBandwidth)) * log( 2.0 * (1.0 -  pow(PRR, 1.0/(8.0*packetSize)))));
-	    } else if (modulationType == MODULATION_PSK) {
-		tmpSNR_db = 10.0 * log10((dataRate/noiseBandwidth) * pow(erfcInv(2.0 * ( 1.0 - pow(PRR, 1.0/(8.0*packetSize)))), 2.0));
-	    } else if (modulationType == MODULATION_CUSTOM) {
-		tmpSNR_db = estimateCustomModulationSNR(PRR,tmpCustomModulationPRR);
-	    } else {
-		opp_error("\n[Wireless Channel]:\n Error: PRRMapFile is only compatible with modulation type PSK, FSK or CUSTOM\n");
-	    }
 
-	    //SNR can be converted to pathloss by using (TX_POWER - NOISE_FLOOR - SNR)
+    	// Based on modulation type given PRR value can be converted to SNR value in dB
+    	switch (modulationType) {
+
+			case MODULATION_FSK:
+				tmpSNR_db = 10.0 * log10((-2.0*(dataRate/noiseBandwidth)) * log( 2.0 * (1.0 -  pow(PRR, 1.0/(8.0*packetSize)))));
+				break;
+
+			case MODULATION_PSK:
+				tmpSNR_db = 10.0 * log10((dataRate/noiseBandwidth) * pow(erfcInv(2.0 * ( 1.0 - pow(PRR, 1.0/(8.0*packetSize)))), 2.0));
+				break;
+
+			case MODULATION_DIFFBPSK:
+				tmpSNR_db = 10.0 * log10( -(dataRate/noiseBandwidth) * log( 2.0 * (1.0 -  pow(PRR, 1.0/(8.0*packetSize)))));
+				break;
+
+			case MODULATION_CUSTOM:
+				tmpSNR_db = estimateCustomModulationSNR(PRR,tmpCustomModulationPRR);
+				break;
+
+			default:
+				opp_error("\n[Wireless Channel]:\n Error: PRRMapFile is only compatible with modulation type PSK, FSK, DiffBPSK or CUSTOM\n");
+		}
+
+	    // SNR can be converted to pathloss by using (TX_POWER - NOISE_FLOOR - SNR)
     	    updatePathLossElement(source,destination,sourceTxPower_db - noiseFloor - tmpSNR_db);
     	}
-    	
+
     	if (modulationType == MODULATION_CUSTOM) {
 	    delete [] tmpCustomModulationPRR;
 	}
@@ -1117,7 +1141,7 @@ void WirelessChannel::updatePathLossElement(int src, int dst, float pathloss_db)
     pathLoss[src].push_front(new PathLossElement(dst, pathloss_db));
 }
 
-//This function will give a closest estimate of SNR from the customModulationArray, given a specific value of PRR and 
+//This function will give a closest estimate of SNR from the customModulationArray, given a specific value of PRR and
 //a temporary PRR array, which contains PRR values corresponding to BER values from customModulationArray
 double WirelessChannel::estimateCustomModulationSNR(double PRR, double * tmpPRRarray) {
     for (int i = 0; i < numOfCustomModulationValues - 1; i++) {

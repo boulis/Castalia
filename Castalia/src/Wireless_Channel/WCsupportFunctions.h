@@ -26,5 +26,6 @@ float erfInv( float y );
 
 float erfcInv( float y );
 
+float diffQPSK_SNR2BER( float SNR );
 
 #endif /*SUPPORTFUNCTIONS_H_*/

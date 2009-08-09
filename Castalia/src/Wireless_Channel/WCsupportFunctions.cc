@@ -144,3 +144,65 @@ float erfcInv( float y )
 {
   	return erfInv(1.0-y);
 }
+
+
+/* SNR->BER curve for differential QPSK modulation.
+ * Since the function that gives this curve is rather
+ * complex, we precomputed several values in Matlab
+ * and we are doing a simple lookup here. Effective
+ * range 6.0dB to 12.2dB (resolution 0.2dB)
+ */
+float diffQPSK_SNR2BER( float SNR )
+{
+	static float BER_array[32] = {
+									  0.01723590060469,     // BER for SNR 6.0dB  PER(200bits) = 0.03
+									  0.01515859222543,     // BER for SNR 6.2dB
+									  0.01326127169356,		// ...
+									  0.01153737654219,
+									  0.00997961569163,
+									  0.00858004434130,		// BER for SNR 7.0dB
+									  0.00733015079524,
+									  0.00622095368274,
+									  0.00524310766416,
+									  0.00438701538062,
+									  0.00364294312896,		// BER for SNR 8.0dB
+									  0.00300113753889,
+									  0.00245194041114,
+									  0.00198589885920,
+									  0.00159386799020,
+									  0.00126710356868,		// BER for SNR 9.0dB
+									  0.00099734242733,
+									  0.00077686881248,
+									  0.00059856536337,
+									  0.00045594799891,
+									  0.00034318459603,		// BER for SNR 10.0dB
+									  0.00025509795641,
+									  0.00018715413812,
+									  0.00013543774315,
+									  0.00009661616875,
+									  0.00006789512818,		// BER for SNR 11.0dB
+									  0.00004696790793,
+									  0.00003196084958,
+									  0.00002137743081,
+									  0.00001404308722,
+									  0.00000905258912,		// BER for SNR 12.0dB
+									  0.00000572139679		// BER for SNR 12.2dB  PER(4000bits) = 0.9773
+								};
+
+	// The values of the SNR parameter should be within 6.0 and 12.2 dB, if not
+	// we should issue a warning. here we just return appropriate values
+
+	if (SNR < 6.0)  return 1.0;
+	if (SNR > 12.2) return 0.0;
+
+	// the index of the array element that is just less than SNR
+	// or in other words: the max array element that is less than SNR
+	int index = (int)floor((SNR - 6.0) / 0.2);
+
+	// the remainder, a number in [0, 1)
+	float a = ((SNR - 6.0) / 0.2) - index;
+
+	// return a linear combination of the 2 array elements that the SNR
+	return ( a * BER_array[index] + (1-a) * BER_array[index+1] );
+
+}

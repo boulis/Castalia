@@ -38,8 +38,12 @@ simple TMacModule
 		useFrts			: const,	//enable/disable FRTS (Future Request To Send)
 		useRtsCts		: const,	
 		frameTime		: const,	//frame time (standard = 610ms)
-		disableTAextension	: const;	//disabling TA extension effectively creates an SMAC
-		
+
+		conservativeTA		: const,	//conservative activation timeout - will always stay awake for 
+							//atleast 15 ms after any activity on the radio
+		collisionResolution	: const,	//collision resolution mechanism, choose from 0 (immediate retry),
+							// 	1  (based on overhearing) and 2 (retry next frame)
+		disableTAextension	: const;	//disabling TA extension effectively creates an SMAC protocol
 
     gates:
         

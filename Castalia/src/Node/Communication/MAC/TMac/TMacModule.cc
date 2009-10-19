@@ -22,7 +22,6 @@
 #define NAV_EXTENSION 		0.0001
 #define TX_TIME(x)		(phyLayerOverhead + x)*1/(1000*radioDataRate/8.0)		//x are in BYTES
 
-
 Define_Module(TMacModule);
 
 void TMacModule::initialize() {
@@ -105,6 +104,7 @@ void TMacModule::initialize() {
 	primaryWakeup = true;
 	needResync = 0;
 	currentFrameStart = -1;
+	activationTimeout = 0;
 }
 
 void TMacModule::handleMessage(cMessage *msg) {
@@ -187,11 +187,18 @@ void TMacModule::handleMessage(cMessage *msg) {
 	    	    setMacState(MAC_STATE_SLEEP);
 
 		//otherwise, check MAC state and extend active period or go to sleep
-	    	} else if (macState != MAC_STATE_ACTIVE && macState != MAC_STATE_ACTIVE_SILENT && macState != MAC_STATE_SLEEP) {
-	    	    extendActivePeriod();
+	    	} else if (conservativeTA) {
+	    	    if (macState != MAC_STATE_ACTIVE && macState != MAC_STATE_ACTIVE_SILENT && macState != MAC_STATE_SLEEP) {
+	    		extendActivePeriod();
+	    	    } else {
+			performCarrierSense(MAC_CARRIER_SENSE_BEFORE_SLEEP);
+		    }
 	    	} else {
-		    performCarrierSense(MAC_CARRIER_SENSE_BEFORE_SLEEP);
-		}
+	    	    primaryWakeup = false;
+		    // update MAC and RADIO states
+	    	    setRadioState(MAC_2_RADIO_ENTER_SLEEP);
+		    setMacState(MAC_STATE_SLEEP);
+	    	} 
 	    }
 	    break;
 	}
@@ -356,8 +363,17 @@ void TMacModule::handleMessage(cMessage *msg) {
 	case RADIO_2_MAC_SENSED_CARRIER: {
 	    if (macState == MAC_STATE_SETUP || macState == MAC_STATE_SLEEP) break;
 	    if (!disableTAextension) extendActivePeriod();
-	    if (macState != MAC_STATE_WAIT_FOR_ACK && macState != MAC_STATE_WAIT_FOR_DATA &&
-		macState != MAC_STATE_WAIT_FOR_CTS) setMacState(MAC_STATE_ACTIVE_SILENT);
+	    if (collisionResolution == 0) {
+		if (macState == MAC_CARRIER_SENSE_FOR_TX_RTS || macState == MAC_CARRIER_SENSE_FOR_TX_DATA ||
+		    macState == MAC_CARRIER_SENSE_FOR_TX_CTS || macState == MAC_CARRIER_SENSE_FOR_TX_ACK ||
+		    macState == MAC_CARRIER_SENSE_FOR_TX_SYNC || macState == MAC_CARRIER_SENSE_BEFORE_SLEEP) {
+			resetDefaultState();
+		}
+	    } else {
+		if (macState != MAC_STATE_WAIT_FOR_ACK && macState != MAC_STATE_WAIT_FOR_DATA &&
+		    macState != MAC_STATE_WAIT_FOR_CTS) 
+			setMacState(MAC_STATE_ACTIVE_SILENT);
+	    }
 	    break;
 	}
 
@@ -472,7 +488,19 @@ void TMacModule::readIniFileParameters(void) {
     useFRTS = par("useFrts");
     useRtsCts = par("useRtsCts");
     maxTxRetries = par("maxTxRetries");
+    
     disableTAextension = par("disableTAextension");
+    conservativeTA = par("conservativeTA");
+    if (conservativeTA != 1 && conservativeTA != 0) {
+	CASTALIA_DEBUG << "Unknown value for parameter 'ConservativeTA', will default to 0";
+	conservativeTA = 0;
+    }
+    collisionResolution = par("collisionResolution");
+    if (collisionResolution != 2 && collisionResolution != 1 && collisionResolution != 0) {
+	CASTALIA_DEBUG << "Unknown value for parameter 'collisionResolution', will default to 0";
+	collisionResolution = 0;
+    }
+
 }
 
 
@@ -689,18 +717,20 @@ void TMacModule::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	case MAC_PROTO_RTS_FRAME: {
 	    //If this node is the destination, reply with a CTS, otherwise
 	    //set a timeout and keep silent for the duration of communication
+	    double NAV = rcvFrame->getHeader().NAV - rtsTxTime;
 	    if (rcvFrame->getHeader().destID == self) {
 		if (ctsFrame) cancelAndDelete(ctsFrame);
 		ctsFrame = new MAC_GenericFrame("CTS message", MAC_FRAME);
 		ctsFrame->setKind(MAC_FRAME) ;
 		ctsFrame->getHeader().srcID = self;
 		ctsFrame->getHeader().destID = rcvFrame->getHeader().srcID;
-		ctsFrame->getHeader().NAV = rcvFrame->getHeader().NAV - rtsTxTime;
+		ctsFrame->getHeader().NAV = NAV;
 		ctsFrame->getHeader().frameType = MAC_PROTO_CTS_FRAME;
 		ctsFrame->setByteLength(ctsFrameSize);
 		performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_CTS);
 	    } else {
-		updateTimeout(rcvFrame->getHeader().NAV - rtsTxTime);
+		if (collisionResolution != 2) updateTimeout(NAV);
+		extendActivePeriod(NAV);
 		setMacState(MAC_STATE_ACTIVE_SILENT);
 	    }
 	    break;
@@ -709,6 +739,7 @@ void TMacModule::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	/* received a CTS frame */
 	case MAC_PROTO_CTS_FRAME: {
 	    //If this CTS comes as a response to previously sent RTS, data transmission can be started
+	    double NAV = rcvFrame->getHeader().NAV - ctsTxTime;
 	    if(macState == MAC_STATE_WAIT_FOR_CTS && rcvFrame->getHeader().destID == self) {
 		if(TXBuffer.empty()) {
 		    CASTALIA_DEBUG << "WARNING: invalid MAC_STATE_WAIT_FOR_CTS while buffer is empty";
@@ -724,11 +755,12 @@ void TMacModule::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	    //If CTS is overheared from other transmission, keep silent
 	    } else if (macState == MAC_CARRIER_SENSE_FOR_TX_RTS && useFRTS) {
 	        //FRTS would need to be implemented here, for now just keep silent
-	        updateTimeout(rcvFrame->getHeader().NAV - ctsTxTime);
+	        if (collisionResolution != 2) updateTimeout(NAV);
+	        extendActivePeriod(NAV);
 	        setMacState(MAC_STATE_ACTIVE_SILENT);
-
 	    } else {
-		updateTimeout(rcvFrame->getHeader().NAV - ctsTxTime);
+		if (collisionResolution != 2) updateTimeout(NAV);
+		extendActivePeriod(NAV);
 		setMacState(MAC_STATE_ACTIVE_SILENT);
 	    }
 
@@ -933,6 +965,8 @@ void TMacModule::carrierIsClear() {
 	        updateTimeout(txTime + waitTimeout);
 	    }
 
+	    extendActivePeriod(txTime);
+
 	    //update RADIO state
 	    setRadioState(MAC_2_RADIO_ENTER_TX, epsilon);
 	    break;
@@ -954,7 +988,7 @@ void TMacModule::carrierIsClear() {
 		// create a timeout for this transmission - nothing is expected in reply
 		// so MAC is only waiting for the RADIO to finish the packet transmission
 		updateTimeout(ackTxTime);
-
+		extendActivePeriod(ackTxTime);
 	    } else {
 	    	CASTALIA_DEBUG << "WARNING: Invalid MAC_STATE_WAIT_FOR_ACK while ackFrame undefined";
 	    	resetDefaultState();
@@ -992,11 +1026,16 @@ void TMacModule::performCarrierSense(int newState, double delay) {
  * time it is not less than listenTimeout value. Also a check TA message is scheduled here
  * to allow the node to go to sleep if activation timeout expires
  */
-void TMacModule::extendActivePeriod() {
+void TMacModule::extendActivePeriod(double extra) {
     double curTime = simTime();
-    while (activationTimeout < curTime) { activationTimeout += listenTimeout; }
-    if (activationTimeout - listenTimeout > curTime) return;
-    activationTimeout += listenTimeout;
+    if (conservativeTA) {
+	curTime += extra;
+	while (activationTimeout < curTime) { activationTimeout += listenTimeout; }
+	if (curTime + listenTimeout < activationTimeout) return;
+	activationTimeout += listenTimeout;
+    } else if (activationTimeout < curTime + listenTimeout + extra) {
+	activationTimeout = curTime + listenTimeout + extra;
+    }
     scheduleAt(activationTimeout, new MAC_ControlMessage("Check activation timeout", MAC_SELF_CHECK_TA));
 }
 

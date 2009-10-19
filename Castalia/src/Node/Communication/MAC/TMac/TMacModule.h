@@ -87,6 +87,8 @@ class TMacModule : public cSimpleModule
 	bool useFRTS;
 	double frameTime;
 	bool disableTAextension;
+	bool conservativeTA;
+	int collisionResolution;
 
 	/*--- General MAC variable ---*/
 	bool isSink;
@@ -153,7 +155,7 @@ class TMacModule : public cSimpleModule
 	void carrierIsClear();
 	void updateScheduleTable(double wakeup, int ID, int SN);
 	void performCarrierSense(int newState, double delay = 0);
-	void extendActivePeriod();
+	void extendActivePeriod(double extra = 0);
 	void checkTxBuffer();
 	void popTxBuffer();
 	void updateTimeout(double t);

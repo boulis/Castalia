@@ -34,7 +34,7 @@ using namespace std;
 #define GOOD_LINK_PROB_THRESHOLD 0.98
 #define IDEAL_MODULATION_THRESHOLD_SNR_DB 5.0
 
-#define CS_DETECTION_DELAY  0.0001 // delay for carrier sensing
+#define CS_DETECTION_DELAY  0.00005 // delay for carrier sensing
 
 enum CollisionModel
 {

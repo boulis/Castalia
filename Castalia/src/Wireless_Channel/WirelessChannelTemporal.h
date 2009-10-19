@@ -18,6 +18,8 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <cstring>
+#include <cstdlib>
 
 #define SIGNAL_VAR "Signal variability (dB)"
 #define CORR_TIME "Correlation times (msec)"

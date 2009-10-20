@@ -40,8 +40,10 @@ enum MacStates {
     MAC_STATE_IN_TX = 1005,
     MAC_STATE_WAIT_FOR_ASSOCIATE_RESPONSE = 1006,
     MAC_STATE_WAIT_FOR_DATA_ACK = 1007,
-    MAC_STATE_WAIT_FOR_BEACON = 1008
-
+    MAC_STATE_WAIT_FOR_BEACON = 1008,
+    MAC_STATE_WAIT_FOR_GTS = 1009,
+    MAC_STATE_IN_GTS = 1010,
+    MAC_STATE_PROCESSING = 1011
     
 };
 
@@ -52,6 +54,15 @@ class Mac802154Module : public cSimpleModule
 		
 	/*--- A map from int value of state to its description (used in debug) ---*/
 	map <int, string> stateDescr;
+	
+	int nextPacketTry;
+	double nextPacketTime;
+	int sentBeacons;
+	int recvBeacons;
+	
+
+	/*--- A map for packet breakdown statistics ---*/
+	map <string, int> packetBreak;
 	
 	/*--- The .ned file's parameters ---*/
 	bool printDebugInfo;
@@ -66,18 +77,22 @@ class Mac802154Module : public cSimpleModule
 	bool isFFD;
 	bool batteryLifeExtention;
 	bool enableSlottedCSMA;
+	bool enableCAP;
+	bool lockedGTS;
 	
 	int macMinBE;
 	int macMaxBE;
 	int macMaxCSMABackoffs;
 	int macMaxFrameRetries;
 	int maxLostBeacons;
+	int minCAPLength;
 	int unitBackoffPeriod;
 	int baseSlotDuration;
 	int numSuperframeSlots;
 	int baseSuperframeDuration;
 	int beaconOrder;
 	int frameOrder;
+	int requestGTS;
 
 	/*--- General MAC variable ---*/
 	bool isSink;
@@ -110,15 +125,23 @@ class Mac802154Module : public cSimpleModule
 
 	double CAPend;			// Absolute time of end of CAP period for current frame
 	double currentFrameStart;	// Absolute recorded start time of the current frame
+	double GTSstart;
+	double GTSend;
+	
 	double lastCarrierSense;	// Absolute recorded time of last carrier sense message from the radio
 	double nextPacketResponse;	// Duration of timeout for receiving a reply after sending a packet
 	double ackWaitDuration;		// Duration of timeout for receiving an ACK
 	double symbolLen;		// Duration of transmittion of a single symbol
 
+	string nextPacketState;
+	double desyncTime;
+	double desyncTimeStart;
+
 	map <int, bool> associatedDevices;	// map of assoicated devices (for PAN coordinator)
 
 	/*--- 802154Mac message pointers (to cancel it and reschedule if necessary) ---*/
 	MAC_ControlMessage *beaconTimeoutMsg;
+	MAC_ControlMessage *txResetMsg;
 	
 	/*--- 802154Mac packet pointers (sometimes packet is created not immediately before sending) ---*/
 	MAC_GenericFrame *beaconPacket;
@@ -140,7 +163,7 @@ class Mac802154Module : public cSimpleModule
 	void setRadioTxMode(Radio_TxMode txTypeID, double delay=0);
 	void setRadioPowerLevel(int powLevel, double delay=0);
 	void setMacState(int newState);	
-	void performCarrierSense();
+	int performCarrierSense();
 	void processMacFrame(MAC_GenericFrame *);
 	void handleAckFrame(MAC_GenericFrame *);
 	void carrierIsClear();
@@ -148,6 +171,9 @@ class Mac802154Module : public cSimpleModule
 	void initiateCSMACA();
 	void continueCSMACA();
 	void attemptTransmission(double delay = 0);
+	void transmitNextPacket();
+	void issueGTSrequest();
+	
 };
 
 #endif //MAC_802154_MODULE

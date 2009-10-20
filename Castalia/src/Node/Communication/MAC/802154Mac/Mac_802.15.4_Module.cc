@@ -20,10 +20,12 @@
 #define CASTALIA_DEBUG CASTALIA_DEBUG_OLD << BASIC_INFO
 
 #define ACK_PKT_SIZE 6
+#define COMMAND_PKT_SIZE 8
+#define GTS_SPEC_FIELD_SIZE 3
 #define BASE_BEACON_PKT_SIZE 12
 #define BITS_PER_SYMBOL 8
 
-#define BEACON_GUARD 0.001
+#define TX_GUARD 0.001
 #define PROCESSING_DELAY 0.00001
 
 #define TX_TIME(x)		(phyLayerOverhead + x)*1/(1000*radioDataRate/8.0)		//x are in BYTES
@@ -42,9 +44,12 @@ void Mac802154Module::initialize() {
 	    stateDescr[1003] = "MAC_STATE_CSMA_CA";
 	    stateDescr[1004] = "MAC_STATE_CCA";
 	    stateDescr[1005] = "MAC_STATE_IN_TX";
+	    stateDescr[1010] = "MAC_STATE_IN_GTS";
 	    stateDescr[1006] = "MAC_STATE_WAIT_FOR_ASSOCIATE_RESPONSE";
 	    stateDescr[1007] = "MAC_STATE_WAIT_FOR_DATA_ACK";
 	    stateDescr[1008] = "MAC_STATE_WAIT_FOR_BEACON";
+	    stateDescr[1009] = "MAC_STATE_WAIT_FOR_GTS";
+	    stateDescr[1011] = "MAC_STATE_PROCESSING";
 	}
 
 	//initialization of the class member variables
@@ -80,22 +85,35 @@ void Mac802154Module::initialize() {
 	 **************************************************************************************************/
 
 	symbolLen = 1/(radioDataRate*1000/((double)radioModule->par("bitsPerSymbol")));
-	ackWaitDuration = symbolLen*unitBackoffPeriod + radioDelayForListen2Tx + TX_TIME(ACK_PKT_SIZE);
+	ackWaitDuration = symbolLen*unitBackoffPeriod + radioDelayForListen2Tx*2 + TX_TIME(ACK_PKT_SIZE) + PROCESSING_DELAY;
 
 	beaconPacket = NULL;
 	associateRequestPacket = NULL;
 	nextPacket = NULL;
 	nextPacketResponse = 0;
 	nextPacketRetries = 0;
+	nextPacketState = "";
 	nextMacState = 0;
 
 	beaconTimeoutMsg = NULL;
+	txResetMsg = NULL;
 
 	macState = MAC_STATE_SETUP;
 	macBSN = rand()%255;
+	lockedGTS = false;
 	associatedPAN = -1;
 	currentFrameStart = 0;
+	GTSstart = 0;
+	GTSend = 0;
+	CAPend = 0;
 	lostBeacons = 0;
+	sentBeacons = 0;
+	recvBeacons = 0;
+	
+	desyncTime = 0;
+	desyncTimeStart = 0;
+	
+	packetBreak.clear();
 }
 
 void Mac802154Module::handleMessage(cMessage *msg) {
@@ -119,7 +137,6 @@ void Mac802154Module::handleMessage(cMessage *msg) {
 	    sendDelayed(csMsg,radioDelayForSleep2Listen+radioDelayForValidCS+epsilon ,"toRadioModule");
 
 	    if (isFFD && isPANCoordinator) {
-		CASTALIA_DEBUG << "backoff slot length is " << symbolLen*unitBackoffPeriod;
 		associatedPAN = self;
 		scheduleAt(simTime(), new MAC_ControlMessage("Beacon broadcast message", MAC_SELF_FRAME_START));
 	    }
@@ -136,7 +153,7 @@ void Mac802154Module::handleMessage(cMessage *msg) {
 	case NETWORK_FRAME: {
 	    if (TXBuffer.size() >= macBufferSize) {
 		send(new MAC_ControlMessage("MAC buffer is full Radio->Mac", MAC_2_NETWORK_FULL_BUFFER), "toNetworkModule");
-		CASTALIA_DEBUG << "WARNING: SchedTxBuffer FULL! Application packet is dropped";
+		CASTALIA_DEBUG << "WARNING: buffer FULL! Packet from network layer is dropped";
 		break;
 	    }
 
@@ -162,7 +179,7 @@ void Mac802154Module::handleMessage(cMessage *msg) {
 	/* This is the core self message of the MAC, it indicates that the new frame has started
 	 */
 	case MAC_SELF_FRAME_START: {
-	    if (isPANCoordinator) {	// as a PAN coordinator, a node should create and broadcast beacon packet
+	    if (isPANCoordinator) {	// as a PAN coordinator, create and broadcast beacon packet
 		beaconPacket = new MAC_GenericFrame("PAN beacon message", MAC_FRAME);
 		beaconPacket->setKind(MAC_FRAME) ;
 		beaconPacket->getHeader().PANid = self;
@@ -171,14 +188,25 @@ void Mac802154Module::handleMessage(cMessage *msg) {
 		beaconPacket->getHeader().frameOrder = frameOrder;
 		if (macBSN > 254) { macBSN = 0; } else { macBSN++; }
 		beaconPacket->getHeader().BSN = macBSN;
-		beaconPacket->getHeader().CAPlength = CAPlength;
-		beaconPacket->setByteLength(BASE_BEACON_PKT_SIZE + GTSlist.size()*3);
+		CAPlength = numSuperframeSlots;
 		beaconPacket->setGTSlistArraySize(GTSlist.size());
+
 		for (int i = 0; i < GTSlist.size(); i++) {
-		    beaconPacket->setGTSlist(i,GTSlist[i]);
+		    if (CAPlength > GTSlist[i].length) {
+			CAPlength -= GTSlist[i].length;
+			GTSlist[i].start = CAPlength + 1;
+			beaconPacket->setGTSlist(i,GTSlist[i]);
+		    } else {
+			GTSlist[i].length = 0;
+			CASTALIA_DEBUG << "ERROR: GTS list corrupted";
+		    }
 		}
+		
+		beaconPacket->getHeader().CAPlength = CAPlength;
+		beaconPacket->setByteLength(BASE_BEACON_PKT_SIZE + GTSlist.size()*GTS_SPEC_FIELD_SIZE);
 
 		CAPend = CAPlength * baseSlotDuration * ( 1 << frameOrder) * symbolLen;
+		sentBeacons++;
 		send(beaconPacket,"toRadioModule");
 		setMacState(MAC_STATE_IN_TX);
 		setRadioState(MAC_2_RADIO_ENTER_TX);
@@ -192,14 +220,45 @@ void Mac802154Module::handleMessage(cMessage *msg) {
 		setRadioState(MAC_2_RADIO_ENTER_LISTEN);
 		setMacState(MAC_STATE_WAIT_FOR_BEACON);
 		beaconTimeoutMsg = new MAC_ControlMessage("Beacon timeout message", MAC_SELF_BEACON_TIMEOUT);
-		scheduleAt(simTime() + DRIFTED_TIME(BEACON_GUARD*3), beaconTimeoutMsg);
-		currentFrameStart = simTime() + BEACON_GUARD;
+		scheduleAt(simTime() + DRIFTED_TIME(TX_GUARD*3), beaconTimeoutMsg);
+		currentFrameStart = simTime() + TX_GUARD;
 	    }
+	    break;
+	}
+	
+	case MAC_SELF_GTS_START: {
+	    if (macState == MAC_STATE_WAIT_FOR_DATA_ACK ||
+        	macState == MAC_STATE_WAIT_FOR_ASSOCIATE_RESPONSE ||
+        	macState == MAC_STATE_PROCESSING) {
+                break;
+    	    }
+
+	    if (macState == MAC_STATE_SLEEP) {
+		setMacState(MAC_STATE_IN_GTS);
+		setRadioState(MAC_2_RADIO_ENTER_LISTEN);
+		attemptTransmission(radioDelayForSleep2Listen);
+	    } else {
+		setMacState(MAC_STATE_IN_GTS);
+		attemptTransmission();
+	    }
+		
 	    break;
 	}
 
 	case MAC_SELF_RESET_TX: {
-	    // previous transmission is reset, attempt a new transmission
+	    if (txResetMsg == msg) { txResetMsg = NULL; }
+	
+	    // previous transmission is reset, attempt a new transmission 
+	    if (macState != MAC_STATE_IN_TX && macState != MAC_STATE_WAIT_FOR_DATA_ACK &&
+		macState != MAC_STATE_WAIT_FOR_ASSOCIATE_RESPONSE && macState != MAC_STATE_WAIT_FOR_GTS &&
+		macState != MAC_STATE_PROCESSING && macState != MAC_STATE_IN_GTS) {
+		break;
+	    }
+	    if (nextPacket && nextPacket->getHeader().frameType == MAC_802154_DATA_FRAME && 
+		    macState == MAC_STATE_WAIT_FOR_DATA_ACK) {
+		if (nextPacketState.size()) { nextPacketState.append(",NoAck"); }
+		else { nextPacketState = "NoAck"; }                    
+	    }
 	    attemptTransmission();
 	    break;
 	}
@@ -216,8 +275,12 @@ void Mac802154Module::handleMessage(cMessage *msg) {
 	// self message to preform carrier sense
 	case MAC_SELF_PERFORM_CCA: {
 	    if (macState != MAC_STATE_CSMA_CA) break;
-	    setMacState(MAC_STATE_CCA);
-	    performCarrierSense();
+	    if (performCarrierSense()) {
+		setMacState(MAC_STATE_CSMA_CA);
+		continueCSMACA();
+	    } else {
+		setMacState(MAC_STATE_CCA);
+	    }
 	    break;
 	}
 
@@ -230,11 +293,14 @@ void Mac802154Module::handleMessage(cMessage *msg) {
 		CASTALIA_DEBUG << "Lost synchronisation with PAN " << associatedPAN;
 		setMacState(MAC_STATE_SETUP);
 		associatedPAN = -1;
+		lockedGTS = false;
+		desyncTimeStart = simTime();
 	    } else {
-		setMacState(MAC_STATE_SLEEP);
-		setRadioState(MAC_2_RADIO_ENTER_SLEEP);
-		scheduleAt(currentFrameStart + DRIFTED_TIME(beaconInterval*symbolLen),
-		    new MAC_ControlMessage("Beacon broadcast message", MAC_SELF_FRAME_START));
+	    	CASTALIA_DEBUG << "Missed beacon from PAN " << associatedPAN;
+//		setMacState(MAC_STATE_SLEEP);
+//		setRadioState(MAC_2_RADIO_ENTER_SLEEP);
+//		scheduleAt(currentFrameStart + DRIFTED_TIME(beaconInterval*symbolLen),
+//		    new MAC_ControlMessage("Beacon broadcast message", MAC_SELF_FRAME_START));
 	    }
 	    break;
 	}
@@ -264,7 +330,11 @@ void Mac802154Module::handleMessage(cMessage *msg) {
 	    CW = enableSlottedCSMA ? 2 : 1; NB++; BE++;
 	    if (BE > macMaxBE) BE = macMaxBE;
 	    if (NB > macMaxCSMABackoffs) {
-		if (nextPacketRetries > 0) nextPacketRetries--;
+		if (nextPacket->getHeader().frameType == MAC_802154_DATA_FRAME) {
+		    if (nextPacketState.size()) { nextPacketState.append(",CSfail"); }
+		    else { nextPacketState = "CSfail"; }
+		}
+		nextPacketRetries--;
 		attemptTransmission();
 	    } else {
 	        setMacState(MAC_STATE_CSMA_CA);
@@ -304,6 +374,15 @@ void Mac802154Module::finish() {
 	TXBuffer.pop();
     }
     if (nextPacket) cancelAndDelete(nextPacket);
+    if (desyncTimeStart >= 0) desyncTime += simTime() - desyncTimeStart;
+    
+    map<string, int>::const_iterator iter;
+    for (iter=packetBreak.begin(); iter != packetBreak.end(); ++iter) {
+        CASTALIA_DEBUG << "breakdown: " << iter->first << " " << iter->second;
+    }
+    if (self) CASTALIA_DEBUG << "desync time: " << desyncTime << "/" << simTime();
+    if (sentBeacons) CASTALIA_DEBUG << "sent beacons: " << sentBeacons;
+    if (recvBeacons) CASTALIA_DEBUG << "recv beacons: " << recvBeacons;
 }
 
 void Mac802154Module::readIniFileParameters(void) {
@@ -313,6 +392,8 @@ void Mac802154Module::readIniFileParameters(void) {
     maxMACFrameSize = par("maxMACFrameSize");
     macFrameOverhead = par("macFrameOverhead");
     enableSlottedCSMA = par("enableSlottedCSMA");
+    enableCAP = par("enableCAP");
+    requestGTS = par("requestGTS");
 
     isPANCoordinator = hasPar("isPANCoordinator") ? par("isPANCoordinator") : false;
     isFFD = hasPar("isFFD") ? par("isFFD") : false;
@@ -321,10 +402,11 @@ void Mac802154Module::readIniFileParameters(void) {
     baseSlotDuration = hasPar("baseSlotDuration") ? par("baseSlotDuration") : 60;
     numSuperframeSlots = hasPar("numSuperframeSlots") ? par("numSuperframeSlots") : 16;
     maxLostBeacons = hasPar("maxLostBeacons") ? par("maxLostBeacons") : 4;
+    minCAPLength = par("minCAPLength");
     macMinBE = hasPar("macMinBE") ? par("macMinBE") : 2;
     macMaxBE = hasPar("macMaxBE") ? par("macMaxBE") : 5;
-    macMaxCSMABackoffs = hasPar("macMacCSMABackoffs") ? par("macMacCSMABackoffs") : 4;
-    macMaxFrameRetries = hasPar("macMacFrameRetries") ? par("macMacFrameRetries") : 3;
+    macMaxCSMABackoffs = hasPar("macMaxCSMABackoffs") ? par("macMaxCSMABackoffs") : 4;
+    macMaxFrameRetries = hasPar("macMaxFrameRetries") ? par("macMaxFrameRetries") : 3;
     batteryLifeExtention = hasPar("batteryLifeExtention") ? par("batteryLifeExtention") : false;
     baseSuperframeDuration = baseSlotDuration * numSuperframeSlots;
 
@@ -334,6 +416,8 @@ void Mac802154Module::readIniFileParameters(void) {
 	    opp_error("Only full-function devices (isFFD=true) can be PAN coordinators");
 	}
 
+	requestGTS = 0;
+	enableCAP = true;
 	frameOrder = par("frameOrder");
 	beaconOrder = par("beaconOrder");
 	if (frameOrder < 0 || beaconOrder < 0 || beaconOrder > 14 || frameOrder > 14 || beaconOrder < frameOrder) {
@@ -397,16 +481,24 @@ void Mac802154Module::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	case MAC_802154_BEACON_FRAME: {
 
 	    int PANaddr = rcvFrame->getHeader().PANid;
+	    recvBeacons++;
 	    if (associatedPAN == -1) {
-		//if not associated - create request packet to do so
-		if (nextPacket) { cancelAndDelete(nextPacket); }
+		//if not associated - create an association request packet
+		if (nextPacket) {
+		    if (nextPacket->getHeader().frameType == MAC_802154_DATA_FRAME) {
+			if (nextPacketState.size()) { nextPacketState.append(",NoSync"); }
+		        else { nextPacketState = "NoSync"; }
+		        packetBreak[nextPacketState]++;
+		    }
+		    cancelAndDelete(nextPacket); 
+		}
 		nextPacket = new MAC_GenericFrame("PAN associate request", MAC_FRAME);
 		nextPacket->setKind(MAC_FRAME);
 		nextPacket->getHeader().PANid = PANaddr;
 		nextPacket->getHeader().frameType = MAC_802154_ASSOCIATE_FRAME;
 		nextPacket->getHeader().srcID = self;
-		nextPacket->setByteLength(6);
-		initiateCSMACA(-1,MAC_STATE_WAIT_FOR_ASSOCIATE_RESPONSE,ackWaitDuration + TX_TIME(6));
+		nextPacket->setByteLength(COMMAND_PKT_SIZE);
+		initiateCSMACA(9999,MAC_STATE_WAIT_FOR_ASSOCIATE_RESPONSE,ackWaitDuration + TX_TIME(COMMAND_PKT_SIZE));
 	    } else if (associatedPAN != PANaddr) {
 		// if associated to a different PAN - do nothing
 		return;
@@ -421,6 +513,16 @@ void Mac802154Module::processMacFrame(MAC_GenericFrame *rcvFrame) {
             macBSN = rcvFrame->getHeader().BSN;
 	    CAPlength = rcvFrame->getHeader().CAPlength;
 	    CAPend = CAPlength * baseSlotDuration * ( 1 << frameOrder) * symbolLen;
+	    GTSstart = 0;
+	    GTSend = 0;
+	    
+	    for (int i = 0; i < rcvFrame->getGTSlistArraySize(); i++) {
+	        if (lockedGTS && rcvFrame->getGTSlist(i).owner == self) {
+	    	    GTSstart = (rcvFrame->getGTSlist(i).start - 1) * baseSlotDuration * ( 1 << frameOrder) * symbolLen;
+	    	    GTSend = GTSstart + rcvFrame->getGTSlist(i).length * baseSlotDuration * ( 1 << frameOrder) * symbolLen;
+	    	    CASTALIA_DEBUG << "GTS slot from " << simTime() + GTSstart << " to " << simTime() + GTSend;
+	        }
+	    }
 
 	    //cancel beacon timeout message (if present)
 	    if(beaconTimeoutMsg) {
@@ -428,14 +530,48 @@ void Mac802154Module::processMacFrame(MAC_GenericFrame *rcvFrame) {
 		beaconTimeoutMsg = NULL;
 	    }
 
-	    //schedule sleep and wakeup
-	    scheduleAt(simTime() + DRIFTED_TIME(CAPend),
-		new MAC_ControlMessage("CAP end message", MAC_SELF_SET_RADIO_SLEEP));
-	    scheduleAt(simTime() + DRIFTED_TIME(baseSuperframeDuration * ( 1 << beaconOrder) * symbolLen - BEACON_GUARD),
+	    if (requestGTS) {
+		if (lockedGTS) {
+		    if (!GTSstart) {
+			CASTALIA_DEBUG << "invalid state, GTS descriptor not found in beacon frame";
+			lockedGTS = false;
+		    }
+                } else if (associatedPAN == PANaddr) {
+		    issueGTSrequest();
+		}
+	    } 
+	    
+	    if (enableCAP && GTSstart != CAPend) {
+		scheduleAt(simTime() + DRIFTED_TIME(CAPend),
+		    new MAC_ControlMessage("CAP end message", MAC_SELF_SET_RADIO_SLEEP));
+	    }
+	    
+	    if (GTSstart != 0) {
+		if (GTSstart != CAPend && enableCAP) {
+		    scheduleAt(simTime() + DRIFTED_TIME(GTSstart-radioDelayForSleep2Listen),
+		        new MAC_ControlMessage("GTS start message", MAC_SELF_GTS_START));
+		} else {
+	    	    scheduleAt(simTime() + DRIFTED_TIME(GTSstart),
+        	        new MAC_ControlMessage("GTS start message", MAC_SELF_GTS_START));
+        	}
+            }
+		
+	    if (GTSend != 0) {
+	    	scheduleAt(simTime() + DRIFTED_TIME(GTSend),
+		    new MAC_ControlMessage("GTS end message", MAC_SELF_SET_RADIO_SLEEP));
+	    }
+		
+	    if (associatedPAN == PANaddr) {
+		if (enableCAP) { 
+		    attemptTransmission();
+		} else {
+		    setMacState(MAC_STATE_SLEEP);
+            	    setRadioState(MAC_2_RADIO_ENTER_SLEEP);	
+		}
+	    }
+	    
+	    scheduleAt(simTime() + DRIFTED_TIME(baseSuperframeDuration * ( 1 << beaconOrder) * symbolLen - TX_GUARD),
 	        new MAC_ControlMessage("Beacon broadcast message", MAC_SELF_FRAME_START));
-
-	    //if already associated to this pan - attempt transmission
-	    if (associatedPAN == PANaddr) attemptTransmission();
 
             break;
 	}
@@ -452,7 +588,7 @@ void Mac802154Module::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	    if (rcvFrame->getHeader().PANid != self) break;
 
 	    // update associatedDevices and reply with an ACK (i.e. association is always allowed)
-	    CASTALIA_DEBUG << "Received REQ frame from " << rcvFrame->getHeader().srcID;
+	    CASTALIA_DEBUG << "Received association request from " << rcvFrame->getHeader().srcID;
 	    associatedDevices[rcvFrame->getHeader().srcID] = true;
 	    MAC_GenericFrame *ackFrame = new MAC_GenericFrame("PAN associate response", MAC_FRAME);
 	    ackFrame->setKind(MAC_FRAME);
@@ -464,7 +600,55 @@ void Mac802154Module::processMacFrame(MAC_GenericFrame *rcvFrame) {
 
 	    setRadioState(MAC_2_RADIO_ENTER_TX,PROCESSING_DELAY);
 	    setMacState(MAC_STATE_IN_TX);
-	    attemptTransmission(TX_TIME(ackFrame->byteLength()));
+	    attemptTransmission(TX_TIME(ACK_PKT_SIZE));
+	    break;
+	}
+
+	case MAC_802154_GTS_REQUEST_FRAME: {
+	    if (!isPANCoordinator) break;
+	    if (rcvFrame->getHeader().PANid != self) break;
+	    CASTALIA_DEBUG << "Received GTS request from " << rcvFrame->getHeader().srcID;
+
+	    MAC_GenericFrame *ackFrame = new MAC_GenericFrame("PAN GTS response", MAC_FRAME);
+	    ackFrame->setKind(MAC_FRAME);
+	    ackFrame->getHeader().PANid = self;
+	    ackFrame->getHeader().frameType = MAC_802154_ACK_FRAME;
+	    ackFrame->getHeader().destID = rcvFrame->getHeader().srcID;
+	    ackFrame->setByteLength(ACK_PKT_SIZE);
+	    ackFrame->getHeader().GTSlength = 0;
+	    
+	    int index = -1;
+	    for (int i = 0; i < GTSlist.size(); i++) {
+	        if (GTSlist[i].owner == rcvFrame->getHeader().srcID) {
+	    	    if (GTSlist[i].length == rcvFrame->getHeader().GTSlength) {
+	    		ackFrame->getHeader().GTSlength = GTSlist[i].length;
+	    	    } else {
+	    		CAPlength += GTSlist[i].length;
+	    		GTSlist[i].length = 0;
+	    		index = i;
+	    	    }
+	        }
+	    }
+	                        
+	    if (ackFrame->getHeader().GTSlength == 0) {
+		if ((CAPlength - rcvFrame->getHeader().GTSlength) * baseSlotDuration * ( 1 << frameOrder) < minCAPLength) {
+		    CASTALIA_DEBUG << "GTS request from " << rcvFrame->getHeader().srcID << " cannot be acocmodated";
+		} else if (index != -1) {
+		    GTSlist[index].length = rcvFrame->getHeader().GTSlength;   
+		} else {
+		    GTSspec newGTSspec;
+		    newGTSspec.length = rcvFrame->getHeader().GTSlength;
+		    newGTSspec.owner = rcvFrame->getHeader().srcID;
+		    GTSlist.push_back(newGTSspec);
+		}
+	    }
+	    
+	    send(ackFrame,"toRadioModule");
+	    
+	    setRadioState(MAC_2_RADIO_ENTER_TX,PROCESSING_DELAY);
+	    setMacState(MAC_STATE_IN_TX);
+	    attemptTransmission(TX_TIME(ACK_PKT_SIZE));                                    
+	    
 	    break;
 	}
 
@@ -498,7 +682,7 @@ void Mac802154Module::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	    send(ackFrame,"toRadioModule");
 	    setRadioState(MAC_2_RADIO_ENTER_TX,PROCESSING_DELAY);
 	    setMacState(MAC_STATE_IN_TX);
-	    attemptTransmission(TX_TIME(ackFrame->byteLength()));
+	    attemptTransmission(TX_TIME(ACK_PKT_SIZE));
 
 	    break;
 	}
@@ -515,27 +699,52 @@ void Mac802154Module::handleAckFrame(MAC_GenericFrame *rcvFrame) {
 	//received an ack while waiting for a response to association request
 	case MAC_STATE_WAIT_FOR_ASSOCIATE_RESPONSE: {
 	    associatedPAN = rcvFrame->getHeader().PANid;
+	    if (desyncTimeStart >= 0) {
+		desyncTime += simTime() - desyncTimeStart;
+		desyncTimeStart = -1;
+	    }
 	    CASTALIA_DEBUG << "associated with PAN:" << associatedPAN;
 	    cancelAndDelete(nextPacket);
 	    nextPacket = NULL;
-	    attemptTransmission();
+	    if (requestGTS) {
+		issueGTSrequest();
+	    } else {
+		setMacState(MAC_STATE_PROCESSING);
+		attemptTransmission(PROCESSING_DELAY);
+	    }
 	    break;
 	}
 
 	//received an ack while waiting for a response to data packet
 	case MAC_STATE_WAIT_FOR_DATA_ACK: {
 	    if (isPANCoordinator || associatedPAN == rcvFrame->getHeader().srcID) {
-		if (nextPacket) {
-		    cancelAndDelete(nextPacket);
-		    nextPacket = NULL;
-		}
-		attemptTransmission();
+		if (nextPacket->getHeader().frameType == MAC_802154_DATA_FRAME) {
+	            if (nextPacketState.size()) { nextPacketState.append(",Success"); }
+	            else { nextPacketState = "Success"; }
+	        }
+	        nextPacketRetries = 0;
+	        setMacState(MAC_STATE_PROCESSING);
+		attemptTransmission(PROCESSING_DELAY);
+	    }
+	    break;
+	}
+
+	case MAC_STATE_WAIT_FOR_GTS: {
+	    lockedGTS = true;
+	    cancelAndDelete(nextPacket);
+	    nextPacket = NULL;
+	    if (enableCAP) { 
+		setMacState(MAC_STATE_PROCESSING);
+		attemptTransmission(PROCESSING_DELAY);
+	    } else {
+		setMacState(MAC_STATE_SLEEP);
+	        setRadioState(MAC_2_RADIO_ENTER_SLEEP);                
 	    }
 	    break;
 	}
 
 	default: {
-	    CASTALIA_DEBUG << "Received ACK in " << stateDescr[macState];
+	    CASTALIA_DEBUG << "WARNING: received ACK in " << stateDescr[macState];
 	    break;
 	}
     }
@@ -543,19 +752,36 @@ void Mac802154Module::handleAckFrame(MAC_GenericFrame *rcvFrame) {
 
 // This function will initiate a transmission (or retransmission) attempt after a given delay
 void Mac802154Module::attemptTransmission(double delay) {
-    // if current frame active time has expired - no transmissions can be initiated
-    if (currentFrameStart + CAPend < simTime()) return;
-
+    if (txResetMsg) { cancelAndDelete(txResetMsg); txResetMsg = NULL; }
+    
     // if delay is positive, schedule a self message
     if (delay > 0) {
-	scheduleAt(simTime() + DRIFTED_TIME(delay),
-            new MAC_ControlMessage("Transmission reset message", MAC_SELF_RESET_TX));
-        return;
+	txResetMsg = new MAC_ControlMessage("Transmission reset message", MAC_SELF_RESET_TX);
+	scheduleAt(simTime() + DRIFTED_TIME(delay), txResetMsg);
+    	return;
+    }
+    
+    if (currentFrameStart + CAPend > simTime()) {
+	// still in CAP period of the frame
+	if (!enableCAP) { setMacState(MAC_STATE_IDLE); return; }
+    } else if (requestGTS == 0 || GTSstart == 0) {
+	// not in CAP period and not in GTS, no transmissions possible
+	setMacState(MAC_STATE_IDLE);
+	return;
+    } else if (currentFrameStart + GTSstart > simTime() || 
+		currentFrameStart + GTSend < simTime()) {
+	// outside GTS, no transmissions possible
+	setMacState(MAC_STATE_IDLE);
+	return;
     }
 
+    
     // if a packet already queued for transmission - check avaliable retries
     if (nextPacket) {
-	if (nextPacketRetries == 0) {
+	if (nextPacketRetries <= 0) {
+	    if (nextPacket->getHeader().frameType == MAC_802154_DATA_FRAME) {
+		packetBreak[nextPacketState]++;
+	    }
 	    cancelAndDelete(nextPacket);
 	    nextPacket = NULL;
 	} else {
@@ -579,6 +805,7 @@ void Mac802154Module::attemptTransmission(double delay) {
 	nextPacket->getHeader().destID = txAddr;
 	nextPacket->getHeader().frameType = MAC_802154_DATA_FRAME;
 	nextPacket->encapsulate(check_and_cast<Network_GenericFrame *>(tmpFrame));
+	nextPacketState = "";
 	if (txAddr == BROADCAST_ADDR) {
 	    initiateCSMACA(0,MAC_STATE_IDLE,0);
 	} else {
@@ -600,10 +827,19 @@ void Mac802154Module::initiateCSMACA(int retries, int nextState, double response
 
 // initiate CSMA-CA algorithm
 void Mac802154Module::initiateCSMACA() {
+    if (requestGTS && lockedGTS && currentFrameStart + GTSstart < simTime() &&
+                    currentFrameStart + GTSend > simTime()) {
+	//we are in GTS, no need to run CSMA-CA - transmit right away
+	CASTALIA_DEBUG << "Transmitting packet in GTS";
+	transmitNextPacket();
+	return;
+    }
+    
     if (macState == MAC_STATE_CSMA_CA) {
 	CASTALIA_DEBUG << "WARNING: cannot initiate CSMA-CA algorithm while in MAC_STATE_CSMA_CA";
 	return;
     }
+    
     setMacState(MAC_STATE_CSMA_CA);
     NB = 0;
     CW = enableSlottedCSMA ? 2 : 1;
@@ -618,17 +854,19 @@ void Mac802154Module::continueCSMACA() {
 	return;
     }
 
-    //generate a random relay, multiply it by backoff period length
-    int rnd = genk_intrand(1,(1<<BE)-1);
+    //generate a random delay, multiply it by backoff period length
+    int rnd = genk_intrand(1,(1<<BE)-1)+1;
     double CCAtime = rnd*(unitBackoffPeriod*symbolLen);
 
     //if using slotted CSMA - need to locate backoff period boundary
     if (enableSlottedCSMA) {
 	double backoffBoundary = (ceil((simTime() - currentFrameStart)/(unitBackoffPeriod*symbolLen)) -
-			        	(simTime() - currentFrameStart)/(unitBackoffPeriod*symbolLen)) *
-			        	(unitBackoffPeriod*symbolLen);
+				    (simTime() - currentFrameStart)/(unitBackoffPeriod*symbolLen)) *
+				    (unitBackoffPeriod*symbolLen);
 	CCAtime += backoffBoundary;
     }
+
+    CASTALIA_DEBUG << "Random backoff value: " << rnd << ", time: " << CCAtime+simTime();
 
     //create a self message to preform carrier sense after calculated time
     scheduleAt(simTime() + DRIFTED_TIME(CCAtime),
@@ -654,16 +892,43 @@ void Mac802154Module::carrierIsClear() {
     	attemptTransmission();
     	return;
     }
+    
+    transmitNextPacket();
+}
 
+/* Transmit a packet by sending it to the radio */
+void Mac802154Module::transmitNextPacket() {
+
+    //check if transmission is allowed given current time and tx time
+    double txTime = TX_TIME(nextPacket->byteLength());
+    int allowTx = 1;
+    if (currentFrameStart + CAPend > simTime() + txTime) {
+        // still in CAP period of the frame
+	if (!enableCAP && nextPacket->getHeader().frameType == MAC_802154_DATA_FRAME) allowTx = 0;
+    } else if (requestGTS == 0 || GTSstart == 0) {
+        // not in CAP period and not in GTS, no transmissions possible
+        allowTx = 0;
+    } else if (currentFrameStart + GTSstart > simTime() ||
+        currentFrameStart + GTSend < simTime() + txTime) {
+        // outside GTS, no transmissions possible
+        allowTx = 0;
+    }
+    
+    if (!allowTx) {
+        setMacState(MAC_STATE_IDLE);
+        return;
+    }
+    
+    //transmission is allowed, decrement retry counter and modify mac and radio states.
+    nextPacketRetries--;                                                                            
     if (nextPacketResponse > 0) {
 	setMacState(nextMacState);
 	attemptTransmission(nextPacketResponse);
     } else {
 	setMacState(MAC_STATE_IN_TX);
-	attemptTransmission(TX_TIME(nextPacket->byteLength()));
+	attemptTransmission(TX_TIME(txTime));
     }
 
-    if (nextPacketRetries > 0) nextPacketRetries--;
     send(check_and_cast<MAC_GenericFrame *>(nextPacket->dup()),"toRadioModule");
     setRadioState(MAC_2_RADIO_ENTER_TX);
 }
@@ -671,7 +936,7 @@ void Mac802154Module::carrierIsClear() {
 /* This function will create a request to RADIO module to perform an instantaneous
  * carrier sense.
  */
-void Mac802154Module::performCarrierSense() {
+int Mac802154Module::performCarrierSense() {
     /* Here we check for validiry of carrier sense of the radio module
      * (This can be seen as checking the pin which is the indicator of wether
      * carrier sensed pin is valid or not)
@@ -683,13 +948,32 @@ void Mac802154Module::performCarrierSense() {
 	 * actual carrier sense pin)
 	 */
 	send(new MAC_ControlMessage("carrier sense strobe MAC->radio", MAC_2_RADIO_SENSE_CARRIER_INSTANTANEOUS), "toRadioModule");
+	return 0;
     } else {
         // carrier sense indication of Radio is NOT Valid and isCarrierSenseValid_ReturnCode
         // holds the cause for the non valid carrier sense indication.
-        // It is only possible to treat this situation as carrier is busy (since 802.15.4
-        // only interested in instant carrier sense)
-
-	CASTALIA_DEBUG << "WARNING: carrier sense while radio is not ready " << isCarrierSenseValid_ReturnCode;
+	
+	return 1;
     }
 }
 
+/* Create a GTS request packet and schedule it for transmission */
+void Mac802154Module::issueGTSrequest() {
+    if (nextPacket) {
+        if (nextPacket->getHeader().frameType == MAC_802154_DATA_FRAME) {
+    	    if (nextPacketState.size()) { nextPacketState.append(",NoSync"); }
+	    else { nextPacketState = "NoSync"; }
+	    packetBreak[nextPacketState]++;
+	}
+	cancelAndDelete(nextPacket); 
+    }
+    
+    nextPacket = new MAC_GenericFrame("GTS request", MAC_FRAME);
+    nextPacket->setKind(MAC_FRAME);
+    nextPacket->getHeader().PANid = associatedPAN;
+    nextPacket->getHeader().frameType = MAC_802154_GTS_REQUEST_FRAME;
+    nextPacket->getHeader().srcID = self;
+    nextPacket->getHeader().GTSlength = requestGTS;
+    nextPacket->setByteLength(COMMAND_PKT_SIZE);
+    initiateCSMACA(9999,MAC_STATE_WAIT_FOR_GTS,ackWaitDuration + TX_TIME(COMMAND_PKT_SIZE));
+}

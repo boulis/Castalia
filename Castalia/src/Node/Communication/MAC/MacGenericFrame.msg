@@ -38,6 +38,7 @@ enum MAC_ProtocolFrameType
 	MAC_802154_ASSOCIATE_FRAME = 1002;
 	MAC_802154_DATA_FRAME = 1003;
 	MAC_802154_ACK_FRAME = 1004;
+	MAC_802154_GTS_REQUEST_FRAME = 1005;
 };
 
 cplusplus {{
@@ -65,6 +66,7 @@ struct macHeaderInfo
 		int frameOrder;
 		int BSN;
 		int CAPlength;
+		int GTSlength;
 };
 
 struct GTSspec

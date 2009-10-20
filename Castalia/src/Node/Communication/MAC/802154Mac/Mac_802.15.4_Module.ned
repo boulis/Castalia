@@ -37,7 +37,10 @@ simple Mac802154Module
 	        macMaxBE		: const,
 	        macMaxCSMABackoffs	: const,
 	        macMaxFrameRetries 	: const,
-	        maxLostBeacons		: const;
+	        maxLostBeacons		: const,
+	        minCAPLength		: const,
+	        enableCAP		: const,
+	        requestGTS		: const;
 	        
 		
 

@@ -1,5 +1,7 @@
 #!/usr/bin/perl	
 
+use strict;
+
 use Getopt::Long;
 
 use constant WC_IDEAL => "../Parameter_Include_Files/WChannel/No_Interference/WChannel_Ideal.ini";
@@ -139,7 +141,8 @@ SN.field_x = $sim->{x}
 SN.field_y = $sim->{y}
 ";
 
-$num = 1; $tmp = "";
+my $num = 1; 
+my $tmp = "";
 
 for (my $x = 0; $x <= $sim->{x}; $x+=20) {
     for (my $y = 0; $y <= $sim->{y}; $y+=10) {
@@ -185,6 +188,8 @@ my $simlen;
 my $total_version_packets = 0;
 my $curr_run = 0;
 my $max_energy = 0;
+my $avg_energy = 0;
+my $node_num = 0;
 
 for my $line (@lines) {
     if ($line =~ /Calling finish\(\) at end of Run \#(\d+)/) {
@@ -209,7 +214,11 @@ for my $line (@lines) {
     } elsif ($line =~ /^Node \d+ ran out of energy at (\d+)/) {
 	$simlen = $1 if !$simlen || $simlen > $1;
     } elsif ($line =~ /^Node \[(\d+)\] spent energy: (\d+)/) {
-	if ($1 != 0 && $2 > $max_energy) { $max_energy = $2; }
+	if ($1 != 0) {
+	    $avg_energy += $2;
+	    $node_num++;
+	    if ($2 > $max_energy) { $max_energy = $2; }
+	}
     }
 }
 
@@ -256,10 +265,13 @@ sub print_stat {
 	my $m = int($simlen/60);
 	$simlen -= $m*60;
 	printf "First node ran out of energy at %.2d:%.2d:%.2d, (%.2f days)\n",$h,$m,$simlen,$days;
-    } elsif ($max_energy) {
+    } elsif ($node_num) {
 	$max_energy = $max_energy/$time;
-	$energyPerDay = $max_energy*60*60*24;
+	$avg_energy = ($avg_energy/$node_num)/$time;
+	my $energyPerDay = $max_energy*60*60*24;
 	printf "Maximum energy consumption at a single node was %.4f J/second, or %.0f J/day\n", $max_energy, $energyPerDay;
+	$energyPerDay = $avg_energy*60*60*24;
+	printf "Average energy consumption at a single node was %.4f J/second, or %.0f J/day\n", $avg_energy, $energyPerDay;
     }
 }
 

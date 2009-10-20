@@ -23,9 +23,9 @@ Define_Module(RadioModule);
 
 void RadioModule::initialize() {
 
-	readIniFileParameters();
-
 	self = parentModule()->parentModule()->index();
+
+	readIniFileParameters();
 
 	radioState = RADIO_STATE_LISTEN;
 	if(printStateTransitions)
@@ -629,9 +629,9 @@ void RadioModule::handleMessage(cMessage *msg)
 			if((radioState == RADIO_STATE_LISTEN) && ((simTime() - startListeningTime) >= currentRxDuration) )
 			{
 				if (macFrame->getHeader().frameType == MAC_PROTO_BEACON_FRAME)
-					CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": RX beacon from node " << (macFrame->getHeader()).srcID ;
+				    CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": RX beacon from node " << (macFrame->getHeader()).srcID ;
 			  	else  
-				  CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": RX packet from node " << (macFrame->getHeader()).srcID ;
+				    CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": RX packet from node " << (macFrame->getHeader()).srcID ;
 				  
 				send(macFrame, "toMacModule");
 				
@@ -652,7 +652,10 @@ void RadioModule::handleMessage(cMessage *msg)
 					else
 					{
 						droppedDataFrames++;
-						CASTALIA_DEBUG << "\nPacket dropped at Radio module --> Node[" << self << "]  T=" << simTime() << "\n";
+						if (radioState == RADIO_STATE_LISTEN) {
+						    CASTALIA_DEBUG << "\nPacket dropped at Radio module --> Node[" << self << "]  T=" << simTime();
+						    CASTALIA_DEBUG << "\n	reason: radio in listen state for " << simTime() - startListeningTime << ", current transmission time: " << currentRxDuration;
+						}
 					}
 				}
 
@@ -797,7 +800,7 @@ void RadioModule::readIniFileParameters(void)
     	txPowerConsumptionPerLevel.push_back((double)(atof(token)/1000.0f));
 
 	txPowerLevelUsed = par("txPowerLevelUsed");
-
+	
 	bufferSize = par("bufferSize");
 
 	maxPhyFrameSize = par("maxPhyFrameSize");

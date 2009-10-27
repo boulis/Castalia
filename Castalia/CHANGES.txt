@@ -1,4 +1,25 @@
 
+Castalia 2.3: Changes from ver 2.2
+------------------------------------------
+- Implemented GTS mode in 802.15.4 MAC,
+  fixed several bugs.
+- TMAC enhanced to select mechanisms for TA
+  extension and collision resolution
+- Minor modifications in bridgeTestRun script
+  added average energy consumption
+- Batch script for running BAN simulations added
+
+
+Castalia 2.2: Changes from ver 2.1
+------------------------------------------
+- Implementation of 802.15.4 MAC (CAP, beacon mode)
+- added modulation types diffBPSK, diffQPSK
+- throughtputTest application measuring latency
+- throughtputTest app supporting multihop traffic
+  with nextRecipient parameter
+- Bug with TMAC sending many RTS packets fixed
+
+
 
 Castalia 2.1: Changes from ver 2.0
 ------------------------------------------

@@ -80,7 +80,7 @@ void simpleAggregation_ApplicationModule::initialize()
 
 	constantDataPayload = par("constantDataPayload");
 
-	char buff[30];
+	char buff[35];
 	sprintf(buff, "Application Vector of Node %d", self);
 	appVector.setName(buff);
 

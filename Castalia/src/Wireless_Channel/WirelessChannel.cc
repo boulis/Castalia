@@ -414,6 +414,8 @@ void WirelessChannel::handleMessage(cMessage *msg)
 				cellOccupation[newCell].push_front(srcAddr);
 				nodeLocation[srcAddr].cell = newCell;
 			}
+
+			break;
 		}
 
 		case WC_CARRIER_SENSE_BEGIN:

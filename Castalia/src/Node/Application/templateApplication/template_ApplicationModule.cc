@@ -77,7 +77,7 @@ void template_ApplicationModule::initialize()
 
 	isSink = par("isSink");
 
-	char buff[30];
+	char buff[35];
 	sprintf(buff, "Application Vector of Node %d", self);
 	appVector.setName(buff);
 

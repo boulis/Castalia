@@ -87,7 +87,7 @@ void valuePropagation_ApplicationModule::initialize()
 	currMaxReceivedValue = -1.0;
 	currMaxSensedValue = -1.0;
 
-	char buff[30];
+	char buff[35];
 	sprintf(buff, "Application Vector of Node %d", self);
 	appVector.setName(buff);
 

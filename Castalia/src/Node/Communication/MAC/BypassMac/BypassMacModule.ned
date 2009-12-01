@@ -10,20 +10,20 @@
 //*											*
 //***************************************************************************************
 
+package Node.Communication.MAC.BypassMac;
 
-
-simple BypassMacModule
-
+simple BypassMacModule like Node.Communication.MAC.MacGenericModule
+{
     parameters:
-		printDebugInfo: bool,
-		
-		maxMACFrameSize	: const,	// in bytes
-		macFrameOverhead: const,	// in 802.15.4 = 5 + (4-->20) bytes
-		
-		macBufferSize	: const;	// in number of messages
+        bool printDebugInfo = default(false);
+        int maxMACFrameSize = default(121); 
+        int macFrameOverhead = default(14); 
+        int macBufferSize = default(32);
 
     gates:
-        out:	toNetworkModule, toRadioModule;
-        in:	fromNetworkModule, fromRadioModule, fromCommModuleResourceMgr;
-
-endsimple
+        output toNetworkModule;
+        output toRadioModule;
+        input fromNetworkModule;
+        input fromRadioModule;
+        input fromCommModuleResourceMgr;
+}

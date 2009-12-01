@@ -49,7 +49,7 @@ enum MacStates {
 };
 
 struct TMacSchedule {
-    double offset;
+    simtime_t offset;
     int ID;
     int SN;
 };
@@ -80,12 +80,12 @@ class TMacModule : public cSimpleModule
 
 	bool allowSinkSync;
 	int resyncTime;
-	double contentionPeriod;
-	double listenTimeout;
-	double waitTimeout;
+	simtime_t contentionPeriod;
+	simtime_t listenTimeout;
+	simtime_t waitTimeout;
 	bool useRtsCts;
 	bool useFRTS;
-	double frameTime;
+	simtime_t frameTime;
 	bool disableTAextension;
 	bool conservativeTA;
 	int collisionResolution;
@@ -97,8 +97,8 @@ class TMacModule : public cSimpleModule
 	int disabled;
 	RadioModule *radioModule;		//a pointer to the object of the Radio Module (used for direct method calls)
 	ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
-	double radioDelayForValidCS;      	// delay for valid CS
-	double radioDelayForSleep2Listen;	// delay to switch from sleep state to listen state
+	simtime_t radioDelayForValidCS;      	// delay for valid CS
+	simtime_t radioDelayForSleep2Listen;	// delay to switch from sleep state to listen state
 	double radioDataRate;
 	double epsilon;				//used to keep/manage the order between two messages that are sent at the same simulation time
 	double cpuClockDrift;
@@ -110,7 +110,7 @@ class TMacModule : public cSimpleModule
 	int txRetries;			//number of transmission attempts to txAddr (when reaches 0 - packet is dropped)
 	bool primaryWakeup;		//used to distinguish between primary and secondary schedules
 	bool needResync;		//set to 1 when a SYNC frame has to be sent
-	double currentFrameStart;	//recorded start time of the current frame
+	simtime_t currentFrameStart;	//recorded start time of the current frame
 
 	/*--- TMAC message pointers (to cancel it and reschedule if necessary) ---*/
 	MAC_ControlMessage *carrierSenseMsg;
@@ -118,7 +118,7 @@ class TMacModule : public cSimpleModule
 	MAC_ControlMessage *macTimeoutMsg;
 
 	/*--- TMAC activation timeout variable ---*/
-	double activationTimeout;	//time untill MAC_CHECK_TA message arrival
+	simtime_t activationTimeout;	//time untill MAC_CHECK_TA message arrival
 
 	/*--- TMAC frame pointers (sometimes frame is created not immediately before sending) ---*/
 	MAC_GenericFrame *syncFrame;
@@ -127,10 +127,10 @@ class TMacModule : public cSimpleModule
 	MAC_GenericFrame *ackFrame;
 
 	/*--- TMAC transmission times ---*/
-	double syncTxTime;
-	double rtsTxTime;
-	double ctsTxTime;
-	double ackTxTime;
+	simtime_t syncTxTime;
+	simtime_t rtsTxTime;
+	simtime_t ctsTxTime;
+	simtime_t ackTxTime;
 
 	/*--- TMAC transmission buffer ---*/
 	queue <Network_GenericFrame *> TXBuffer;
@@ -150,15 +150,15 @@ class TMacModule : public cSimpleModule
 	void resetDefaultState();
 	void setMacState(int newState);
 	void createPrimarySchedule();
-	void scheduleSyncFrame(double when);
+	void scheduleSyncFrame(simtime_t when);
 	void processMacFrame(MAC_GenericFrame *rcvFrame);
 	void carrierIsClear();
-	void updateScheduleTable(double wakeup, int ID, int SN);
-	void performCarrierSense(int newState, double delay = 0);
-	void extendActivePeriod(double extra = 0);
+	void updateScheduleTable(simtime_t wakeup, int ID, int SN);
+	void performCarrierSense(int newState, simtime_t delay = 0);
+	void extendActivePeriod(simtime_t extra = 0);
 	void checkTxBuffer();
 	void popTxBuffer();
-	void updateTimeout(double t);
+	void updateTimeout(simtime_t t);
 	void clearTimeout();
 
 };

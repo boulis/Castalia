@@ -10,10 +10,11 @@
 //*											*
 //***************************************************************************************
 
+package Node.Mobility_Module;
 
-simple VirtualMobilityModule
+moduleinterface VirtualMobilityModule
 
-	parameters:
-	    printDebugInfo: bool;
-
-endsimple
+{
+    parameters:
+        bool printDebugInfo;
+}

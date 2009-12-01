@@ -16,10 +16,12 @@
 
 cplusplus {{
 #include "NetworkGenericFrame_m.h"
-}};
+}}
+
 
 
 class Network_GenericFrame;
+
 
 
 
@@ -27,8 +29,9 @@ class Network_GenericFrame;
 //A NET_FRAME can be of any of the following types:
 enum multipathRingsRouting_FrameType
 {
-	MPATH_RINGS_ROUTING_TOPOLOGY_SETUP_FRAME = 3102;
-};
+
+    MPATH_RINGS_ROUTING_TOPOLOGY_SETUP_FRAME = 3102;
+}
 
 
 
@@ -38,17 +41,17 @@ enum multipathRingsRouting_FrameType
 // header.frameType = TREE_ROUTING_TOPOLOGY_SETUP_FRAME
 message multipathRingsRouting_DataFrame extends Network_GenericFrame
 {
-	fields:
-		// information related to the sink (tree root)		
-		unsigned short sinkID;  // value range: 0 to 65535
-	
-		
+    fields:
+    // information related to the sink (tree root)		
+    unsigned short sinkID;  // value range: 0 to 65535
+
+
 		// information related to the sender
 		// the ID of the sender can be found in the "header" field,
 		// which is inherited from the Network_GenericFrame
-		
-		short senderLevel; // value range: -32768 to 32767
-};
+
+    short senderLevel; // value range: -32768 to 32767
+}
 
 
 
@@ -57,15 +60,15 @@ message multipathRingsRouting_DataFrame extends Network_GenericFrame
 // header.frameType = TREE_ROUTING_TOPOLOGY_SETUP_FRAME
 message multipathRingsRouting_TopoSetup_Frame extends Network_GenericFrame
 {
-	fields:
-		// information related to the sink (tree root)
-		unsigned short sinkID;
-		
+    fields:
+    // information related to the sink (tree root)
+    unsigned short sinkID;
+
 		// information related to the sender
 		// the ID of the sender can be found in the "header" field,
 		// which is inherited from the Network_GenericFrame
-		
-		short senderLevel;
-};
+
+    short senderLevel;
+}
 
 

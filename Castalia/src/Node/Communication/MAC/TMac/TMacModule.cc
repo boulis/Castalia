@@ -14,7 +14,7 @@
 
 #define DRIFTED_TIME(time) ((time) * cpuClockDrift)
 #define BROADCAST_ADDR -1
-#define EV   ev.disabled() ? (ostream&)ev : ev
+//#define EV   ev.isDisabled() ? (ostream&)ev : ev ==> EV is now part of <omnetpp.h>
 #define CASTALIA_DEBUG_OLD (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 #define BASIC_INFO "\n[MAC-"<<self<<"-"<<simTime()<<"] "
 #define CASTALIA_DEBUG CASTALIA_DEBUG_OLD << BASIC_INFO
@@ -48,23 +48,23 @@ void TMacModule::initialize() {
 
 	//initialization of the class member variables
 
-	self = parentModule()->parentModule()->index();
+	self = getParentModule()->getParentModule()->getIndex();
 
 	//get a valid reference to the object of the Radio module so that we can make direct calls to its public methods
 	//instead of using extra messages & message types for tighlty coupled operations.
-	radioModule = check_and_cast<RadioModule*>(gate("toRadioModule")->toGate()->ownerModule());
+	radioModule = check_and_cast<RadioModule*>(gate("toRadioModule")->getNextGate()->getOwnerModule());
 	radioDataRate = (double) radioModule->par("dataRate");
 	radioDelayForSleep2Listen = ((double) radioModule->par("delaySleep2Listen"))/1000.0;
 	radioDelayForValidCS = ((double) radioModule->par("delayCSValid"))/1000.0; //parameter given in ms in the omnetpp.ini
 
 	phyLayerOverhead = radioModule->par("phyFrameOverhead");
-	totalSimTime = ev.config()->getAsTime("General", "sim-time-limit");
+	totalSimTime = strtod(ev.getConfig()->getConfigValue("sim-time-limit"),NULL); 
 
 	//get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
 	//instead of using extra messages & message types for tighlty coupled operations.
-	cModule *parentParent = parentModule()->parentModule();
+	cModule *parentParent = getParentModule()->getParentModule();
 	if(parentParent->findSubmodule("nodeResourceMgr") != -1) {
-	    resMgrModule = check_and_cast<ResourceGenericManager*>(parentParent->submodule("nodeResourceMgr"));
+	    resMgrModule = check_and_cast<ResourceGenericManager*>(parentParent->getSubmodule("nodeResourceMgr"));
 	} else
 	    opp_error("\n[MAC]:\n Error in geting a valid reference to  nodeResourceMgr for direct method calls.");
 
@@ -72,7 +72,7 @@ void TMacModule::initialize() {
 
 	//try to obtain the value of isSink parameter from application module
 	if(parentParent->findSubmodule("nodeApplication") != -1) {
-	    cModule *tmpApplication = parentParent->submodule("nodeApplication");
+	    cModule *tmpApplication = parentParent->getSubmodule("nodeApplication");
 	    isSink = tmpApplication->hasPar("isSink") ? tmpApplication->par("isSink") : false;
 	} else {
 	    isSink = false;
@@ -108,7 +108,7 @@ void TMacModule::initialize() {
 }
 
 void TMacModule::handleMessage(cMessage *msg) {
-    int msgKind = msg->kind();
+    int msgKind = msg->getKind();
     if((disabled) && (msgKind != APP_NODE_STARTUP)) {
     	delete msg;
     	msg = NULL;		// safeguard
@@ -147,15 +147,15 @@ void TMacModule::handleMessage(cMessage *msg) {
 	 * be done separately for each transmission attempt
 	 */
 	case NETWORK_FRAME: {
-	    if (TXBuffer.size() >= macBufferSize) {
+	    if ((int)TXBuffer.size() >= macBufferSize) {
 		send(new MAC_ControlMessage("MAC buffer is full Radio->Mac", MAC_2_NETWORK_FULL_BUFFER), "toNetworkModule");
 		if (printDroppedPackets) CASTALIA_DEBUG << "WARNING: SchedTxBuffer FULL! Application/network layer packet is dropped";
 		break;
 	    }
 
 	    Network_GenericFrame *dataFrame = check_and_cast<Network_GenericFrame*>(msg->dup());
-	    if (dataFrame->byteLength() + macFrameOverhead > maxMACFrameSize) {
-		if (printDroppedPackets) CASTALIA_DEBUG << "WARNING: Oversized packet dropped. Packet size:" << dataFrame->byteLength()
+	    if (dataFrame->getByteLength() + macFrameOverhead > maxMACFrameSize) {
+		if (printDroppedPackets) CASTALIA_DEBUG << "WARNING: Oversized packet dropped. Packet size:" << dataFrame->getByteLength()
 		    << ", MAC overhead:" << macFrameOverhead << ", max MAC frame size:" << maxMACFrameSize;
 		cancelAndDelete(dataFrame);
 	    } else {
@@ -231,7 +231,7 @@ void TMacModule::handleMessage(cMessage *msg) {
 	    }
 
 	    // schedule wakeup messages for secondary schedules within the current frame only
-	    for (int i = 1; i < scheduleTable.size(); i++) {
+	    for (int i = 1; i < (int)scheduleTable.size(); i++) {
 		if (scheduleTable[i].offset < 0) { scheduleTable[i].offset += frameTime; }
 		scheduleAt(simTime() + DRIFTED_TIME(scheduleTable[i].offset),
 		    new MAC_ControlMessage("Secondary schedule wakeup", MAC_SELF_WAKEUP_SILENT));
@@ -434,7 +434,7 @@ void TMacModule::handleMessage(cMessage *msg) {
 	 * received)
 	 */
 	case MAC_TIMEOUT: {
-	    if (msg = macTimeoutMsg) macTimeoutMsg = NULL;
+	    if (msg == macTimeoutMsg) macTimeoutMsg = NULL;
 	    resetDefaultState();
 	    break;
 	}
@@ -566,7 +566,7 @@ void TMacModule::resetDefaultState()  {
 }
 
 /* This function clears and reschedules MAC_TIMEOUT message after a given time t. */
-void TMacModule::updateTimeout(double t) {
+void TMacModule::updateTimeout(simtime_t t) {
     clearTimeout();
     macTimeoutMsg = new MAC_ControlMessage("MAC timeout expired", MAC_TIMEOUT);
     scheduleAt(simTime() + DRIFTED_TIME(t), macTimeoutMsg);
@@ -604,7 +604,7 @@ void TMacModule::setMacState(int newState) {
  * Note that only SYNC frames of primary schedule can be created. Secondary schedule
  * SYNC frames are never created
  */
-void TMacModule::scheduleSyncFrame(double delay) {
+void TMacModule::scheduleSyncFrame(simtime_t delay) {
     if (scheduleTable.size() < 1) {
 	CASTALIA_DEBUG << "WARNING: unable to schedule Sync frame without a schedule!";
 	return;
@@ -626,16 +626,16 @@ void TMacModule::scheduleSyncFrame(double delay) {
 /* This function will update schedule table with the given values for wakeup time,
  * schedule ID and schedule SN
  */
-void TMacModule::updateScheduleTable(double wakeup, int ID, int SN) {
+void TMacModule::updateScheduleTable(simtime_t wakeup, int ID, int SN) {
     // First, search through existing schedules
-    for (int i = 0; i < scheduleTable.size(); i++) {
+    for (int i = 0; i < (int)scheduleTable.size(); i++) {
 	//If schedule already exists
         if (scheduleTable[i].ID == ID) {
     	    //And SN is greater than ours, then update
     	    if (scheduleTable[i].SN < SN) {
 
     		//Calculate new frame offset for this schedule
-    		double new_offset = simTime() - currentFrameStart + wakeup - frameTime;
+    		simtime_t new_offset = simTime() - currentFrameStart + wakeup - frameTime;
     		CASTALIA_DEBUG << "Resync successful for ID:"<<ID<<" old offset:"<<scheduleTable[i].offset<<" new offset:"<<new_offset;
     		scheduleTable[i].offset = new_offset;
     		scheduleTable[i].SN = SN;
@@ -717,7 +717,7 @@ void TMacModule::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	case MAC_PROTO_RTS_FRAME: {
 	    //If this node is the destination, reply with a CTS, otherwise
 	    //set a timeout and keep silent for the duration of communication
-	    double NAV = rcvFrame->getHeader().NAV - rtsTxTime;
+	    simtime_t NAV = rcvFrame->getHeader().NAV - rtsTxTime;
 	    if (rcvFrame->getHeader().destID == self) {
 		if (ctsFrame) cancelAndDelete(ctsFrame);
 		ctsFrame = new MAC_GenericFrame("CTS message", MAC_FRAME);
@@ -739,7 +739,7 @@ void TMacModule::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	/* received a CTS frame */
 	case MAC_PROTO_CTS_FRAME: {
 	    //If this CTS comes as a response to previously sent RTS, data transmission can be started
-	    double NAV = rcvFrame->getHeader().NAV - ctsTxTime;
+	    simtime_t NAV = rcvFrame->getHeader().NAV - ctsTxTime;
 	    if(macState == MAC_STATE_WAIT_FOR_CTS && rcvFrame->getHeader().destID == self) {
 		if(TXBuffer.empty()) {
 		    CASTALIA_DEBUG << "WARNING: invalid MAC_STATE_WAIT_FOR_CTS while buffer is empty";
@@ -859,7 +859,7 @@ void TMacModule::carrierIsClear() {
     	    rtsFrame->setKind(MAC_FRAME) ;
 	    rtsFrame->getHeader().srcID = self;
 	    rtsFrame->getHeader().destID = txAddr;
-	    rtsFrame->getHeader().NAV = ctsTxTime + ackTxTime + TX_TIME(TXBuffer.front()->byteLength() + macFrameOverhead) + NAV_EXTENSION;
+	    rtsFrame->getHeader().NAV = ctsTxTime + ackTxTime + TX_TIME(TXBuffer.front()->getByteLength() + macFrameOverhead) + NAV_EXTENSION;
  	    rtsFrame->getHeader().frameType = MAC_PROTO_RTS_FRAME;
 	    rtsFrame->setByteLength(rtsFrameSize);
 	    send(rtsFrame, "toRadioModule");
@@ -948,7 +948,7 @@ void TMacModule::carrierIsClear() {
 	    packetsSent["DATA"]++;
 
 	    //update MAC state based on transmission time and destination address
-	    double txTime = TX_TIME(macFrame->byteLength());
+	    double txTime = TX_TIME(macFrame->getByteLength());
 
 	    if (txAddr == BROADCAST_ADDR) {
 		// This packet is broadcast, so no reply will be received
@@ -1015,7 +1015,7 @@ void TMacModule::carrierIsClear() {
  * delay allows to perform a carrier sense after a choosen delay (useful for
  * randomisation of transmissions)
  */
-void TMacModule::performCarrierSense(int newState, double delay) {
+void TMacModule::performCarrierSense(int newState, simtime_t delay) {
     setMacState(newState);
     if (carrierSenseMsg != NULL && carrierSenseMsg->isScheduled()) cancelAndDelete(carrierSenseMsg);
     carrierSenseMsg = new MAC_ControlMessage("Enter CARRIER SENSE", MAC_SELF_PERFORM_CARRIER_SENSE);
@@ -1026,8 +1026,8 @@ void TMacModule::performCarrierSense(int newState, double delay) {
  * time it is not less than listenTimeout value. Also a check TA message is scheduled here
  * to allow the node to go to sleep if activation timeout expires
  */
-void TMacModule::extendActivePeriod(double extra) {
-    double curTime = simTime();
+void TMacModule::extendActivePeriod(simtime_t extra) {
+    simtime_t curTime = simTime();
     if (conservativeTA) {
 	curTime += extra;
 	while (activationTimeout < curTime) { activationTimeout += listenTimeout; }

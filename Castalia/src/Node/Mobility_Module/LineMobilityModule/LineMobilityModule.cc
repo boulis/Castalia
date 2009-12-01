@@ -11,25 +11,28 @@
 
 #include "LineMobilityModule.h"
 
-#define EV   ev.disabled() ? (ostream&)ev : ev
+#include <iostream>
+#include <iomanip>
 
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
-
 
 Define_Module(LineMobilityModule);
 
 void LineMobilityModule::initialize() 
 {
-	initializeLocation();
+	VirtualMobilityModule::initialize();
+	cModule * node = getParentModule();
+	
 	printDebugInfo = par("printDebugInfo");
 	updateInterval = par("updateInterval"); 
 	updateInterval = updateInterval/1000;
-	loc1_x = par("loc1_x");
-	loc1_y = par("loc1_y");
-	loc1_z = par("loc1_z");
-	loc2_x = par("loc2_x");
-	loc2_y = par("loc2_y");
-	loc2_z = par("loc2_z");
+	
+	loc1_x = node->par("xCoor");
+	loc1_y = node->par("yCoor");
+	loc1_z = node->par("zCoor");
+	loc2_x = par("xCoorDestination");
+	loc2_y = par("yCoorDestination");
+	loc2_z = par("zCoorDestination");
 	speed = par("speed");
         distance = sqrt(pow(loc1_x-loc2_x,2)+pow(loc1_y-loc2_y,2)+pow(loc1_z-loc2_z,2));
         direction = 1;
@@ -47,7 +50,7 @@ void LineMobilityModule::initialize()
 
 void LineMobilityModule::handleMessage(cMessage *msg)
 {
-	int msgKind = msg->kind(); 
+	int msgKind = msg->getKind(); 
 	switch (msgKind) {
 	    
 	    case MOBILITY_PERIODIC: {
@@ -83,6 +86,10 @@ void LineMobilityModule::handleMessage(cMessage *msg)
 		}
 		notifyWirelessChannel();
 		scheduleAt(simTime() + updateInterval, new MobilityModule_Message("Periodic location update message", MOBILITY_PERIODIC));
+		
+		CASTALIA_DEBUG << setiosflags(ios::fixed) << setprecision(1) <<
+			"[Mob-" << getParentModule()->getIndex() << "-" << simTime() << "] new location(x:y:z) is " << 
+			nodeLocation.x << ":" << nodeLocation.y << ":" << nodeLocation.z << "\n";
 		break;
 	    }
 	    

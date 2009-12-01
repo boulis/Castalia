@@ -13,23 +13,19 @@
 
 
 enum PhyProcess_GenericMessageType
-{	
-	PHY_SAMPLE_REQ = 7000;
-
-	PHY_SAMPLE_REPLY = 7001;
-	
-	PHY_PROCESS_TIMER_1 = 7002;
-
-	PHY_PROCESS_DESTROY_NODE = 7003;
-};
+{
+    PHY_SAMPLE_REQ = 7000;
+    PHY_SAMPLE_REPLY = 7001;
+    PHY_PROCESS_TIMER_1 = 7002;
+    PHY_PROCESS_DESTROY_NODE = 7003;
+}
 
 
 message PhyProcess_GenericMessage
 {
-    fields:
-		double value;
-		double xCoor;
-		double yCoor;
-		int srcID; //the ID of the node module that sends the Sample request
-		int sensorIndex;
-};
+    double value;
+    double xCoor;
+    double yCoor;
+    int srcID; //the ID of the node module that sends the Sample request
+    int sensorIndex;
+}

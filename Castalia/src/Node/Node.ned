@@ -10,58 +10,62 @@
 //*											*
 //***************************************************************************************
 
+package Node;
 
-
-
+import Node.Mobility_Module;
 
 // The sensor node module. Connects to the wireless channel in order to communicate 
 // with other nodes. Connects to psysical processes so it can sample them.
 
 module Node
 
+{
     parameters:
-		xCoor:			const,	// location of the node, x coordinate (set by the Network)
-		yCoor: 			const,	// location of the node, y coordinate (set by the Network)
-		zCoor: 			const,
-		phi:			const,
-		theta:			const,
-		appModuleName:		string,	//the name of the implemented Application Module
-		mobilityModuleName: 	string;	//the name of the implemented Mobility Module
+	double xCoor = default(0);
+    	double yCoor = default(0);
+        double zCoor = default(0);
+        double phi = default(0);
+        double theta = default(0); 
+    
+        string appModuleName;						//the name of the implemented Application Module
+        string mobilityModuleName = default("NoMobilityModule");	//the name of the implemented Mobility Module
 
 
     gates:
-        out:	toWirelessChannel, toPhysicalProcess[];
-        in:	fromWirelessChannel, fromPhysicalProcess[];
+        output toWirelessChannel;
+        output toPhysicalProcess[];
+        input fromWirelessChannel;
+        input fromPhysicalProcess[];
 
 
     submodules:
-		nodeMobilityModule	: mobilityModuleName like GenericMobilityModule
-		nodeResourceMgr		: ResourceGenericManager
-		nodeSensorDevMgr	: SensorDevMgrModule
-			gatesizes:  
-				fromNodeContainerModule[sizeof(toPhysicalProcess)],
-				toNodeContainerModule[sizeof(toPhysicalProcess)];
-		networkInterface	: CommunicationModule;
-		nodeApplication	 	: appModuleName  	 like  ApplicationGenericModule;
-	
+        nodeMobilityModule: <mobilityModuleName> like Node.Mobility_Module.VirtualMobilityModule;
+        nodeResourceMgr: Node.Resource_Manager.ResourceGenericManager;
+        nodeSensorDevMgr: Node.Sensor_Device_Manager.SensorDevMgrModule {
+            gates:
+                fromNodeContainerModule[sizeof(toPhysicalProcess)];
+                toNodeContainerModule[sizeof(toPhysicalProcess)];
+        }
+        networkInterface: Node.Communication.CommunicationModule;
+        nodeApplication: <appModuleName> like Node.Application.ApplicationGenericModule;
 
-    connections nocheck:
-		networkInterface.toNodeContainerModule  -->  toWirelessChannel;
-		fromWirelessChannel  -->  networkInterface.fromNodeContainerModule;
-	
-		nodeApplication.toCommunicationModule  -->  networkInterface.fromApplicationModule;
-		nodeApplication.toSensorDeviceManager  -->  nodeSensorDevMgr.fromApplicationModule;
-		networkInterface.toApplicationModule  -->  nodeApplication.fromCommunicationModule;
+    connections:
+        networkInterface.toNodeContainerModule --> toWirelessChannel;
+        fromWirelessChannel --> networkInterface.fromNodeContainerModule;
 
-		nodeSensorDevMgr.toApplicationModule  -->  nodeApplication.fromSensorDeviceManager;
-		for i=0..sizeof(toPhysicalProcess)-1 do
-			fromPhysicalProcess[i] --> nodeSensorDevMgr.fromNodeContainerModule[i];
-			nodeSensorDevMgr.toNodeContainerModule[i] --> toPhysicalProcess[i];
-	        endfor;
+        nodeApplication.toCommunicationModule --> networkInterface.fromApplicationModule;
+        nodeApplication.toSensorDeviceManager --> nodeSensorDevMgr.fromApplicationModule;
+        networkInterface.toApplicationModule --> nodeApplication.fromCommunicationModule;
 
-		nodeResourceMgr.toSensorDevManager  -->  nodeSensorDevMgr.fromResourceManager;
-		nodeResourceMgr.toApplication -->  nodeApplication.fromResourceManager;
-		nodeResourceMgr.toNetwork --> networkInterface.fromResourceManager2Net;
-		nodeResourceMgr.toMac  -->  networkInterface.fromResourceManager2Mac;
-		nodeResourceMgr.toRadio  -->  networkInterface.fromResourceManager2Radio;
-endmodule
+        nodeSensorDevMgr.toApplicationModule --> nodeApplication.fromSensorDeviceManager;
+        for i=0..sizeof(toPhysicalProcess)-1 {
+            fromPhysicalProcess[i] --> nodeSensorDevMgr.fromNodeContainerModule[i];
+            nodeSensorDevMgr.toNodeContainerModule[i] --> toPhysicalProcess[i];
+        }
+
+        nodeResourceMgr.toSensorDevManager --> nodeSensorDevMgr.fromResourceManager;
+        nodeResourceMgr.toApplication --> nodeApplication.fromResourceManager;
+        nodeResourceMgr.toNetwork --> networkInterface.fromResourceManager2Net;
+        nodeResourceMgr.toMac --> networkInterface.fromResourceManager2Mac;
+        nodeResourceMgr.toRadio --> networkInterface.fromResourceManager2Radio;
+}

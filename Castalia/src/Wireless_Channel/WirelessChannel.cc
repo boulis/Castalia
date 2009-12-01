@@ -14,14 +14,19 @@
 
 Define_Module(WirelessChannel);
 
+int WirelessChannel::numInitStages() const { return 2; }
 
-void WirelessChannel::initialize() {
-
+void WirelessChannel::initialize(int stage) {
+	if (stage == 0) {
+	    readIniFileParameters();
+	    return;
+	}
+	
 	/* variable to report initialization run time */
 	clock_t startTime;
 	startTime = clock();
 
-	readIniFileParameters();
+
 
 	/****************************************************
 	 * To handle mobile nodes we break up the space into
@@ -43,29 +48,29 @@ void WirelessChannel::initialize() {
 	if(onlyStaticNodes)
 	{
 		numOfSpaceCells =  numOfNodes;
-  	}
+	}
 	else
 	{
-    	if (xFieldSize <= 0) {xFieldSize = 1; xCellSize=1;}
-    	if (yFieldSize <= 0) {yFieldSize = 1; yCellSize=1;}
-    	if (zFieldSize <= 0) {zFieldSize = 1; zCellSize=1;}
-    	if (xCellSize <= 0) xCellSize = xFieldSize;
-    	if (yCellSize <= 0) yCellSize = yFieldSize;
-    	if (zCellSize <= 0) zCellSize = zFieldSize;
+	if (xFieldSize <= 0) {xFieldSize = 1; xCellSize=1;}
+	if (yFieldSize <= 0) {yFieldSize = 1; yCellSize=1;}
+	if (zFieldSize <= 0) {zFieldSize = 1; zCellSize=1;}
+	if (xCellSize <= 0) xCellSize = xFieldSize;
+	if (yCellSize <= 0) yCellSize = yFieldSize;
+	if (zCellSize <= 0) zCellSize = zFieldSize;
 
-    	numOfZCells = (int)ceil(zFieldSize/zCellSize);
-    	numOfYCells = (int)ceil(yFieldSize/yCellSize);
-    	numOfXCells = (int)ceil(xFieldSize/xCellSize);
-    	numOfSpaceCells = numOfZCells * numOfYCells * numOfXCells;
+	numOfZCells = (int)ceil(zFieldSize/zCellSize);
+	numOfYCells = (int)ceil(yFieldSize/yCellSize);
+	numOfXCells = (int)ceil(xFieldSize/xCellSize);
+	numOfSpaceCells = numOfZCells * numOfYCells * numOfXCells;
 	   /***************************************************************
 	    * Calculate some values that  help us transform a 1D index in
 	    * [0..numOfSpaceCells -1] to a 3D index x, y, z and vice versa.
 	    * Each variable holds index increments (in the 1D large index)
 	    * needed to move one space cell in the z, y, and x directions
 	    **************************************************************/
-	  	zIndexIncrement = numOfYCells * numOfXCells;
-	   	yIndexIncrement = numOfXCells;
-	   	xIndexIncrement = 1;
+		zIndexIncrement = numOfYCells * numOfXCells;
+		yIndexIncrement = numOfXCells;
+		xIndexIncrement = 1;
 	}
 
 
@@ -85,16 +90,14 @@ void WirelessChannel::initialize() {
 
 	cTopology *topo;  // temp variable to access initial location of the nodes
 	topo = new cTopology("topo");
-	topo->extractByModuleType("Node", NULL);
+	topo->extractByNedTypeName(cStringTokenizer("Node.Node").asVector());
 
 	for (int i = 0; i < numOfNodes; i++)
 	{
-		nodeLocation[i].x = (double)topo->node(i)->module()->par("xCoor");
-		nodeLocation[i].y = (double)topo->node(i)->module()->par("yCoor");
-		nodeLocation[i].z = (double)topo->node(i)->module()->par("zCoor");
-		nodeLocation[i].phi = (double)topo->node(i)->module()->par("phi");
-		nodeLocation[i].theta = (double)topo->node(i)->module()->par("theta");
-		nodeLocation[i].cell = i; // will be overwriten if !onlyStaticNodes
+		VirtualMobilityModule * nodeMobilityModule = 
+		    check_and_cast<VirtualMobilityModule*>(topo->getNode(i)->getModule()->getSubmodule("nodeMobilityModule"));
+		nodeLocation[i] = nodeMobilityModule->getLocation();
+		nodeLocation[i].cell = i; 
 
 		if (!onlyStaticNodes)
 		{
@@ -136,8 +139,13 @@ void WirelessChannel::initialize() {
 			}
 
 			int cell = zIndex * zIndexIncrement + yIndex * yIndexIncrement + xIndex * xIndexIncrement;
-
+			
+			if (cell < 0 || cell >= numOfSpaceCells) {
+			    opp_error("Cell out of bounds for node %i, please check your mobility module settings\n",i);
+			}
+			
 			nodeLocation[i].cell = cell;
+			
 		}
 		/*************************************************
 		 * pushing ID i into the list cellOccupation[cell]
@@ -332,7 +340,7 @@ void WirelessChannel::initialize() {
 	 * Schedule a self message at the sim-time-limit so the
 	 * simulation does not finish before the sim-time-limit
 	 *******************************************************/
-	scheduleAt(ev.config()->getAsTime("General", "sim-time-limit"), new WChannel_GenericMessage("sim-time-limit message", WC_SIMTIME_LIMIT));
+	scheduleAt(strtod(ev.getConfig()->getConfigValue("sim-time-limit"),NULL), new WChannel_GenericMessage("sim-time-limit message", WC_SIMTIME_LIMIT));
 }
 
 
@@ -349,7 +357,7 @@ void WirelessChannel::handleMessage(cMessage *msg)
 	int srcAddr = message->getSrcAddress();
 
 
-	switch (message -> kind()) {
+	switch (message -> getKind()) {
 
 		case WC_SIMTIME_LIMIT:
 		{
@@ -414,7 +422,6 @@ void WirelessChannel::handleMessage(cMessage *msg)
 				cellOccupation[newCell].push_front(srcAddr);
 				nodeLocation[srcAddr].cell = newCell;
 			}
-
 			break;
 		}
 
@@ -498,8 +505,8 @@ void WirelessChannel::handleMessage(cMessage *msg)
 				float currentSignalReceived = message->getTxPower_dB() - (*it1)->avgPathLoss;
 				if (temporalModelDefined)
 				{
-				    float timePassed_msec = (simTime() - (*it1)->lastObservationTime)*1000;
-				    float timeProcessed_msec = temporalModel->runTemporalModel(timePassed_msec,&((*it1)->lastObservedDiffFromAvgPathLoss));
+				    simtime_t timePassed_msec = (simTime() - (*it1)->lastObservationTime)*1000;
+				    simtime_t timeProcessed_msec = temporalModel->runTemporalModel(SIMTIME_DBL(timePassed_msec),&((*it1)->lastObservedDiffFromAvgPathLoss));
 				    currentSignalReceived += (*it1)->lastObservedDiffFromAvgPathLoss;
 				    /* Update the observation time */
 				    (*it1)->lastObservationTime = simTime() - (timePassed_msec - timeProcessed_msec)/1000;
@@ -627,7 +634,7 @@ void WirelessChannel::handleMessage(cMessage *msg)
 				}
 
 				if (SINR_dB >= thresholdSNRdB) {
-					prob = calculateProb(SINR_dB, message->byteLength());
+					prob = calculateProb(SINR_dB, message->getByteLength());
 				}
 				else
 				{
@@ -833,8 +840,7 @@ float WirelessChannel::calculateProb(float SNR_dB, int packetByteSize)
 
 void WirelessChannel::readIniFileParameters(void)
 {
- 	string tempDebugFname(parentModule()->par("debugInfoFilename"));
-	DebugInfoWriter::setDebugFileName(tempDebugFname);
+	DebugInfoWriter::setDebugFileName(getParentModule()->par("debugInfoFilename").stringValue());
 	printDebugInfo = par("printDebugInfo");
 	printStatistics = par("printStatistics");
 
@@ -849,41 +855,37 @@ void WirelessChannel::readIniFileParameters(void)
 	PRRMapFile = par("PRRMapFile");
 	temporalModelParametersFile = par("temporalModelParametersFile");
 
-	numOfNodes = parentModule()->par("numNodes");
-	xFieldSize = parentModule()->par("field_x");
-	yFieldSize = parentModule()->par("field_y");
-	zFieldSize = parentModule()->par("field_z");
-	xCellSize = parentModule()->par("xCellSize");
-	yCellSize = parentModule()->par("yCellSize");
-	zCellSize = parentModule()->par("zCellSize");
+	numOfNodes = getParentModule()->par("numNodes");
+	xFieldSize = getParentModule()->par("field_x");
+	yFieldSize = getParentModule()->par("field_y");
+	zFieldSize = getParentModule()->par("field_z");
+	xCellSize = getParentModule()->par("xCellSize");
+	yCellSize = getParentModule()->par("yCellSize");
+	zCellSize = getParentModule()->par("zCellSize");
 
 	//find the minimum packet size
 	cModule *node_0;
-	if(parentModule()->findSubmodule("node", 0) != -1)
-		node_0 = check_and_cast<cModule*>(parentModule()->submodule("node", 0));
+	if(getParentModule()->findSubmodule("node", 0) != -1)
+		node_0 = check_and_cast<cModule*>(getParentModule()->getSubmodule("node", 0));
 	else
 		opp_error("\n[Wireless Channel]:\n Error in geting a valid reference to  node[0].\n");
 
 	if( node_0->findSubmodule("nodeApplication")  &&
-		node_0->findSubmodule("networkInterface") &&
-		node_0->submodule("networkInterface")->findSubmodule("MAC") &&
-		node_0->submodule("networkInterface")->findSubmodule("Radio") )
+	    node_0->findSubmodule("networkInterface") &&
+	    node_0->getSubmodule("networkInterface")->findSubmodule("MAC") &&
+	    node_0->getSubmodule("networkInterface")->findSubmodule("Radio") )
 	{
-		int appOverhead = node_0->submodule("nodeApplication")->par("packetHeaderOverhead");
-		int macOverhead = node_0->submodule("networkInterface")->submodule("MAC")->par("macFrameOverhead");
-		int radioOverhead = node_0->submodule("networkInterface")->submodule("Radio")->par("phyFrameOverhead");
-		maxPacketSize = node_0->submodule("networkInterface")->submodule("Radio")->par("maxPhyFrameSize");
+		int appOverhead = node_0->getSubmodule("nodeApplication")->par("packetHeaderOverhead");
+		int macOverhead = node_0->getSubmodule("networkInterface")->getSubmodule("MAC")->par("macFrameOverhead");
+		int radioOverhead = node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("phyFrameOverhead");
+		maxPacketSize = node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("maxPhyFrameSize");
 		minPacketSize = (appOverhead + macOverhead + radioOverhead + 2);
 
-		dataRate = node_0->submodule("networkInterface")->submodule("Radio")->par("dataRate");
-
-		receiverSensitivity = node_0->submodule("networkInterface")->submodule("Radio")->par("receiverSensitivity");
-
-		noiseBandwidth = node_0->submodule("networkInterface")->submodule("Radio")->par("noiseBandwidth");
-
-		noiseFloor = node_0->submodule("networkInterface")->submodule("Radio")->par("noiseFloor");
-
-		modulationTypeParam = node_0->submodule("networkInterface")->submodule("Radio")->par("modulationType");
+		dataRate = node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("dataRate");
+		receiverSensitivity = node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("receiverSensitivity");
+		noiseBandwidth = node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("noiseBandwidth");
+		noiseFloor = node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("noiseFloor");
+		modulationTypeParam = node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("modulationType");
 		customModulationArray = NULL;
 
 		//Modulation type is a string, either IDEAL, FSK, PSK, or CUSTOM.
@@ -914,7 +916,7 @@ void WirelessChannel::readIniFileParameters(void)
 		    customModulationArray = new CustomModulation_type[v.size()];
 		    numOfCustomModulationValues = v.size();
 		    const char *ptr;
-		    for (int i = 0; i < v.size(); i++) {
+		    for (int i = 0; i < (int)v.size(); i++) {
 			ptr = v[i].c_str();
 			if (parseFloat(ptr, &(customModulationArray[i].SNR)))
 			    opp_error("\n[Wireless Channel]: Illegal syntax for CUSTOM modulation type, unable to parse float from %s\n",ptr);
@@ -931,7 +933,7 @@ void WirelessChannel::readIniFileParameters(void)
 		}
 
 		/* Only one encoding type allowed cyrrently */
-		encodingType = node_0->submodule("networkInterface")->submodule("Radio")->par("encodingType");
+		encodingType = node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("encodingType");
 		switch(encodingType)
 		{
 			case 0:
@@ -956,7 +958,7 @@ void WirelessChannel::readIniFileParameters(void)
 		}
 
 		/* extract the maxTxPower from the string module parameter txPowerLevels */
-		const char *str = node_0->submodule("networkInterface")->submodule("Radio")->par("txPowerLevels");
+		const char *str = node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("txPowerLevels").stringValue();
 		cStringTokenizer tokenizer(str);
 		const char *token;
 		maxTxPower = 0.0;
@@ -971,7 +973,7 @@ void WirelessChannel::readIniFileParameters(void)
 
 
 
-	collisionModel = par("collisionModel");
+	collisionModel = par("collisionModel").longValue();
 	switch(collisionModel) {
 		case 0:
 			collisionModel = NO_INTERFERENCE_NO_COLLISIONS;
@@ -1023,7 +1025,7 @@ void WirelessChannel::parsePathLossMap(void)
 	while (ct[0] && ct[0] != '>') ct++;	//skip untill '>' character
 	if (!ct[0]) opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile\n");
 	cStringTokenizer t(++ct,","); 		//divide the rest of the strig with comma delimiter
-	while (ct = t.nextToken()) {
+	while ((ct = t.nextToken())) {
 	    if (parseInt(ct,&destination)) opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile\n");
 	    while (ct[0] && ct[0] != ':') ct++;	//skip untill ':' character
 	    if (parseFloat(++ct,&pathloss_db)) opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile\n");
@@ -1082,7 +1084,7 @@ void WirelessChannel::parsePrrMap(void)
 	}
 
 	cStringTokenizer t(++ct,",");		//divide the rest of the strig with comma delimiter (to separate each individual destination)
-	while (ct = t.nextToken()) {
+	while ((ct = t.nextToken())) {
 	    //It is expected that each segment will begin with destination id
 	    if (parseInt(ct,&destination)) opp_error("\n[Wireless Channel]:\n Bad syntax in PRRMapFile\n");
 

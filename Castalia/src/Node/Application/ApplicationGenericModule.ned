@@ -10,22 +10,26 @@
 //*											*
 //***************************************************************************************
 
-
+package Node.Application;
 
 // The sensor node module. Connects to the wireless channel in order to communicate 
 // with other nodes. Connects to psysical processes so it can sample them.
 
-simple ApplicationGenericModule
+moduleinterface ApplicationGenericModule
 
+{
     parameters:
-    	applicationID:  string,
-		printDebugInfo:	bool,
-		priority 	  : const,
-		maxAppPacketSize  : const,	// in bytes
-		packetHeaderOverhead: const;	// in bytes
+        string applicationID;
+        bool printDebugInfo;
+        int priority;
+        int maxAppPacketSize;		// in bytes
+        int packetHeaderOverhead;	// in bytes
 
     gates:
-        out:	toCommunicationModule, toSensorDeviceManager;
-        in:	fromCommunicationModule, fromSensorDeviceManager, fromResourceManager;
+        output toCommunicationModule;
+        output toSensorDeviceManager;
+        input fromCommunicationModule;
+        input fromSensorDeviceManager;
+        input fromResourceManager;
 
-endsimple
+}

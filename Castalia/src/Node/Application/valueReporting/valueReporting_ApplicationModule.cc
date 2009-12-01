@@ -17,7 +17,7 @@
 
 #include "valueReporting_ApplicationModule.h"
 
-#define EV   ev.disabled()?(ostream&)ev:ev
+//#define EV   ev.isDisabled()?(ostream&)ev:ev ==> EV is now part of <omnetpp.h>
 
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 
@@ -48,18 +48,18 @@ Define_Module(valueReporting_ApplicationModule);
 
 void valueReporting_ApplicationModule::initialize()
 {
-	self = parentModule()->index();
+	self = getParentModule()->getIndex();
 
-	self_xCoo = parentModule()->par("xCoor");
+	self_xCoo = getParentModule()->par("xCoor");
 
-	self_yCoo = parentModule()->par("yCoor");
+	self_yCoo = getParentModule()->par("yCoor");
 
 	//get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
 	//instead of using extra messages & message types for tighlty couplped operations.
-	cModule *parent = parentModule();
+	cModule *parent = getParentModule();
 	if(parent->findSubmodule("nodeResourceMgr") != -1)
 	{
-		resMgrModule = check_and_cast<ResourceGenericManager*>(parent->submodule("nodeResourceMgr"));
+		resMgrModule = check_and_cast<ResourceGenericManager*>(parent->getSubmodule("nodeResourceMgr"));
 	}
 	else
 		opp_error("\n[Application]:\n Error in geting a valid reference to  nodeResourceMgr for direct method calls.");
@@ -118,7 +118,7 @@ void valueReporting_ApplicationModule::initialize()
 
 void valueReporting_ApplicationModule::handleMessage(cMessage *msg)
 {
-	int msgKind = msg->kind();
+	int msgKind = msg->getKind();
 
 
 	if((disabled) && (msgKind != APP_NODE_STARTUP))
@@ -164,8 +164,8 @@ void valueReporting_ApplicationModule::handleMessage(cMessage *msg)
 			string msgDestination(rcvPacket->getHeader().destination.c_str());
 
 			valueReportData theData = rcvPacket->getData();
-			int sequenceNumber = rcvPacket->getHeader().seqNumber;
-			double rssi = rcvPacket->getRssi();
+			// int sequenceNumber = rcvPacket->getHeader().seqNumber;
+			// double rssi = rcvPacket->getRssi();
 			string pathFromSource(rcvPacket->getCurrentPathFromSource());
 
 			/**
@@ -252,7 +252,7 @@ void valueReporting_ApplicationModule::handleMessage(cMessage *msg)
 			SensorDevMgr_GenericMessage *rcvReading;
 			rcvReading = check_and_cast<SensorDevMgr_GenericMessage*>(msg);
 
-			int sensIndex =  rcvReading->getSensorIndex();
+			// int sensIndex =  rcvReading->getSensorIndex();
 			string sensType(rcvReading->getSensorType());
 			double sensValue = rcvReading->getSensedValue();
 
@@ -332,7 +332,7 @@ void valueReporting_ApplicationModule::handleMessage(cMessage *msg)
 	    	Network_ControlMessage *connectedMsg = check_and_cast<Network_ControlMessage *>(msg);
 
 	    	routingLevel = connectedMsg->getLevel();
-	    	int sinkID = connectedMsg->getSinkID();
+	    	// int sinkID = connectedMsg->getSinkID();
 	    	string parents;
 	    	parents.assign(connectedMsg->getParents());
 

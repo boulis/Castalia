@@ -11,20 +11,61 @@
 
 #include "VirtualMobilityModule.h"
 
+#define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
+
 Define_Module(VirtualMobilityModule);
 
-void VirtualMobilityModule::initializeLocation() 
+void VirtualMobilityModule::initialize() 
 {
-    wchannel = parentModule()->parentModule()->submodule("wirelessChannel");
+    bool printDebugInfo = par("printDebugInfo");
+    cModule * node = getParentModule();
+    cModule * network = node->getParentModule();
+    wchannel = network->getSubmodule("wirelessChannel");
     if (!wchannel) opp_error("Unable to obtain wchannel pointer");
-                
-    nodeLocation.x = parentModule()->par("xCoor");
-    nodeLocation.y = parentModule()->par("yCoor");
-    nodeLocation.z = parentModule()->par("zCoor");
-    nodeLocation.phi = parentModule()->par("phi");
-    nodeLocation.theta = parentModule()->par("theta");
-}
+    
+    int deploymentType = network->par("deploymentType");
+    int index = node->getIndex();
 
+    int field_x = network->par("field_x");
+    int field_y = network->par("field_y");
+    int field_z = network->par("field_z");
+    int xGridSize = network->par("xGridSize");
+    int yGridSize = network->par("yGridSize");
+    int zGridSize = network->par("zGridSize");
+    
+    nodeLocation.phi = node->par("phi"); 
+    nodeLocation.theta = node->par("theta");
+    
+    if (deploymentType == 0) {
+	nodeLocation.x = uniform(0, field_x);
+	nodeLocation.y = uniform(0, field_y);
+	nodeLocation.z = uniform(0, field_z);
+    } else if (deploymentType == 1) {
+	nodeLocation.x = (index%xGridSize)*(field_x/(xGridSize-1));
+	nodeLocation.y = ((int)floor(index/xGridSize)%yGridSize)*(field_y/(yGridSize-1));
+	if (zGridSize < 2 || field_z < 2) {
+	    nodeLocation.z = 1;
+	} else {
+	    nodeLocation.z = ((int)floor(index/(xGridSize*yGridSize))%zGridSize)*(field_z/(zGridSize-1));
+	}
+    } else if (deploymentType == 2) {
+	double randomFactor = hasPar("randomFactor") ? par("randomFactor") : 0.3;
+	nodeLocation.x = (index%xGridSize)*(field_x/(xGridSize-1))+normal(0, (field_x/(xGridSize-1))*randomFactor);
+	nodeLocation.y = ((int)floor(index/xGridSize)%yGridSize)*(field_y/(yGridSize-1))+normal(0, (field_y/(yGridSize-1))*randomFactor);
+	if (zGridSize < 2 || field_z < 2) {
+            nodeLocation.z = 1;
+        } else {
+	    nodeLocation.z = ((int)floor(index/(xGridSize*yGridSize))%zGridSize)*(field_z/(zGridSize-1))+normal(0, (field_z/(zGridSize-1))*randomFactor);
+	}
+    } else {
+	nodeLocation.x = node->par("xCoor");
+        nodeLocation.y = node->par("yCoor");
+        nodeLocation.z = node->par("zCoor");
+    }
+    
+    CASTALIA_DEBUG << "[Mob-" << index << "-" <<simTime() << "] initial location(x:y:z) is " 
+	<< nodeLocation.x << ":" << nodeLocation.y << ":" << nodeLocation.z << "\n"; 
+}
 
 void VirtualMobilityModule::setLocation(double x, double y, double z, double phi, double theta) 
 {
@@ -50,8 +91,8 @@ void VirtualMobilityModule::notifyWirelessChannel()
     positionUpdateMsg->setZ(nodeLocation.z);
     positionUpdateMsg->setPhi(nodeLocation.phi);
     positionUpdateMsg->setTheta(nodeLocation.theta);
-    positionUpdateMsg->setSrcAddress(parentModule()->index());
-    sendDirect(positionUpdateMsg,0,wchannel,"fromMobilityModule");
+    positionUpdateMsg->setSrcAddress(getParentModule()->getIndex());
+    sendDirect(positionUpdateMsg,wchannel,"fromMobilityModule");
 }
 
 NodeLocation_type VirtualMobilityModule::getLocation()

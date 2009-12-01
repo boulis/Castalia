@@ -17,7 +17,7 @@
 #include "multipathRingsRoutingModule.h"
 
 #define DRIFTED_TIME(time) ((time) * cpuClockDrift)
-#define EV   ev.disabled() ? (ostream&)ev : ev
+//#define EV   ev.isDisabled() ? (ostream&)ev : ev ==> EV is now part of <omnetpp.h>
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 
 #define NO_LEVEL  -110
@@ -33,21 +33,21 @@ void multipathRingsRoutingModule::initialize()
 	//--------------------------------------------------------------------------------
 	//------- Follows code for the initialization of the class member variables ------
 
-	self = parentModule()->parentModule()->index();
+	self = getParentModule()->getParentModule()->getIndex();
 
 	//get a valid reference to the object of the Radio module so that we can make direct calls to its public methods
 	//instead of using extra messages & message types for tighlty couplped operations.
-	radioModule = check_and_cast<RadioModule*>(gate("toMacModule")->toGate()->ownerModule()->gate("toRadioModule")->toGate()->ownerModule());
+	radioModule = check_and_cast<RadioModule*>(gate("toMacModule")->getNextGate()->getOwnerModule()->gate("toRadioModule")->getNextGate()->getOwnerModule());
 	radioDataRate = (double) radioModule->par("dataRate");
 
-	macFrameOverhead = gate("toMacModule")->toGate()->ownerModule()->par("macFrameOverhead");
+	macFrameOverhead = gate("toMacModule")->getNextGate()->getOwnerModule()->par("macFrameOverhead");
 
 	//get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
 	//instead of using extra messages & message types for tighlty couplped operations.
-	cModule *parentParent = parentModule()->parentModule();
+	cModule *parentParent = getParentModule()->getParentModule();
 	if(parentParent->findSubmodule("nodeResourceMgr") != -1)
 	{
-		resMgrModule = check_and_cast<ResourceGenericManager*>(parentParent->submodule("nodeResourceMgr"));
+		resMgrModule = check_and_cast<ResourceGenericManager*>(parentParent->getSubmodule("nodeResourceMgr"));
 	}
 	else
 		opp_error("\n[Network]:\n Error in geting a valid reference to  nodeResourceMgr for direct method calls.");
@@ -62,7 +62,7 @@ void multipathRingsRoutingModule::initialize()
 	
 	/*******  multipathRingsRouting-related initializations *************/ 
 	// make sure that in your omnetpp.ini you have used an Application module that has the boolean parameter "isSink"
-	isSink =  gate("toCommunicationModule")->toGate()->ownerModule()->gate("toApplicationModule")->toGate()->ownerModule()->par("isSink");
+	isSink =  gate("toCommunicationModule")->getNextGate()->getOwnerModule()->gate("toApplicationModule")->getNextGate()->getOwnerModule()->par("isSink");
 
 	currentLevel = (isSink)?0:NO_LEVEL;
 	currentSinkID = (isSink)?self:NO_SINK;
@@ -78,7 +78,7 @@ void multipathRingsRoutingModule::initialize()
 
 void multipathRingsRoutingModule::handleMessage(cMessage *msg)
 {
-	int msgKind = msg->kind();
+	int msgKind = msg->getKind();
 
         if((disabled) && (msgKind != APP_NODE_STARTUP))
 	{
@@ -176,7 +176,7 @@ void multipathRingsRoutingModule::handleMessage(cMessage *msg)
 		 *--------------------------------------------------------------------------------------------------------------*/
 		case APP_DATA_PACKET:
 		{			
-			if(TXBuffer.size() < netBufferSize)
+			if((int)TXBuffer.size() < netBufferSize)
 			{
 				App_GenericDataPacket *rcvAppDataPacket = check_and_cast<App_GenericDataPacket*>(msg);
 				string appPktDest(rcvAppDataPacket->getHeader().destination.c_str());
@@ -184,7 +184,7 @@ void multipathRingsRoutingModule::handleMessage(cMessage *msg)
 				if( (isConnected) || ((appPktDest.compare(PARENT_LEVEL) != 0) && (appPktDest.compare(SINK) !=  0)) )
 				{
 					char buff[50];
-					sprintf(buff, "Network Data frame (%f)", simTime());
+					sprintf(buff, "Network Data frame (%f)", SIMTIME_DBL(simTime()));
 					multipathRingsRouting_DataFrame *newDataFrame = new multipathRingsRouting_DataFrame(buff, NETWORK_FRAME);
 					
 					//create the NetworkFrame from the Application Data Packet (encapsulation)
@@ -239,7 +239,7 @@ void multipathRingsRoutingModule::handleMessage(cMessage *msg)
 				
 				/*if(!(BUFFER_IS_EMPTY))
 				{
-					double dataTXtime = ((double)(dataFrame->byteLength()+netFrameOverhead) * 8.0 / (1000.0 * radioDataRate));
+					double dataTXtime = ((double)(dataFrame->getByteLength()+netFrameOverhead) * 8.0 / (1000.0 * radioDataRate));
 					
 					scheduleAt(simTime() + dataTXtime + epsilon, new Network_ControlMessage("check schedTXBuffer buffer", NETWORK_SELF_CHECK_TX_BUFFER));
 				}*/
@@ -253,7 +253,7 @@ void multipathRingsRoutingModule::handleMessage(cMessage *msg)
 
 
 		/*--------------------------------------------------------------------------------------------------------------
-		 * Data Frame Received from the Radio submodule (the data frame can be a Data packet or a beacon packet)
+		 * Data Frame Received from the Radio getSubmodule(the data frame can be a Data packet or a beacon packet)
 		 *--------------------------------------------------------------------------------------------------------------*/
 		case NETWORK_FRAME:
 		{			
@@ -421,7 +421,7 @@ void multipathRingsRoutingModule::readIniFileParameters(void)
 int multipathRingsRoutingModule::encapsulateAppPacket(App_GenericDataPacket *appPacket, multipathRingsRouting_DataFrame *retFrame)
 {
 	// Set the ByteLength of the frame 
-	int totalMsgLen = appPacket->byteLength() + netDataFrameOverhead; // the byte-size overhead for a Data packet is fixed (always netDataFrameOverhead)
+	int totalMsgLen = appPacket->getByteLength() + netDataFrameOverhead; // the byte-size overhead for a Data packet is fixed (always netDataFrameOverhead)
 	if(totalMsgLen > maxNetFrameSize)
 		return 0;
 	retFrame->setByteLength(netDataFrameOverhead); // extra bytes will be added after the encapsulation

@@ -14,7 +14,7 @@
 
 #include "SensorDevMgrModule.h"
 
-#define EV   ev.disabled() ? (ostream&)ev : ev
+//#define EV   ev.isDisabled() ? (ostream&)ev : ev ==> EV is now part of <omnetpp.h>
 
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 
@@ -26,18 +26,14 @@ Define_Module(SensorDevMgrModule);
 
 void SensorDevMgrModule::initialize() 
 {
-	self = parentModule()->index();
-	
-	self_xCoo = parentModule()->par("xCoor");
-	
-	self_yCoo = parentModule()->par("yCoor");
+	self = getParentModule()->getIndex();
 
 	printDebugInfo = par("printDebugInfo");
 	
 	//get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
 	//instead of using extra messages & message types for tighlty couplped operations.
-	resMgrModule = check_and_cast<ResourceGenericManager*>(parentModule()->submodule("nodeResourceMgr"));
-	nodeMobilityModule = check_and_cast<VirtualMobilityModule*>(parentModule()->submodule("nodeMobilityModule"));
+	resMgrModule = check_and_cast<ResourceGenericManager*>(getParentModule()->getSubmodule("nodeResourceMgr"));
+	nodeMobilityModule = check_and_cast<VirtualMobilityModule*>(getParentModule()->getSubmodule("nodeMobilityModule"));
 	disabled = 1;
 	
 	parseStringParams(); //read the string params in omnet.ini and initialize the vectors
@@ -48,7 +44,7 @@ void SensorDevMgrModule::initialize()
 	for(int i=0; i<totalSensors; i++)
 	{
 		sensorLastValue.push_back(-1);	
-		sensorlastSampleTime.push_back(-10000000.0);
+		sensorlastSampleTime.push_back(-100000.0);
 		
 		theBias = normal(0, sensorBiasSigma[i]);  // using rng generator --> "0" 
 		sensorBias.push_back(theBias);
@@ -58,7 +54,7 @@ void SensorDevMgrModule::initialize()
 
 void SensorDevMgrModule::handleMessage(cMessage *msg)
 {
-	int msgKind = msg->kind();
+	int msgKind = msg->getKind();
 	
 	
 	if((disabled) && (msgKind != APP_NODE_STARTUP))
@@ -95,8 +91,8 @@ void SensorDevMgrModule::handleMessage(cMessage *msg)
 			rcvPacket = check_and_cast<SensorDevMgr_GenericMessage*>(msg);
 			int sensorIndex = rcvPacket->getSensorIndex();
 			
-			double currentTime = simTime();
-			double interval = currentTime - sensorlastSampleTime[sensorIndex];
+			simtime_t currentTime = simTime();
+			simtime_t interval = currentTime - sensorlastSampleTime[sensorIndex];
 			int getNewSample = (interval < minSamplingIntervals[sensorIndex])?0:1;
 			
 			if(getNewSample) //the last request for sample was more than minSamplingIntervals[sensorIndex] time ago
@@ -217,22 +213,22 @@ void SensorDevMgrModule::finish()
 
 void SensorDevMgrModule::parseStringParams(void)
 {
-	const char *parameterStr, *token;
-	double sampleInterval;
+    const char *parameterStr, *token;
+    simtime_t sampleInterval;
+
+    //get the physical process index that each sensor device is monitoring
+    corrPhyProcess.clear();
+    parameterStr = par("corrPhyProcess");
+    cStringTokenizer phyTokenizer(parameterStr);
+    while ( (token = phyTokenizer.nextToken()) != NULL )
+    corrPhyProcess.push_back(atoi(token));
 	
-	//get the physical process index that each sensor device is monitoring
-	corrPhyProcess.clear();
-	parameterStr = par("corrPhyProcess");
-	cStringTokenizer phyTokenizer(parameterStr);
-	while ( (token = phyTokenizer.nextToken()) != NULL )
-    	corrPhyProcess.push_back(atoi(token));
-	
-	//get the power consumption of each sensor device
-	pwrConsumptionPerDevice.clear();
-	parameterStr = par("pwrConsumptionPerDevice");
-	cStringTokenizer pwrTokenizer(parameterStr);
-	while ( (token = pwrTokenizer.nextToken()) != NULL )
-    	pwrConsumptionPerDevice.push_back(((double)atof(token))/1000.0f);
+    //get the power consumption of each sensor device
+    pwrConsumptionPerDevice.clear();
+    parameterStr = par("pwrConsumptionPerDevice");
+    cStringTokenizer pwrTokenizer(parameterStr);
+    while ( (token = pwrTokenizer.nextToken()) != NULL )
+    pwrConsumptionPerDevice.push_back(((double)atof(token))/1000.0f);
     
     //get the samplerate for each sensor device and calculate the minSamplingIntervals (that is every how many ms to request a sample from the physical process)
     minSamplingIntervals.clear();

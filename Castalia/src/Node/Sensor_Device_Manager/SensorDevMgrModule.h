@@ -37,7 +37,7 @@ class SensorDevMgrModule : public cSimpleModule
 		bool printDebugInfo;
 		vector <int> corrPhyProcess;
 		vector <double> pwrConsumptionPerDevice;
-		vector <double> minSamplingIntervals;
+		vector <simtime_t> minSamplingIntervals;
 		vector <string> sensorTypes;
 		vector <double> sensorBiasSigma;
 		vector <double> sensorNoiseSigma;
@@ -48,10 +48,8 @@ class SensorDevMgrModule : public cSimpleModule
 		
 	/*--- Custom class member variables ---*/
 		int self;	// the node's ID
-		double self_xCoo;
-		double self_yCoo;
 		int totalSensors;
-		vector <double> sensorlastSampleTime;
+		vector <simtime_t> sensorlastSampleTime;
 		vector <double> sensorLastValue;
 		vector <double> sensorBias;
 		ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)

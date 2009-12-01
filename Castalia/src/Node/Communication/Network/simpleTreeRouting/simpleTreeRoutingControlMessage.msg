@@ -18,7 +18,8 @@
 
 cplusplus {{
 #include "NetworkControlMessage_m.h"
-}};
+}}
+
 
 
 class Network_ControlMessage;
@@ -26,7 +27,7 @@ class Network_ControlMessage;
 
 // Simulation-specific self-message for Net topology setup timeout
 
+
 message simpleTreeRouting_ControlMessage extends Network_ControlMessage
 {
-    fields:
-};
+}

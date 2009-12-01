@@ -10,24 +10,28 @@
 //*											*
 //***************************************************************************************
 
-
+package Node.Application.simpleAggregation;
 
 // The sensor node module. Connects to the wireless channel in order to communicate 
 // with other nodes. Connects to psysical processes so it can sample them.
 
-simple simpleAggregation_ApplicationModule
+simple simpleAggregation_ApplicationModule like Node.Application.ApplicationGenericModule
 
+{
     parameters:
-    	applicationID:  string,
-    	printDebugInfo:	bool,
-		priority 	  : const,
-		maxAppPacketSize  : const,	 // in bytes
-		packetHeaderOverhead: const, // in bytes
-		constantDataPayload: const,	 // in bytes
-		isSink: bool;
+        string applicationID = default("simpleAggregation");
+        bool printDebugInfo = default(true);
+        int priority = default(1);
+        int maxAppPacketSize = default(30);	 	// in bytes
+        int packetHeaderOverhead = default(8); 		// in bytes
+        int constantDataPayload = default(2);		// in bytes
+        bool isSink = default(false);
 
     gates:
-        out:	toCommunicationModule, toSensorDeviceManager;
-        in:	fromCommunicationModule, fromSensorDeviceManager, fromResourceManager;
+        output toCommunicationModule;
+        output toSensorDeviceManager;
+        input fromCommunicationModule;
+        input fromSensorDeviceManager;
+        input fromResourceManager;
 
-endsimple
+}

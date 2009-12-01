@@ -10,20 +10,22 @@
 //*											*
 //***************************************************************************************
 
+package Node.Communication.Network;
 
+moduleinterface NetworkGenericModule
 
-simple NetworkGenericModule
-
+{
     parameters:
-		printDebugInfo: bool,
-		
-		maxNetFrameSize	: const,	// in bytes
-		netDataFrameOverhead: const,	// in bytes
-		
-		netBufferSize	: const;	//in number of messages
+        bool printDebugInfo;
+        int maxNetFrameSize;		// in bytes
+        int netDataFrameOverhead;	// in bytes
+        int netBufferSize;		// in number of messages
 
     gates:
-       out:	toCommunicationModule, toMacModule;
-       in:	fromCommunicationModule, fromMacModule, fromCommModuleResourceMgr;
+        output toCommunicationModule;
+        output toMacModule;
+        input fromCommunicationModule;
+        input fromMacModule;
+        input fromCommModuleResourceMgr;
 
-endsimple
+}

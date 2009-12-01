@@ -15,7 +15,7 @@
 
 #include "RadioModule.h"
 
-#define EV   ev.disabled() ? (ostream&)ev : ev
+//#define EV   ev.isDisabled() ? (ostream&)ev : ev ==> EV is now part of <omnetpp.h>
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 #define CONSUME_ENERGY(a) resMgrModule->consumeEnergy(a)
 
@@ -23,7 +23,7 @@ Define_Module(RadioModule);
 
 void RadioModule::initialize() {
 
-	self = parentModule()->parentModule()->index();
+	self = getParentModule()->getParentModule()->getIndex();
 
 	readIniFileParameters();
 
@@ -48,10 +48,10 @@ void RadioModule::initialize() {
 
 	//get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
 	//instead of using extra messages & message types for tighlty couplped operations.
-	cModule *parentParent = parentModule()->parentModule();
+	cModule *parentParent = getParentModule()->getParentModule();
 	if(parentParent->findSubmodule("nodeResourceMgr") != -1)
 	{
-		resMgrModule = check_and_cast<ResourceGenericManager*>(parentParent->submodule("nodeResourceMgr"));
+		resMgrModule = check_and_cast<ResourceGenericManager*>(parentParent->getSubmodule("nodeResourceMgr"));
 	}
 	else
 		opp_error("\n[Radio]:\n Error in getting a valid reference to  nodeResourceMgr for direct method calls.");
@@ -63,7 +63,7 @@ void RadioModule::initialize() {
 	nextPowerLevel = -1;
 	disabled = 0;
 
-	valuesVector.setName("Radio Vector");
+//valuesVector.setName("Radio Vector");
 
 	totalTimeTX = 0.0f;
 	totalTimeListening = 0.0f;
@@ -88,7 +88,7 @@ void RadioModule::handleMessage(cMessage *msg)
 		return;
 	}
 
-	switch (msg->kind())
+	switch (msg->getKind())
 	{
 		/*--------------------------------------------------------------------------------------------------------------
 		 * Message received from the MAC module. The Radio module has to enter in SLEEP state
@@ -118,12 +118,11 @@ void RadioModule::handleMessage(cMessage *msg)
 					 * 					 message from te MAC module while it is receiving data.
 					*/
 					changingState = 1; //lock the MAC from changing Radio state while Radio switched state
-					double currentListeningDuration;
-					currentListeningDuration = simTime() - startListeningTime;
+					simtime_t currentListeningDuration = simTime() - startListeningTime;
 
 					//calculate accurately: the consumed power while in listening mode + the power of switching state [max(listenPower, sleepPower) * delayListen2Sleep]
 					double totalPower;
-					totalPower = (listenPower * currentListeningDuration) + ((listenPower > sleepPower)?listenPower:sleepPower) * delayListen2Sleep;
+					totalPower = (listenPower * SIMTIME_DBL(currentListeningDuration)) + ((listenPower > sleepPower)?listenPower:sleepPower) * SIMTIME_DBL(delayListen2Sleep);
 					CONSUME_ENERGY(totalPower);
 					totalTimeListening += currentListeningDuration;
 					scheduleAt(simTime()+delayListen2Sleep, new Radio_ControlMessage("Radio self go to sleep NOW", RADIO_SELF_ENTER_SLEEP_NOW));
@@ -157,12 +156,12 @@ void RadioModule::handleMessage(cMessage *msg)
 				if(radioState == RADIO_STATE_SLEEP)
 				{
 					changingState = 1; //lock the MAC from changing Radio state while Radio switched state
-					double currentSleepingDuration;
+					simtime_t currentSleepingDuration;
 					currentSleepingDuration = simTime() - startSleepingTime;
 
 					//calculate accurately: the consumed power while in sleeping mode + the power of switching state [max(listenPower, sleepPower) * delaySleep2Listen]
 					double totalPower;
-					totalPower = (sleepPower * currentSleepingDuration) + ((listenPower > sleepPower)?listenPower:sleepPower) * delaySleep2Listen;
+					totalPower = (sleepPower * SIMTIME_DBL(currentSleepingDuration)) + ((listenPower > sleepPower)?listenPower:sleepPower) * SIMTIME_DBL(delaySleep2Listen);
 					CONSUME_ENERGY(totalPower);
 					totalTimeSleeping += currentSleepingDuration;
 					scheduleAt(simTime()+delaySleep2Listen, new Radio_ControlMessage("Radio self wake up NOW", RADIO_SELF_ENTER_LISTEN_NOW));
@@ -186,12 +185,12 @@ void RadioModule::handleMessage(cMessage *msg)
 				{
 					changingState = 1; //lock the MAC from changing Radio state while Radio switched state
 
-					double currentListeningDuration;
+					simtime_t currentListeningDuration;
 					currentListeningDuration = simTime() - startListeningTime;
 
 					//calculate accurately: the consumed power while in listening mode + the power of switching state [max(listenPower, txPowerConsumptionPerLevel[txPowerLevelUsed]) * delayListen2Tx]
 					double totalPower;
-					totalPower = (listenPower * currentListeningDuration) + ((listenPower > txPowerConsumptionPerLevel[txPowerLevelUsed])?listenPower:txPowerConsumptionPerLevel[txPowerLevelUsed]) * delayListen2Tx;
+					totalPower = (listenPower * SIMTIME_DBL(currentListeningDuration)) + ((listenPower > txPowerConsumptionPerLevel[txPowerLevelUsed])?listenPower:txPowerConsumptionPerLevel[txPowerLevelUsed]) * SIMTIME_DBL(delayListen2Tx);
 					CONSUME_ENERGY(totalPower);
 					totalTimeListening += currentListeningDuration;
 					scheduleAt(simTime()+delayListen2Tx, new Radio_ControlMessage("Radio self enter TX NOW", RADIO_SELF_ENTER_TX_NOW));
@@ -203,12 +202,12 @@ void RadioModule::handleMessage(cMessage *msg)
 				{
 					changingState = 1; //lock the MAC from changing Radio state while Radio switched state
 
-					double currentSleepingDuration;
+					simtime_t currentSleepingDuration;
 					currentSleepingDuration = simTime() - startSleepingTime;
 
 					//calculate accurately: the consumed power while in sleeping mode + the power of switching state [max(sleepPower, txPowerConsumptionPerLevel[txPowerLevelUsed]) * delaySleep2Tx]
 					double totalPower;
-					totalPower = (sleepPower * currentSleepingDuration) + ((sleepPower > txPowerConsumptionPerLevel[txPowerLevelUsed])?sleepPower:txPowerConsumptionPerLevel[txPowerLevelUsed]) * delaySleep2Tx;
+					totalPower = (sleepPower * SIMTIME_DBL(currentSleepingDuration)) + ((sleepPower > txPowerConsumptionPerLevel[txPowerLevelUsed])?sleepPower:txPowerConsumptionPerLevel[txPowerLevelUsed]) * SIMTIME_DBL(delaySleep2Tx);
 					CONSUME_ENERGY(totalPower);
 					totalTimeSleeping += currentSleepingDuration;
 					scheduleAt(simTime()+delaySleep2Tx, new Radio_ControlMessage("Radio self wake up and enter TX NOW", RADIO_SELF_ENTER_TX_NOW));
@@ -260,7 +259,7 @@ void RadioModule::handleMessage(cMessage *msg)
 			macCtrlMsg = check_and_cast<MAC_ControlMessage*>(msg);
 			int pwrLevelIndex = macCtrlMsg->getPowerLevel();
 
-			if( (pwrLevelIndex >= 0) && (pwrLevelIndex < txPowerLevels.size()) )
+			if( (pwrLevelIndex >= 0) && (pwrLevelIndex < (int)txPowerLevels.size()) )
 			{
 				if(radioState != RADIO_STATE_TX)
 				{
@@ -296,8 +295,7 @@ void RadioModule::handleMessage(cMessage *msg)
 				MAC_ControlMessage *csMsg;
 				csMsg = check_and_cast<MAC_ControlMessage*>(msg);
 
-				double theInterval;
-				theInterval = csMsg->getSense_carrier_interval();
+				simtime_t theInterval = csMsg->getSense_carrier_interval();
 
 				senseCarrier(theInterval);
 
@@ -383,7 +381,7 @@ void RadioModule::handleMessage(cMessage *msg)
 		 *--------------------------------------------------------------------------------------------------------------*/
 		case MAC_FRAME:
 		{
-			if(radioBuffer.size() < bufferSize)
+			if((int)radioBuffer.size() < bufferSize)
 			{
 				MAC_GenericFrame *dataFrame = check_and_cast<MAC_GenericFrame*>(msg);
 
@@ -546,22 +544,21 @@ void RadioModule::handleMessage(cMessage *msg)
 				{
 					isCSValid = 0;
 
-					double currentTxDuration;
-					currentTxDuration = simTime()- startTxTime;
+					simtime_t currentTxDuration = simTime()- startTxTime;
 					//calculate accurately: the consumed power while in TX mode + the power consumed while switching state after TX (TX->Listen or TX->Sleep)
 					double totalPower;
 
 					//schedule the self messages that 'll perform the state change & calculate the consumed power while in TX + switch time
 					if(nextState == RADIO_STATE_SLEEP)
 					{
-						totalPower = txPowerConsumptionPerLevel[txPowerLevelUsed] * (currentTxDuration + delayTx2Sleep); //TX consumes always more power than Listen or Sleep
+						totalPower = txPowerConsumptionPerLevel[txPowerLevelUsed] * SIMTIME_DBL(currentTxDuration + delayTx2Sleep); //TX consumes always more power than Listen or Sleep
 						scheduleAt(simTime()+delayTx2Sleep, new Radio_ControlMessage("Radio self go to sleep NOW", RADIO_SELF_ENTER_SLEEP_NOW));
 
 						totalTimeTransitions += delayTx2Sleep;
 					}
 					else
 					{
-						totalPower = (txPowerConsumptionPerLevel[txPowerLevelUsed] * currentTxDuration) + ((listenPower > txPowerConsumptionPerLevel[txPowerLevelUsed])?listenPower:txPowerConsumptionPerLevel[txPowerLevelUsed]) * delayTx2Listen;
+						totalPower = (txPowerConsumptionPerLevel[txPowerLevelUsed] * SIMTIME_DBL(currentTxDuration)) + ((listenPower > txPowerConsumptionPerLevel[txPowerLevelUsed])?listenPower:txPowerConsumptionPerLevel[txPowerLevelUsed]) * SIMTIME_DBL(delayTx2Listen);
 						scheduleAt(simTime()+delayTx2Listen, new Radio_ControlMessage("Radio self enter listen NOW", RADIO_SELF_ENTER_LISTEN_NOW));
 
 						totalTimeTransitions += delayTx2Listen;
@@ -616,7 +613,7 @@ void RadioModule::handleMessage(cMessage *msg)
 			WChannel_GenericMessage *rcvFrame = check_and_cast<WChannel_GenericMessage*>(msg);
 
 			int frameLen;
-			frameLen = rcvFrame->byteLength();
+			frameLen = rcvFrame->getByteLength();
 
 			double currentRxDuration;
 			currentRxDuration = frameLen * 8.0f / (1000.0f * dataRate);
@@ -748,19 +745,19 @@ void RadioModule::finish()
 	if(radioState == RADIO_STATE_TX)
 	{
 		totalTimeTX += now - startTxTime;
-		totalPower = (now - startTxTime) * txPowerConsumptionPerLevel[txPowerLevelUsed];
+		totalPower = SIMTIME_DBL(now - startTxTime) * txPowerConsumptionPerLevel[txPowerLevelUsed];
 	}
 	else
 	if(radioState == RADIO_STATE_LISTEN)
 	{
 		totalTimeListening += now - startListeningTime;
-		totalPower = (now - startListeningTime) * listenPower;
+		totalPower = SIMTIME_DBL(now - startListeningTime) * listenPower;
 	}
 	else
 	if(radioState == RADIO_STATE_SLEEP) //this if statement can be ommited, the "else" by its own is enough
 	{
 		totalTimeSleeping += now - startSleepingTime;
-		totalPower = (now - startSleepingTime) * sleepPower;
+		totalPower = SIMTIME_DBL(now - startSleepingTime) * sleepPower;
 	}
 
 	CONSUME_ENERGY(totalPower);
@@ -853,7 +850,7 @@ void RadioModule::readIniFileParameters(void)
 
 
 
-void RadioModule::senseCarrier(double interval) {
+void RadioModule::senseCarrier(simtime_t interval) {
 	// send the delayed messages to the wireless channel
 	WChannel_GenericMessage *message;
 
@@ -890,14 +887,16 @@ double RadioModule::popAndSendToChannel()
 
 			//send "packet end message"
 			end->setKind(WC_PKT_END_TX);
-			txTime = ((double)(end->byteLength() * 8.0f)) / (1000.0f * dataRate);  //calculate the TX time for the Length of frame2send frame
+			txTime = ((double)(end->getByteLength() * 8.0f)) / (1000.0f * dataRate);  //calculate the TX time for the Length of frame2send frame
 			sendDelayed(end, txTime, "toCommunicationModule");
 
 			// We don't delete the popped frames because we perform true encapsulation
 		}
 		else
 		{
-			CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << ": WARNING: Mac sent to Radio an oversized packet...packet dropped.\n";
+			CASTALIA_DEBUG << "\n[Radio_" << self << "] t= " << simTime() << 
+			    ": WARNING: Mac sent to Radio an oversized packet ("<< 
+			    poppedMacFrame->getByteLength()+PhyFrameOverhead <<" bytes) packet dropped.\n";
 			cancelAndDelete(end);
 			cancelAndDelete(poppedMacFrame);
 			end = NULL;
@@ -911,10 +910,10 @@ double RadioModule::popAndSendToChannel()
 
 int RadioModule::encapsulateMacFrame(MAC_GenericFrame *macFrame, WChannel_GenericMessage *retWcFrame)
 {
-	int totalMsgLen = macFrame->byteLength()+PhyFrameOverhead;
+	int totalMsgLen = macFrame->getByteLength()+PhyFrameOverhead;
 	if(totalMsgLen > maxPhyFrameSize)
 		return 0;
-	retWcFrame->setByteLength(PhyFrameOverhead); //macFrame->byteLength() extra bytes will be added after the encapsulation
+	retWcFrame->setByteLength(PhyFrameOverhead); //macFrame->getByteLength() extra bytes will be added after the encapsulation
 
 	retWcFrame->setSrcAddress(macFrame->getHeader().srcID); //simulation-specific information
 	retWcFrame->setTxPower_dB(txPowerLevels[txPowerLevelUsed]);

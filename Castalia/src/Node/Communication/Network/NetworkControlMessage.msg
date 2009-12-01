@@ -16,17 +16,18 @@
 
 enum Network_ControlMessageType
 {
-	NETWORK_2_APP_FULL_BUFFER = 3000;
-	NETWORK_2_APP_NOT_CONNECTED = 3001;
-	NETWORK_2_APP_CONNECTED_2_TREE = 3002; // used by simpleTreeRouting
-	NETWORK_2_APP_TREE_LEVEL_UPDATED = 3003; // used by multipathRingsRouting
-	
-	NETWORK_SELF_CHECK_TX_BUFFER = 3004;
-	NETWORK_SELF_BOOTSTRAP_NET_SETUP = 3005;
-	NETWORK_SELF_TOPOLOGY_SETUP_TIMEOUT = 3006;	
-	
-	MAC_2_APP_FULL_BUFFER = 3007;	// used to forward full buffer messages from MAC to App layer
-};
+
+    NETWORK_2_APP_FULL_BUFFER = 3000;
+    NETWORK_2_APP_NOT_CONNECTED = 3001;
+    NETWORK_2_APP_CONNECTED_2_TREE = 3002; // used by simpleTreeRouting
+    NETWORK_2_APP_TREE_LEVEL_UPDATED = 3003; // used by multipathRingsRouting
+
+    NETWORK_SELF_CHECK_TX_BUFFER = 3004;
+    NETWORK_SELF_BOOTSTRAP_NET_SETUP = 3005;
+    NETWORK_SELF_TOPOLOGY_SETUP_TIMEOUT = 3006;
+
+    MAC_2_APP_FULL_BUFFER = 3007;	// used to forward full buffer messages from MAC to App layer
+}
 
 
 cplusplus {{
@@ -34,18 +35,15 @@ cplusplus {{
 	#define PARENT_LEVEL "PARENT"
 	#define SINK 	"SINK"
 	#define ROUTE_DEST_DELIMITER "#"
-}};
+}}
+
 
 
 
 
 message Network_ControlMessage
 {
-    fields:    	
-    	int sinkID;    	
-	
-		int level;
-	
-		string parents;
-    	
-};
+    int sinkID;
+    int level;
+    string parents;
+}

@@ -10,31 +10,38 @@
 //*											*
 //***************************************************************************************
 
-
-
-
+package Node.Resource_Manager;
 
 simple ResourceGenericManager
 
-	parameters:
-		printDebugInfo: bool,
-		ramSize:		const, //in kB
-		flashSize:		const,
-		flashWriteCost:	const, //per kB
-		flashReadCost:	const, //per kB
-		imageSize:		const, //the space that the OS (e.g. Contiki or TinyOS) occupies in the flash
-		
-		cpuPowerSpeedLevelNames:string,
-		cpuPowerPerLevel:	string,  //spent energy per time unit
-		cpuSpeedPerLevel:	string,
-		cpuInitialPowerLevel:	numeric, // index for the cpuPowerLevels array
-		sigmaCPUClockDrift:	numeric,	// the standard deviation of the Drift of the CPU
-		
-		initialEnergy:		numeric, // energy of the node in Joules
-		baselineNodePower: 	numeric, // in watts
-		periodicEnergyCalculationInterval: numeric; // periodic timer for calculating periodic energy spending, in msec
+{
+    parameters:
+        bool printDebugInfo = default(false);
+        double ramSize = default(0.0); 		//in kB
+        double flashSize = default(0.0);	//in kB
+        double flashWriteCost = default(0.0); 	//per kB
+        double flashReadCost = default(0.0); 	//per kB
+        double imageSize = default(0.0); 	//the space that the OS (e.g. Contiki or TinyOS) occupies in the flash
 
-	gates:
-        	out:	toSensorDevManager, toApplication, toNetwork, toMac, toRadio;
+        string cpuPowerSpeedLevelNames = default("");	
+        string cpuPowerPerLevel = default("");		//spent energy per time unit
+        string cpuSpeedPerLevel = default("");
+        int cpuInitialPowerLevel = default(-1);		// index for the cpuPowerLevels array
+        double sigmaCPUClockDrift = default(0.00003);	// the standard deviation of the Drift of the CPU
 
-endsimple
+        double initialEnergy = default(18720);	
+    		// energy of the node in Joules, default value corresponds to two AA batteries
+    		// source http://www.allaboutbatteries.com/Energy-tables.html
+    		
+        double baselineNodePower = default(6); 				// periodic energy consumption of node, in watts
+        double periodicEnergyCalculationInterval = default(1000); 	// interval for energy calculation, in msec	
+
+
+    gates:
+        output toSensorDevManager;
+        output toApplication;
+        output toNetwork;
+        output toMac;
+        output toRadio;
+
+}

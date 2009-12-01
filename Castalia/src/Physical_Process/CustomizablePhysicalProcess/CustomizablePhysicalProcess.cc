@@ -17,12 +17,11 @@
 #include <math.h>
 #include <string>
 
-#define EV   ev.disabled() ? (ostream&)ev : ev
+//#define EV   ev.isDisabled() ? (ostream&)ev : ev ==> EV is now part of <omnetpp.h>
 
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 
 Define_Module(CustomizablePhysicalProcess);
-
 
 
 void CustomizablePhysicalProcess::initialize() {
@@ -41,7 +40,7 @@ void CustomizablePhysicalProcess::initialize() {
 
 void CustomizablePhysicalProcess::handleMessage(cMessage *msg) {
 	
-	if (msg -> kind() != PHY_SAMPLE_REQ) 
+	if (msg -> getKind() != PHY_SAMPLE_REQ) 
 		CASTALIA_DEBUG << "\n[CustomizablePhysicalProcess] t= " << simTime() << ":\n Physical Process received message other than SAMPLE_REQ";
 
 	PhyProcess_GenericMessage *receivedMsg = check_and_cast<PhyProcess_GenericMessage*>(msg);
@@ -61,7 +60,7 @@ void CustomizablePhysicalProcess::handleMessage(cMessage *msg) {
 		
 		case SCENARIO_BASED:
 		{
-			returnValue = calculateScenarioReturnValue(receivedMsg->getXCoor(), receivedMsg->getYCoor(), receivedMsg->sendingTime());
+			returnValue = calculateScenarioReturnValue(receivedMsg->getXCoor(), receivedMsg->getYCoor(), receivedMsg->getSendingTime());
 			break;
 		}
 		
@@ -118,7 +117,7 @@ void CustomizablePhysicalProcess::readIniFileParameters(void)
 {
 	inputType = par("inputType");
 	
-	numNodes = parentModule()->par("numNodes");
+	numNodes = getParentModule()->par("numNodes");
 	
 	printDebugInfo = par("printDebugInfo");
 	
@@ -155,7 +154,6 @@ void CustomizablePhysicalProcess::readIniFileParameters(void)
 		cStringTokenizer valuesTokenizer(par("directNodeValueAssignment"), " ");
 		int totalTokens = 0;
 		int isFirstToken = 1;
-		char * tmpStr;
 		
 		while (valuesTokenizer.hasMoreTokens()) 
 		{
@@ -322,9 +320,8 @@ void CustomizablePhysicalProcess::initHelpStructures(void)
 
 double CustomizablePhysicalProcess::calculateScenarioReturnValue(const double & x_coo, const double & y_coo, const simtime_t & stime)
 {
-	double retVal;
-	int i, j;
-	double linear_coeff, distance;
+	int i;
+	double retVal, linear_coeff, distance;
 	
 	
 	if( (stime - time) >= SIMTIME_STEP )
@@ -349,7 +346,7 @@ double CustomizablePhysicalProcess::calculateScenarioReturnValue(const double & 
 		{
 			if (source_index[i] >= 0)
 			{
-				linear_coeff =  (double)(time - sources_snapshots[i][source_index[i]].time) /
+				linear_coeff =  (time - sources_snapshots[i][source_index[i]].time) /
 								(sources_snapshots[i][source_index[i]+1].time - sources_snapshots[i][source_index[i]].time);
 	
 				curr_source_state[i].x = sources_snapshots[i][source_index[i]].x + linear_coeff *

@@ -14,12 +14,13 @@
 
 cplusplus {{
 #include "App_GenericDataPacket_m.h"
-}};
+}}
+
 
 class App_GenericDataPacket;
 
+
 message valuePropagation_DataPacket extends App_GenericDataPacket
 {
-    fields:
-        double data;
-};
+    double data;
+}

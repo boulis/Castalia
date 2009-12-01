@@ -17,6 +17,8 @@ use constant ROUTING_BP => "../Parameter_Include_Files/Routing_bypass.ini";
 
 use constant Z_CONFIDENCE => 1.96;
 
+die "this script was not converted to omnet4.0\n";
+
 my $stat = {};
 my $conf = {
     "40x10" => { x => 40, y => 10 },

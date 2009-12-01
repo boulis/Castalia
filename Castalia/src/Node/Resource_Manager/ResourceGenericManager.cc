@@ -15,7 +15,7 @@
 
 #include "ResourceGenericManager.h"
 
-#define EV   ev.disabled() ? (ostream&)ev : ev
+//#define EV   ev.isDisabled() ? (ostream&)ev : ev ==> EV is now part of <omnetpp.h>
 
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 
@@ -26,7 +26,7 @@ Define_Module(ResourceGenericManager);
 
 void ResourceGenericManager::initialize() 
 {
-	self = parentModule()->index();
+	self = getParentModule()->getIndex();
 
 	printDebugInfo = par("printDebugInfo");
 	sigmaCPUClockDrift = par("sigmaCPUClockDrift");
@@ -54,7 +54,7 @@ void ResourceGenericManager::handleMessage(cMessage *msg)
 	//They use instead its public methods.
 	//The only possible message is periodic energy consumption
 	
-	int msgKind = msg->kind();
+	int msgKind = msg->getKind();
 	switch (msgKind) {
 	    
 	    case RESOURCE_MGR_PERIODIC_ENERGY: {

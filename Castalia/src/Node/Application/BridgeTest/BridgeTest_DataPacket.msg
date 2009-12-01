@@ -14,12 +14,13 @@
 
 cplusplus {{
 #include "App_GenericDataPacket_m.h"
-}};
+}}
+
 
 class App_GenericDataPacket;
 
-message BridgeTest_DataPacket extends App_GenericDataPacket
+
+packet BridgeTest_DataPacket extends App_GenericDataPacket
 {
-    fields:
-        int data; 
-};
+    int data;
+}

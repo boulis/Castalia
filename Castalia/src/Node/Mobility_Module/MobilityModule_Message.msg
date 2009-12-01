@@ -14,9 +14,10 @@
 
 enum MobilityModule_MessageType
 {
-	MOBILITY_PERIODIC = 1;
+
+    MOBILITY_PERIODIC = 1;
 }
 
 message MobilityModule_Message
 {
-};
+}

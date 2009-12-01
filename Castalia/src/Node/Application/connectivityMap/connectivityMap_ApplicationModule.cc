@@ -15,7 +15,7 @@
 
 #include "connectivityMap_ApplicationModule.h"
 
-#define EV   ev.disabled()?(ostream&)ev:ev
+//#define EV   ev.isDisabled()?(ostream&)ev:ev ==> EV is now part of <omnetpp.h>
 
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 
@@ -57,18 +57,18 @@ Define_Module(connectivityMap_ApplicationModule);
 
 void connectivityMap_ApplicationModule::initialize()
 {
-	self = parentModule()->index();
+	self = getParentModule()->getIndex();
 
-	self_xCoo = parentModule()->par("xCoor");
+	self_xCoo = getParentModule()->par("xCoor");
 
-	self_yCoo = parentModule()->par("yCoor");
+	self_yCoo = getParentModule()->par("yCoor");
 
 	//get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
 	//instead of using extra messages & message types for tighlty couplped operations.
-	cModule *parent = parentModule();
+	cModule *parent = getParentModule();
 	if(parent->findSubmodule("nodeResourceMgr") != -1)
 	{
-		resMgrModule = check_and_cast<ResourceGenericManager*>(parent->submodule("nodeResourceMgr"));
+		resMgrModule = check_and_cast<ResourceGenericManager*>(parent->getSubmodule("nodeResourceMgr"));
 	}
 	else
 		opp_error("\n[App]:\n Error in geting a valid reference to  nodeResourceMgr for direct method calls.");
@@ -110,12 +110,12 @@ void connectivityMap_ApplicationModule::initialize()
 	packetsSent = 0;
 	numTxPowerLevels = 1;
 
-	totalSimTime = ev.config()->getAsTime("General", "sim-time-limit");
-	totalSNnodes = parentModule()->parentModule()->par("numNodes");
+	totalSimTime = strtod(ev.getConfig()->getConfigValue("sim-time-limit"),NULL); 
+	totalSNnodes = getParentModule()->getParentModule()->par("numNodes");
 
 	if (CHANGE_POWER_LEVELS) {
 		// extract the numTxPowerLevels from the string module parameter
-		const char *str = parentModule()->submodule("networkInterface")->submodule("Radio")->par("txPowerLevels");
+		const char *str = getParentModule()->getSubmodule("networkInterface")->getSubmodule("Radio")->par("txPowerLevels");
 		cStringTokenizer tokenizer(str);
 		const char *token;
 		numTxPowerLevels = 0;
@@ -141,7 +141,7 @@ void connectivityMap_ApplicationModule::initialize()
 
 void connectivityMap_ApplicationModule::handleMessage(cMessage *msg)
 {
-	int msgKind = msg->kind();
+	int msgKind = msg->getKind();
 
 
 	if((disabled) && (msgKind != APP_NODE_STARTUP))
@@ -192,7 +192,6 @@ void connectivityMap_ApplicationModule::handleMessage(cMessage *msg)
 			string msgDestination(rcvPacket->getHeader().destination.c_str());
 
 			int theData = rcvPacket->getData();
-			double rssi = rcvPacket->getRssi();
 			string pathFromSource(rcvPacket->getCurrentPathFromSource());
 
 			/**
@@ -221,7 +220,7 @@ void connectivityMap_ApplicationModule::handleMessage(cMessage *msg)
 
 			simtime_t now = simTime();
 
-			int currentNodeTx = ((int)floor(now / txInterval_perNode))%totalSNnodes;
+			int currentNodeTx = (int)(floor(now / txInterval_perNode))%totalSNnodes;
 
 			if( (self == currentNodeTx) && (packetsSent < SENT_PACKETS_PER_NODE_PER_LEVEL) )
 			{

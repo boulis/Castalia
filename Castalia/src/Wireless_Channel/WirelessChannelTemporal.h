@@ -12,7 +12,7 @@
 #ifndef __CHANNELMODEL_H
 #define __CHANNELMODEL_H
 
-#include "cstrtokenizer.h"
+#include <omnetpp.h>
 #include "random.h"
 
 #include <iostream>

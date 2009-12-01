@@ -11,20 +11,23 @@
 //***************************************************************************************
 
 
+package Node.Communication.MAC;
 
+moduleinterface MacGenericModule
 
-simple MacGenericModule
-
+{
     parameters:
-		printDebugInfo: bool,
-		
-		maxMACFrameSize	: const,	// in bytes
-		macFrameOverhead: const,	// in 802.15.4 = 5 + (4-->20) bytes
-		
-		macBufferSize	: const;	//in number of messages
+        bool printDebugInfo;
+
+        int maxMACFrameSize;		// in bytes
+        int macFrameOverhead;		// in 802.15.4 = 5 + (4-->20) bytes
+        int macBufferSize;		//in number of messages
 
     gates:
-        out:	toNetworkModule, toRadioModule;
-        in:	fromNetworkModule, fromRadioModule, fromCommModuleResourceMgr;
+        output toNetworkModule;
+        output toRadioModule;
+        input fromNetworkModule;
+        input fromRadioModule;
+        input fromCommModuleResourceMgr;
 
-endsimple
+}

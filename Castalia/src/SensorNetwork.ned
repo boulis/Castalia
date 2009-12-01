@@ -10,80 +10,70 @@
 //*************************************************************************/
 
 
-import 
-	"WirelessChannel",
-	"PhysicalProcess",
-	"Node";
+import Wireless_Channel;
+import Physical_Process;
+import Node;
 
 
-module SensorNetwork
+network SN
 
+{
     parameters:
-    	field_x: 			const,	    // the length of the deployment field
-    	field_y: 			const,	    // the width of the deployment field
-    	field_z: 			const,	    // the height of the deployment field
-    	
-    	xCellSize:			const,      // if we define cells (to handle mobility)
-    	yCellSize:			const,      // how big are the cells in each dimension
-    	zCellSize:			const,
-    	
-    	numNodes:			const,	    // the number of nodes
+        int field_x = default(30);		// the length of the deployment field
+        int field_y = default(30);		// the width of the deployment field
+        int field_z = default(1);		// the height of the deployment field
 
-    	deploymentType: 		const,    // a number identifying the way the nodes are deployed
-    	xGridSize:			const,
-    	yGridSize:			const,
-    	zGridSize:			const,
-    	
-	physicalProcessModuleName:	string,
-	numPhysicalProcesses:		const,
-	debugInfoFilename:		string;
-	
+        int xCellSize = default(5);		// if we define cells (to handle mobility)
+        int yCellSize = default(5);		// how big are the cells in each dimension
+        int zCellSize = default(1);
+
+	int numNodes;				// the number of nodes
+
+	int deploymentType = default(1);	// 0 -> uniform random deployment inside the network's X,Y boundaries
+	                                        // 1 -> grid deployment
+	                                        // 2 -> means randomized grid deployment (i.e. grid + noise)
+	                                        // any other number means that the user must specify manually the locations of
+
+	double randomFactor = default(0.3);     // randomFactor as a % of network boundaries for randomized grid deployment
+
+	int xGridSize = default(5);		// Number of nodes along each axis for grid deployment
+	int yGridSize = default(5);		
+	int zGridSize = default(1);		
+
+        int numPhysicalProcesses = default(1);
+        string physicalProcessModuleName = default("CustomizablePhysicalProcess");
+
+        string debugInfoFilename = default("Castalia-Trace.txt");
+
     submodules:
-		wirelessChannel: WirelessChannel
-			gatesizes:
-				toNode[numNodes],
-				fromNode[numNodes];
-		
-		physicalProcess: physicalProcessModuleName[numPhysicalProcesses] like PhysicalProcessGenericModule	// in this network we have only one kind of sensing device 
-			gatesizes:
-				toNode[numNodes],
-				fromNode[numNodes];
-	
-		node: Node[numNodes]
-			parameters if deploymentType == 0:      // the default option, random uniform deployment
-				xCoor = uniform(0, field_x),
-				yCoor = uniform(0, field_y),
-				zCoor = uniform(0, field_z);
-				
-			parameters if deploymentType == 1:	// grid deployment
-				xCoor = (index % xGridSize) * (field_x/(xGridSize-1)),
-				yCoor = (floor(index/xGridSize) % yGridSize) * (field_y/(yGridSize-1)),
-				zCoor = (floor(index/(xGridSize*yGridSize)) % zGridSize) * (field_z/(zGridSize-1));
-                                
-			parameters if deploymentType == 2:	// randomized grid deployment (i.e. grid + noise)
-				xCoor = (index % xGridSize) * (field_x/(xGridSize-1)) + normal(0, (field_x/(xGridSize-1))/3),
-				yCoor = (floor(index/xGridSize) % yGridSize) * (field_y/(yGridSize-1)) + normal(0, (field_y/(yGridSize-1))/3),
-				zCoor = (floor(index/(xGridSize*yGridSize)) % zGridSize) * (field_z/(zGridSize-1)) + normal(0, (field_z/(zGridSize-1))/3);
-			
-			gatesizes:
-				toPhysicalProcess[numPhysicalProcesses],
-				fromPhysicalProcess[numPhysicalProcesses];
-	
-    connections nocheck:
-        for i=0..numNodes-1 do
+
+        wirelessChannel: Wireless_Channel.WirelessChannel {
+	    gates:
+		toNode[numNodes];
+		fromNode[numNodes];
+        }
+
+	physicalProcess[numPhysicalProcesses]: <physicalProcessModuleName> like Physical_Process.PhysicalProcessGenericModule {
+	    gates:
+		toNode[numNodes];
+		fromNode[numNodes];
+        }
+
+        node[numNodes]: Node.Node {
+            gates:
+		toPhysicalProcess[numPhysicalProcesses];
+		fromPhysicalProcess[numPhysicalProcesses];
+
+        }
+
+    connections:
+        for i=0..numNodes-1 {
             node[i].toWirelessChannel --> wirelessChannel.fromNode[i];
             node[i].fromWirelessChannel <-- wirelessChannel.toNode[i];
-        endfor;
+        }
 
-        for i=0..numNodes-1, j=0..numPhysicalProcesses-1 do
-        	node[i].toPhysicalProcess[j] --> physicalProcess[j].fromNode[i];
+        for i=0..numNodes-1, for j=0..numPhysicalProcesses-1 {
+            node[i].toPhysicalProcess[j] --> physicalProcess[j].fromNode[i];
             node[i].fromPhysicalProcess[j] <-- physicalProcess[j].toNode[i];
-        endfor;
-
-endmodule
-
-
-//Instantiates a sensor network
-network SN : SensorNetwork
-
-endnetwork
+        }
+}

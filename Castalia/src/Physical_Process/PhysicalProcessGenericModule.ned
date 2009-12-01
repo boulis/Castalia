@@ -10,7 +10,7 @@
 //*											*
 //***************************************************************************************
 
-
+package Physical_Process;
 
 
 // The physical process module simulates a physical process that could be measured/sampled
@@ -18,16 +18,13 @@
 // light, acceleration) would be represented by distinct PhysicalProcess modules. A node
 // simply ask the process for a sample which is returned as soon as it is calculated.
 
-simple PhysicalProcessGenericModule
-
+moduleinterface PhysicalProcessGenericModule
+{
     parameters:
-    	printDebugInfo: bool,
-        description:	string;
-        
-        
+        bool printDebugInfo;
+        string description;
 
     gates:
-        out: toNode[];
-        in: fromNode[];
-
-endsimple
+        output toNode[];
+        input fromNode[];
+}

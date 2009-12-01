@@ -10,13 +10,11 @@
 //*											*
 //***************************************************************************************
 
+package Node.Mobility_Module.NoMobilityModule;
 
+simple NoMobilityModule like Node.Mobility_Module.VirtualMobilityModule
 
-
-
-simple NoMobilityModule
-
-	parameters:
-	    printDebugInfo: bool;
-
-endsimple
+{
+    parameters:
+	bool printDebugInfo = default(false);
+}

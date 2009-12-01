@@ -14,40 +14,36 @@
 
 #include <omnetpp.h>
 #include "WirelessChannelMessages_m.h"
+#include "DebugInfoWriter.h"
 
 using namespace std;
 
 struct NodeLocation_type{
-	double x;
-	double y;
-	double z;
-	double phi;     // orientation info provided by 2 angles.
-	double theta;
-	int cell;    	// store the cell ID that corresponds to
-			//coordinates xyz so we do not have to recompute it
+    double x;
+    double y;
+    double z;
+    double phi;		// orientation info provided by 2 angles.
+    double theta;
+    int cell;		// store the cell ID that corresponds to coordinates xyz so we do not have to recompute it
 };
 
 
 class VirtualMobilityModule : public cSimpleModule 
 {
-	protected:
-	// parameters and variables
-	
-	/*--- The .ned file's parameters ---*/
-	    bool printDebugInfo;
-	    NodeLocation_type nodeLocation;
+    protected:
+        bool printDebugInfo;
+        NodeLocation_type nodeLocation;
 
-	    cModule *wchannel;
-            WChannel_NodeMoveMessage *positionUpdateMsg;
+        cModule *wchannel;
+	WChannel_NodeMoveMessage *positionUpdateMsg;
 
-	protected:
-	    virtual void initializeLocation();
-	    virtual void notifyWirelessChannel();
-	    virtual void setLocation(double x,double y,double z,double phi = 0,double theta = 0);
-	    virtual void setLocation(NodeLocation_type);
+	virtual void initialize();
+        virtual void notifyWirelessChannel();
+        virtual void setLocation(double x,double y,double z,double phi = 0,double theta = 0);
+        virtual void setLocation(NodeLocation_type);
 	
-	public:
-	    virtual NodeLocation_type getLocation();
+    public:
+        virtual NodeLocation_type getLocation();
 };
 
 #endif 

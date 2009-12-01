@@ -10,21 +10,17 @@
 //*											*
 //***************************************************************************************
 
+package Node.Mobility_Module.LineMobilityModule;
 
+simple LineMobilityModule like Node.Mobility_Module.VirtualMobilityModule
 
-
-
-simple LineMobilityModule
-
-	parameters:
-	    printDebugInfo: bool,
-	    updateInterval: const,
-	    loc1_x: const,
-	    loc1_y: const,
-	    loc1_z: const,
-	    loc2_x: const,
-	    loc2_y: const,
-	    loc2_z: const,
-	    speed: const;
-
-endsimple
+{
+    parameters:
+        bool printDebugInfo = default(false);
+	
+        double updateInterval = default(1000);
+        double xCoorDestination;
+        double yCoorDestination;
+        double zCoorDestination;
+        double speed;
+}

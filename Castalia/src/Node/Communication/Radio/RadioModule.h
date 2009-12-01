@@ -63,15 +63,14 @@ class RadioModule : public cSimpleModule
 		int PhyFrameOverhead;
 		int bufferSize;					//in kbytes
 		int txModeUsed;
-		double delaySleep2Listen;
-		double delayListen2Sleep;
-		double delayListen2Tx;
-		double delaySleep2Tx;
+		simtime_t delaySleep2Listen;
+		simtime_t delayListen2Sleep;
+		simtime_t delayListen2Tx;
+		simtime_t delaySleep2Tx;
 		
-		double delayTx2Sleep;
-		double delayTx2Listen;
-		
-		double delayCSValid;
+		simtime_t delayTx2Sleep;
+		simtime_t delayTx2Listen;
+		simtime_t delayCSValid;
 		
 		
 		/*--- Custom class member variables ---*/
@@ -97,11 +96,11 @@ class RadioModule : public cSimpleModule
 		cOutVector valuesVector;
 		
 		//Radio state times
-		double totalTimeTX;
-		double totalTimeListening;
-		double totalTimeRX;
-		double totalTimeSleeping;
-		double totalTimeTransitions;
+		simtime_t totalTimeTX;
+		simtime_t totalTimeListening;
+		simtime_t totalTimeRX;
+		simtime_t totalTimeSleeping;
+		simtime_t totalTimeTransitions;
 		
 		simtime_t beginT;
 		simtime_t endT;
@@ -115,7 +114,7 @@ class RadioModule : public cSimpleModule
 		virtual void handleMessage(cMessage *msg);
 		virtual void finish();
 		void readIniFileParameters(void);
-		void senseCarrier(double interval);
+		void senseCarrier(simtime_t interval);
 		double popAndSendToChannel();
 		int encapsulateMacFrame(MAC_GenericFrame *macFrame, WChannel_GenericMessage *retWcFrame);
 		int isBeacon(MAC_GenericFrame *theFrame);

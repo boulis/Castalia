@@ -16,6 +16,7 @@
 #define _CONNECTIVITYMAP_APPLICATIONMODULE_H_
 
 #include <omnetpp.h>
+
 #include <string>
 #include <vector>
 #include "SensorDevMgr_GenericMessage_m.h"
@@ -68,11 +69,11 @@ class connectivityMap_ApplicationModule : public cSimpleModule
 		double last_sensed_value;
 		int serialNumber;
 		int totalSNnodes;
-		double totalSimTime;
+		simtime_t totalSimTime;
 		int numTxPowerLevels;
 		char txPowerLevelNames[15][7];
-		double txInterval_perNode;
-		double txInterval_perPowerLevel;
+		simtime_t txInterval_perNode;
+		simtime_t txInterval_perPowerLevel;
 		int currentPowerLevel;
 
 	protected:

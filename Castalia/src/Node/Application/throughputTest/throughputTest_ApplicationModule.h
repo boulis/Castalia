@@ -20,7 +20,6 @@
 #include <string>
 #include <map>
 #include "SensorDevMgr_GenericMessage_m.h"
-#include <chist.h>
 
 /*** 
      You have to MODIFY the following "#define" statement by placing the
@@ -66,8 +65,6 @@ class throughputTest_ApplicationModule : public cSimpleModule
 		
 	/*--- Custom class parameters ---*/
 		int self;	// the node's ID
-		double self_xCoo;
-		double self_yCoo;
 		ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
 		int disabled;
 		double cpuClockDrift;

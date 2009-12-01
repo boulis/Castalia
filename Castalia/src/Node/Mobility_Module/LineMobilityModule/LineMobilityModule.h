@@ -40,9 +40,9 @@ class LineMobilityModule : public VirtualMobilityModule
 	    int direction;
 		
 	protected:
-	    virtual void initialize();
-	    virtual void handleMessage(cMessage *msg);
-	    virtual void finish();
+	    void initialize();
+	    void handleMessage(cMessage *msg);
+	    void finish();
 };
 
 #endif 

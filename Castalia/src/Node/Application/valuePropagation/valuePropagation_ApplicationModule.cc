@@ -14,7 +14,7 @@
 
 #include "valuePropagation_ApplicationModule.h"
 
-#define EV   ev.disabled()?(ostream&)ev:ev
+//#define EV   ev.isDisabled()?(ostream&)ev:ev ==> EV is now part of <omnetpp.h>
 
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 
@@ -50,18 +50,18 @@ Define_Module(valuePropagation_ApplicationModule);
 
 void valuePropagation_ApplicationModule::initialize()
 {
-	self = parentModule()->index();
+	self = getParentModule()->getIndex();
 
-	self_xCoo = parentModule()->par("xCoor");
+	self_xCoo = getParentModule()->par("xCoor");
 
-	self_yCoo = parentModule()->par("yCoor");
+	self_yCoo = getParentModule()->par("yCoor");
 
 	//get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
 	//instead of using extra messages & message types for tighlty couplped operations.
-	cModule *parent = parentModule();
+	cModule *parent = getParentModule();
 	if(parent->findSubmodule("nodeResourceMgr") != -1)
 	{
-		resMgrModule = check_and_cast<ResourceGenericManager*>(parent->submodule("nodeResourceMgr"));
+		resMgrModule = check_and_cast<ResourceGenericManager*>(parent->getSubmodule("nodeResourceMgr"));
 	}
 	else
 		opp_error("\n[App]:\n Error in geting a valid reference to  nodeResourceMgr for direct method calls.");
@@ -112,7 +112,7 @@ void valuePropagation_ApplicationModule::initialize()
 
 void valuePropagation_ApplicationModule::handleMessage(cMessage *msg)
 {
-	int msgKind = msg->kind();
+	int msgKind = msg->getKind();
 
 
 	if((disabled) && (msgKind != APP_NODE_STARTUP))
@@ -160,8 +160,8 @@ void valuePropagation_ApplicationModule::handleMessage(cMessage *msg)
 			string msgSender(rcvPacket->getHeader().source.c_str());
 			string msgDestination(rcvPacket->getHeader().destination.c_str());
 			double theData = rcvPacket->getData();
-			int sequenceNumber = rcvPacket->getHeader().seqNumber;
-			double rssi = rcvPacket->getRssi();
+			// int sequenceNumber = rcvPacket->getHeader().seqNumber;
+			// double rssi = rcvPacket->getRssi();
 			string pathFromSource(rcvPacket->getCurrentPathFromSource());
 
 			/**

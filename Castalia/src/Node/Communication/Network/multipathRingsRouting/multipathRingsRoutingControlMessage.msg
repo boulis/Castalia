@@ -17,13 +17,14 @@
 
 cplusplus {{
 #include "NetworkControlMessage_m.h"
-}};
+}}
+
 
 
 class Network_ControlMessage;
 
 
+
 message multipathRingsRouting_ControlMessage extends Network_ControlMessage
 {
-    fields:
-};
+}

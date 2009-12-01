@@ -13,7 +13,7 @@
 
 #include "throughputTest_ApplicationModule.h"
 
-#define EV   ev.disabled()?(ostream&)ev:ev
+//#define EV   ev.isDisabled()?(ostream&)ev:ev ==> EV is now part of <omnetpp.h>
 
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 
@@ -43,18 +43,14 @@ Define_Module(throughputTest_ApplicationModule);
 
 void throughputTest_ApplicationModule::initialize()
 {
-	self = parentModule()->index();
-
-	self_xCoo = parentModule()->par("xCoor");
-
-	self_yCoo = parentModule()->par("yCoor");
+	self = getParentModule()->getIndex();
 
 	//get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
 	//instead of using extra messages & message types for tighlty couplped operations.
-	cModule *parent = parentModule();
+	cModule *parent = getParentModule();
 	if(parent->findSubmodule("nodeResourceMgr") != -1)
 	{
-		resMgrModule = check_and_cast<ResourceGenericManager*>(parent->submodule("nodeResourceMgr"));
+		resMgrModule = check_and_cast<ResourceGenericManager*>(parent->getSubmodule("nodeResourceMgr"));
 	}
 	else
 		opp_error("\n[Application]:\n Error in geting a valid reference to  nodeResourceMgr for direct method calls.");
@@ -110,7 +106,7 @@ void throughputTest_ApplicationModule::initialize()
 
 void throughputTest_ApplicationModule::handleMessage(cMessage *msg)
 {
-	int msgKind = msg->kind();
+	int msgKind = msg->getKind();
 
 
 	if((disabled) && (msgKind != APP_NODE_STARTUP))
@@ -165,9 +161,7 @@ void throughputTest_ApplicationModule::handleMessage(cMessage *msg)
 			string msgSender(rcvPacket->getHeader().source.c_str());
 			string msgDestination(rcvPacket->getHeader().destination.c_str());
 
-			int theData = rcvPacket->getData();
 			int sequenceNumber = rcvPacket->getHeader().seqNumber;
-			double rssi = rcvPacket->getRssi();
 			string pathFromSource(rcvPacket->getCurrentPathFromSource());
 
 			/**
@@ -182,7 +176,7 @@ void throughputTest_ApplicationModule::handleMessage(cMessage *msg)
 
 			if (nextRecipient == self) {
 			    update_packets_received(atoi(msgSender.c_str()),sequenceNumber);
-			    long latency = lround((simTime() - rcvPacket->getTimestamp())*1000);
+			    long latency = lround(SIMTIME_DBL((simTime() - rcvPacket->getTimestamp())*1000));
 			    if (latency > latencyHistogramMax) latencyOverflow++;
 			    latencyHistogram.collect(latency);
 			} else {
@@ -242,21 +236,7 @@ void throughputTest_ApplicationModule::handleMessage(cMessage *msg)
 
 		case SDM_2_APP_SENSOR_READING:
 		{
-			SensorDevMgr_GenericMessage *rcvReading;
-			rcvReading = check_and_cast<SensorDevMgr_GenericMessage*>(msg);
-
-			int sensIndex =  rcvReading->getSensorIndex();
-			string sensType(rcvReading->getSensorType());
-			double sensValue = rcvReading->getSensedValue();
-
-			/**
-		   	    ADD HERE YOUR CODE FOR HANDLING A NEW SAMPLE FORM THE SENSOR
-
-			    SENSED VALUE: sensValue
-			    SENSOR TYPE:  sensType
-			    SENSOR INDEX: sensIndex
-			**/
-
+			/* unused */
 			break;
 		}
 
@@ -303,23 +283,24 @@ void throughputTest_ApplicationModule::handleMessage(cMessage *msg)
 
 
 		case NETWORK_2_APP_TREE_LEVEL_UPDATED:
-	    {
-	    	// this message notifies the application of a cartan routing state (level)
-	    	// for certain routing protocols.
-	    	Network_ControlMessage *levelMsg = check_and_cast<Network_ControlMessage *>(msg);
+		{
+	    	    // this message notifies the application of a cartan routing state (level)
+	    	    // for certain routing protocols.
+	    	    
+	    	    // Network_ControlMessage *levelMsg = check_and_cast<Network_ControlMessage *>(msg);
+	    	    // int routingLevel = levelMsg->getLevel();
 
-	    	//int routingLevel = levelMsg->getLevel();
-
-	    	break;
-	    }
+	    	    break;
+		}
 
 
 	    case NETWORK_2_APP_CONNECTED_2_TREE:
 	    {
 	    	Network_ControlMessage *connectedMsg = check_and_cast<Network_ControlMessage *>(msg);
 
-	    	int routingLevel = connectedMsg->getLevel();
-	    	int sinkID = connectedMsg->getSinkID();
+		/* unused */
+	    	// int routingLevel = connectedMsg->getLevel();
+	    	// int sinkID = connectedMsg->getSinkID();
 	    	string parents;
 	    	parents.assign(connectedMsg->getParents());
 
@@ -364,12 +345,12 @@ void throughputTest_ApplicationModule::finish()
 
 	if (packet_info_table.size() > 0) {
 	    EV << "\npacket latency in ms:\n";
-	    EV << "  min: "<<latencyHistogram.min()<<",  max: "<<latencyHistogram.max()<<
-	      ",  avg: "<<latencyHistogram.mean()<<",  variance: "<<latencyHistogram.variance()<<"\n";
+	    EV << "  min: "<<latencyHistogram.getMin()<<",  max: "<<latencyHistogram.getMax()<<
+	      ",  avg: "<<latencyHistogram.getMean()<<",  variance: "<<latencyHistogram.getVariance()<<"\n";
 	    EV << "Latency historgram from " << latencyHistogramMin << " to " << latencyHistogramMax << ":\n";
-	    for (int i=0; i<latencyHistogram.cells(); i++)
+	    for (int i=0; i<latencyHistogram.getNumCells(); i++)
 	    {
-		EV << latencyHistogram.cell(i) << " ";
+		EV << latencyHistogram.getCellValue(i) << " ";
 	    }
 	    EV << "\nSamples above " << latencyHistogramMax << ": " << latencyOverflow << "\n\n";
 	}
@@ -396,7 +377,7 @@ void throughputTest_ApplicationModule::send2NetworkDataPacket(const char *destID
 		throughputTest_DataPacket *packet2Net;
 		packet2Net = new throughputTest_DataPacket("Application Packet Application->Mac", APP_DATA_PACKET);
 		packet2Net->setData(data);
-		packet2Net->setTimestamp(simTime());
+		packet2Net->setTimestamp(SIMTIME_DBL(simTime()));
 
 		packet2Net->getHeader().applicationID = applicationID.c_str();
 		packet2Net->getHeader().source = selfAddr;

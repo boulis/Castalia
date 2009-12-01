@@ -14,15 +14,15 @@
 
 enum SensorDevMgr_GenericMessageType
 {
-	SDM_2_APP_SENSOR_READING = 6000;
-	APP_2_SDM_SAMPLE_REQUEST = 6001;
-	SDM_2_APP_KILL_NODE = 6002;
+
+    SDM_2_APP_SENSOR_READING = 6000;
+    APP_2_SDM_SAMPLE_REQUEST = 6001;
+    SDM_2_APP_KILL_NODE = 6002;
 }
 
 message SensorDevMgr_GenericMessage
 {
-    fields:
-	double sensedValue;
-	string sensorType;
-	int sensorIndex;
-};
+    double sensedValue;
+    string sensorType;
+    int sensorIndex;
+}

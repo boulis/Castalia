@@ -17,7 +17,7 @@
 #include <math.h>
 #include <string>
 
-#define EV   ev.disabled() ? (ostream&)ev : ev
+//#define EV   ev.isDisabled() ? (ostream&)ev : ev ==> EV is now part of <omnetpp.h>
 #define K_PARAM 0.1
 #define A_PARAM 1
 
@@ -49,7 +49,7 @@ void CarsPhysicalProcess::initialize() {
 void CarsPhysicalProcess::handleMessage(cMessage *msg) {
 	
 
-	switch (msg->kind()) {
+	switch (msg->getKind()) {
 	    case PHY_SAMPLE_REQ: {
 		PhyProcess_GenericMessage *receivedMsg = check_and_cast<PhyProcess_GenericMessage*>(msg);
 		int nodeIndex = receivedMsg->getSrcID();
@@ -57,7 +57,7 @@ void CarsPhysicalProcess::handleMessage(cMessage *msg) {
 	
 		// get the sensed value
 		double returnValue;
-		returnValue = calculateScenarioReturnValue(receivedMsg->getXCoor(), receivedMsg->getYCoor(), receivedMsg->sendingTime());
+		returnValue = calculateScenarioReturnValue(receivedMsg->getXCoor(), receivedMsg->getYCoor(), receivedMsg->getSendingTime());
 
 		// Send reply back to the node who made the request
 		PhyProcess_GenericMessage *reply = new PhyProcess_GenericMessage("sample", PHY_SAMPLE_REPLY);
@@ -142,7 +142,7 @@ double CarsPhysicalProcess::calculateScenarioReturnValue(const double & x_coo, c
 	for(i=0; i<max_num_cars; i++) {
 	    if (sources_snapshots[i][1].time >= stime) {
 			
-		linear_coeff =  (double)(stime - sources_snapshots[i][0].time) /
+		linear_coeff =  (stime - sources_snapshots[i][0].time) /
 				(sources_snapshots[i][1].time - sources_snapshots[i][0].time);
 	
 		x = sources_snapshots[i][0].x + linear_coeff *

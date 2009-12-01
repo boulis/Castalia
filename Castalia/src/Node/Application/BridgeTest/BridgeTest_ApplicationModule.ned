@@ -10,26 +10,31 @@
 //*											*
 //***************************************************************************************
 
-
+package Node.Application.BridgeTest;
 
 // The sensor node module. Connects to the wireless channel in order to communicate 
 // with other nodes. Connects to psysical processes so it can sample them.
 
-simple BridgeTest_ApplicationModule
+simple BridgeTest_ApplicationModule like Node.Application.ApplicationGenericModule
 
+{
     parameters:
-    	applicationID:  string,
-    	printDebugInfo:	bool,
-	priority 	  : const,
-	maxAppPacketSize  : const,	// in bytes
-	packetHeaderOverhead: const,	// in bytes
-	isSink: bool,
-	broadcastReports: bool,
-	reportTreshold: numeric,
-	sampleInterval: numeric;
+        string applicationID;
+        bool printDebugInfo;
+        int priority;
+        int maxAppPacketSize;		// in bytes
+        int packetHeaderOverhead;	// in bytes
+        
+        bool isSink;
+        bool broadcastReports;
+        double reportTreshold;
+        double sampleInterval;
 
     gates:
-        out:	toCommunicationModule, toSensorDeviceManager;
-        in:	fromCommunicationModule, fromSensorDeviceManager, fromResourceManager;
+        output toCommunicationModule;
+        output toSensorDeviceManager;
+        input fromCommunicationModule;
+        input fromSensorDeviceManager;
+        input fromResourceManager;
 
-endsimple
+}

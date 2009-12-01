@@ -21,9 +21,8 @@ using namespace std;
 class NoMobilityModule : public VirtualMobilityModule
 {
 	protected:
-	    virtual void initialize();
-	    virtual void handleMessage(cMessage *msg);
-	    virtual void finish();
+	    void handleMessage(cMessage *msg);
+	    void finish();
 };
 
 #endif 

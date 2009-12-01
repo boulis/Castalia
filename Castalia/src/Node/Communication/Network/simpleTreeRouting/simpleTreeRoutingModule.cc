@@ -17,7 +17,7 @@
 #include "simpleTreeRoutingModule.h"
 
 #define DRIFTED_TIME(time) ((time) * cpuClockDrift)
-#define EV   ev.disabled() ? (ostream&)ev : ev
+//#define EV   ev.isDisabled() ? (ostream&)ev : ev ==> EV is now part of <omnetpp.h>
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 
 #define NO_PARENT 65535 // max value for unsigned short
@@ -37,21 +37,21 @@ void simpleTreeRoutingModule::initialize()
 	//--------------------------------------------------------------------------------
 	//------- Follows code for the initialization of the class member variables ------
 
-	self = parentModule()->parentModule()->index();
+	self = getParentModule()->getParentModule()->getIndex();
 
 	//get a valid reference to the object of the Radio module so that we can make direct calls to its public methods
 	//instead of using extra messages & message types for tighlty couplped operations.
-	radioModule = check_and_cast<RadioModule*>(gate("toMacModule")->toGate()->ownerModule()->gate("toRadioModule")->toGate()->ownerModule());
+	radioModule = check_and_cast<RadioModule*>(gate("toMacModule")->getNextGate()->getOwnerModule()->gate("toRadioModule")->getNextGate()->getOwnerModule());
 	radioDataRate = (double) radioModule->par("dataRate");
 
-	macFrameOverhead = gate("toMacModule")->toGate()->ownerModule()->par("macFrameOverhead");
+	macFrameOverhead = gate("toMacModule")->getNextGate()->getOwnerModule()->par("macFrameOverhead");
 
 	//get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
 	//instead of using extra messages & message types for tighlty couplped operations.
-	cModule *parentParent = parentModule()->parentModule();
+	cModule *parentParent = getParentModule()->getParentModule();
 	if(parentParent->findSubmodule("nodeResourceMgr") != -1)
 	{
-		resMgrModule = check_and_cast<ResourceGenericManager*>(parentParent->submodule("nodeResourceMgr"));
+		resMgrModule = check_and_cast<ResourceGenericManager*>(parentParent->getSubmodule("nodeResourceMgr"));
 	}
 	else
 		opp_error("\n[Network]:\n Error in geting a valid reference to  nodeResourceMgr for direct method calls.");
@@ -66,7 +66,7 @@ void simpleTreeRoutingModule::initialize()
 		
 	/*******  PeriodicBcastTreeRouting-related initializations *************/ 
 	// make sure that in your omnetpp.ini you have used an Application module that has the boolean parameter "isSink"
-	isSink =  gate("toCommunicationModule")->toGate()->ownerModule()->gate("toApplicationModule")->toGate()->ownerModule()->par("isSink");
+	isSink =  gate("toCommunicationModule")->getNextGate()->getOwnerModule()->gate("toApplicationModule")->getNextGate()->getOwnerModule()->par("isSink");
 
 	currentLevel = (isSink)?0:NO_LEVEL;
 	currentSinkID = (isSink)?self:NO_SINK;
@@ -85,7 +85,7 @@ void simpleTreeRoutingModule::initialize()
 
 void simpleTreeRoutingModule::handleMessage(cMessage *msg)
 {
-	int msgKind = msg->kind();
+	int msgKind = msg->getKind();
 
 	if((disabled) && (msgKind != APP_NODE_STARTUP))
 	{
@@ -154,7 +154,7 @@ void simpleTreeRoutingModule::handleMessage(cMessage *msg)
 					currentSinkID = ((neighborRec)currParents[0]).sinkID;
 					
 					parentIDs.clear();
-					for(int i=0; i < currParents.size(); i++)
+					for(int i=0; i < (int)currParents.size(); i++)
 					{
 						parentIDs.push_back(((neighborRec)currParents[i]).id);
 					}
@@ -165,7 +165,7 @@ void simpleTreeRoutingModule::handleMessage(cMessage *msg)
 					connectedMsg->setLevel(currentLevel);
 					connectedMsg->setSinkID(currentSinkID);
 					string strParentIDs;
-					for(int i=0; i < parentIDs.size(); i++)
+					for(int i=0; i < (int)parentIDs.size(); i++)
 					{
 						char buff[512];
 						sprintf(buff, "%i%s", (int)parentIDs[i], ROUTE_DEST_DELIMITER);
@@ -196,7 +196,7 @@ void simpleTreeRoutingModule::handleMessage(cMessage *msg)
 		 *--------------------------------------------------------------------------------------------------------------*/
 		case APP_DATA_PACKET:
 		{
-			if(TXBuffer.size() < netBufferSize)
+			if((int)TXBuffer.size() < netBufferSize)
 			{
 				App_GenericDataPacket *rcvAppDataPacket = check_and_cast<App_GenericDataPacket*>(msg);
 				string appPktDest(rcvAppDataPacket->getHeader().destination.c_str());
@@ -205,7 +205,7 @@ void simpleTreeRoutingModule::handleMessage(cMessage *msg)
 				{
 					
 					char buff[50];
-					sprintf(buff, "Network Data frame (%f)", simTime());
+					sprintf(buff, "Network Data frame (%f)", SIMTIME_DBL(simTime()));
 					simpleTreeRouting_DataFrame *newDataFrame = new simpleTreeRouting_DataFrame(buff, NETWORK_FRAME);
 					
 					//create the NetworkFrame from the Application Data Packet (encapsulation)
@@ -260,7 +260,7 @@ void simpleTreeRoutingModule::handleMessage(cMessage *msg)
 				
 				/*if(!(BUFFER_IS_EMPTY))
 				{
-					double dataTXtime = ((double)(dataFrame->byteLength()+netFrameOverhead) * 8.0 / (1000.0 * radioDataRate));
+					double dataTXtime = ((double)(dataFrame->getByteLength()+netFrameOverhead) * 8.0 / (1000.0 * radioDataRate));
 					
 					scheduleAt(simTime() + dataTXtime + epsilon, new Network_ControlMessage("check schedTXBuffer buffer", NETWORK_SELF_CHECK_TX_BUFFER));
 				}*/
@@ -274,7 +274,7 @@ void simpleTreeRoutingModule::handleMessage(cMessage *msg)
 
 
 		/*--------------------------------------------------------------------------------------------------------------
-		 * Data Frame Received from the Radio submodule (the data frame can be a Data packet or a beacon packet)
+		 * Data Frame Received from the Radio getSubmodule(the data frame can be a Data packet or a beacon packet)
 		 *--------------------------------------------------------------------------------------------------------------*/
 		case NETWORK_FRAME:
 		{			
@@ -454,7 +454,7 @@ void simpleTreeRoutingModule::readIniFileParameters(void)
 int simpleTreeRoutingModule::encapsulateAppPacket(App_GenericDataPacket *appPacket, simpleTreeRouting_DataFrame *retFrame)
 {
 	// Set the ByteLength of the frame 
-	int totalMsgLen = appPacket->byteLength() + netDataFrameOverhead; // the byte-size overhead for a Data packet is fixed (always netDataFrameOverhead)
+	int totalMsgLen = appPacket->getByteLength() + netDataFrameOverhead; // the byte-size overhead for a Data packet is fixed (always netDataFrameOverhead)
 	if(totalMsgLen > maxNetFrameSize)
 		return 0;
 	retFrame->setByteLength(netDataFrameOverhead); // extra bytes will be added after the encapsulation
@@ -634,7 +634,7 @@ void simpleTreeRoutingModule::filterIncomingNetworkDataFrames(Network_GenericFra
 					vector<string> splittedDestCtrl;
 					destinationCtrlExplode(tmpDest, ROUTE_DEST_DELIMITER, splittedDestCtrl);
 					
-					for(int i=0; i < splittedDestCtrl.size(); i++)
+					for(int i=0; i < (int)splittedDestCtrl.size(); i++)
 					{
 						if(((string)splittedDestCtrl[i]).compare(strSelfID) == 0)
 							selfIsNextHop = true;
@@ -666,7 +666,7 @@ void simpleTreeRoutingModule::filterIncomingNetworkDataFrames(Network_GenericFra
 				vector<string> splittedDestCtrl;
 				destinationCtrlExplode(tmpDest, ROUTE_DEST_DELIMITER, splittedDestCtrl);
 				
-				for(int i=0; i < splittedDestCtrl.size(); i++)
+				for(int i=0; i < (int)splittedDestCtrl.size(); i++)
 				{
 					if(((string)splittedDestCtrl[i]).compare(strSelfID) == 0)
 						selfIsNextHop = true;
@@ -763,7 +763,7 @@ void simpleTreeRoutingModule::storeNeighbor(neighborRec parNeighREC, bool rssiBa
 	if( (neighbor_RSSIThreshold != 0.0) && (parNeighREC.rssi < neighbor_RSSIThreshold) )
 		return;
 	
-	for(int i=0; i < neighborsTable.size(); i++)
+	for(int i=0; i < (int)neighborsTable.size(); i++)
 	{
 		currRec = (neighborRec)neighborsTable[i];
 		
@@ -775,7 +775,7 @@ void simpleTreeRoutingModule::storeNeighbor(neighborRec parNeighREC, bool rssiBa
 		neighborsTable[neighIndex] = parNeighREC;
 	else // new neighbor
 	{
-		if(neighborsTable.size() < maxNeighborsTableSize) //if there is enough room to store the new neighbor data
+		if((int)neighborsTable.size() < maxNeighborsTableSize) //if there is enough room to store the new neighbor data
 			neighborsTable.push_back(parNeighREC);
 		else //delete the less important neighbor and store the new one, it the former worths more that
 			applyNeigborEvictionRule(parNeighREC, rssiBasedQuality);
@@ -794,7 +794,7 @@ void simpleTreeRoutingModule::applyNeigborEvictionRule(neighborRec parNeighREC, 
 	int deleteIndex = -1;
 	neighborRec currRec;
 	
-	for(int i=0; i < neighborsTable.size(); i++)
+	for(int i=0; i < (int)neighborsTable.size(); i++)
 	{
 		currRec = (neighborRec)neighborsTable[i];
 		
@@ -858,7 +858,7 @@ int simpleTreeRoutingModule::getBestQualityNeighbors(int bestN, vector <neighbor
 	desiredSinkID = currRec.sinkID;
 	
 	
-	for(int i=0; (i < neighborsTable.size()) && (totalRecordsPushed < bestN); i++)
+	for(int i=0; (i < (int)neighborsTable.size()) && (totalRecordsPushed < bestN); i++)
 	{
 		currRec = (neighborRec)neighborsTable[i];
 		

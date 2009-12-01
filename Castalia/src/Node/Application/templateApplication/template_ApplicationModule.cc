@@ -13,7 +13,7 @@
 
 #include "template_ApplicationModule.h"
 
-#define EV   ev.disabled()?(ostream&)ev:ev
+//#define EV   ev.isDisabled()?(ostream&)ev:ev ==> EV is now part of <omnetpp.h>
 
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 
@@ -43,18 +43,18 @@ Define_Module(template_ApplicationModule);
 
 void template_ApplicationModule::initialize()
 {
-	self = parentModule()->index();
+	self = getParentModule()->getIndex();
 
-	self_xCoo = parentModule()->par("xCoor");
+	self_xCoo = getParentModule()->par("xCoor");
 
-	self_yCoo = parentModule()->par("yCoor");
+	self_yCoo = getParentModule()->par("yCoor");
 
 	//get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
 	//instead of using extra messages & message types for tighlty couplped operations.
-	cModule *parent = parentModule();
+	cModule *parent = getParentModule();
 	if(parent->findSubmodule("nodeResourceMgr") != -1)
 	{
-		resMgrModule = check_and_cast<ResourceGenericManager*>(parent->submodule("nodeResourceMgr"));
+		resMgrModule = check_and_cast<ResourceGenericManager*>(parent->getSubmodule("nodeResourceMgr"));
 	}
 	else
 		opp_error("\n[Application]:\n Error in geting a valid reference to  nodeResourceMgr for direct method calls.");
@@ -97,7 +97,7 @@ void template_ApplicationModule::initialize()
 
 void template_ApplicationModule::handleMessage(cMessage *msg)
 {
-	int msgKind = msg->kind();
+	int msgKind = msg->getKind();
 
 
 	if((disabled) && (msgKind != APP_NODE_STARTUP))

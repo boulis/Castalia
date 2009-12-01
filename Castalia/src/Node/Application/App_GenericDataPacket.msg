@@ -16,25 +16,23 @@
 
 enum App_DataPacketType
 {
-	APP_DATA_PACKET = 1100;
-};
+    APP_DATA_PACKET = 1100;
+}
 
 struct AppHeaderInfo
 {
-	fields:
-		string source;
-		string destination;
-		int seqNumber;
-		string applicationID;
-};
+    string source;
+    string destination;
+    int seqNumber;
+    string applicationID;
+}
 
-message App_GenericDataPacket
+packet App_GenericDataPacket
 {
-    fields:
-        AppHeaderInfo header;
-        
-	// simulation-specific fields
-	double rssi;
-	double timestamp;
-	string currentPathFromSource;
-};
+    AppHeaderInfo header;
+
+    // simulation-specific fields
+    double rssi;
+    double timestamp;
+    string currentPathFromSource;
+}

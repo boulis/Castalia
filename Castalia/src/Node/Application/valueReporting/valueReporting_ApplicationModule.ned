@@ -13,25 +13,30 @@
 //*      Attention:  License Inquiry.							*
 //**************************************************************************************/
 
+package Node.Application.valueReporting;
 
 // The sensor node module. Connects to the wireless channel in order to communicate 
 // with other nodes. Connects to psysical processes so it can sample them.
 
-simple valueReporting_ApplicationModule
+simple valueReporting_ApplicationModule like Node.Application.ApplicationGenericModule
 
+{
     parameters:
-    	applicationID:  string,
-    	printDebugInfo:	bool,
-		priority 	  : const,
-		maxAppPacketSize  : const,	// in bytes
-		packetHeaderOverhead: const,// in bytes
-		constantDataPayload:const,  // in bytes
-		maxSampleInterval: const, 	// in msec
-		minSampleInterval: const, 	// in msec
-		isSink: bool;
+        string applicationID = default("valueReporting");
+        bool printDebugInfo = default(true);
+        int priority = default(1);
+        int maxAppPacketSize = default(30);		// in bytes
+        int packetHeaderOverhead = default(8);		// in bytes
+        int constantDataPayload = default(12);  	// in bytes
+        int maxSampleInterval = default(60000); 	// in msec
+        int minSampleInterval = default(1000); 		// in msec
+        bool isSink = default(false);
 
     gates:
-        out:	toCommunicationModule, toSensorDeviceManager;
-        in:	fromCommunicationModule, fromSensorDeviceManager, fromResourceManager;
+        output toCommunicationModule;
+        output toSensorDeviceManager;
+        input fromCommunicationModule;
+        input fromSensorDeviceManager;
+        input fromResourceManager;
 
-endsimple
+}

@@ -10,33 +10,33 @@
 //*											*
 //***************************************************************************************
 
-
-
+package Physical_Process.CarsPhysicalProcess;
 
 // The physical process module simulates a physical process that could be measured/sampled
 // by a sensing device on the nodes. Different sensing devices (e.g temperature, pressure,
 // light, acceleration) would be represented by distinct PhysicalProcess modules. A node
 // simply ask the process for a sample which is returned as soon as it is calculated.
 
-simple CarsPhysicalProcess
+simple CarsPhysicalProcess like Physical_Process.PhysicalProcessGenericModule
 
+{
     parameters:
-    	printDebugInfo: bool,
+        bool printDebugInfo = default(false);
 
-        max_num_cars: 	  	numeric, // how many cars can be present at once
-        car_speed:		numeric,
-        car_value: 		numeric,
-        car_interarrival:	numeric,
-        point1_x_coord:		numeric,
-        point2_x_coord:		numeric,
-        point1_y_coord:		numeric,
-        point2_y_coord:		numeric,
+        int max_num_cars = default(5);	 	// how many cars can be present at once
+        double car_speed = default(16.0);	// in meters per second
+        double car_value = default(30.0);	// abstract value produced by moving car, this will be passed to sensors
+        double car_interarrival = default(20);	// average interval between car's arrival, in seconds		
+
+        double point1_x_coord;
+        double point2_x_coord;
+        double point1_y_coord;
+        double point2_y_coord;
         
-        description:		string;
-	        
+        string description = default("Moving cars");
 
     gates:
-        out: toNode[];
-        in: fromNode[];
+        output toNode[];
+        input fromNode[];
 
-endsimple
+}

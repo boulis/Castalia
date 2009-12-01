@@ -11,27 +11,20 @@
 
 #include "NoMobilityModule.h"
 
-#define EV   ev.disabled() ? (ostream&)ev : ev
+//#define EV   ev.isDisabled() ? (ostream&)ev : ev ==> EV is now part of <omnetpp.h>
 
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 
 
 Define_Module(NoMobilityModule);
 
-void NoMobilityModule::initialize() 
-{
-    initializeLocation();
-}
-
 void NoMobilityModule::handleMessage(cMessage *msg)
 {
-	int msgKind = msg->kind(); 
-	CASTALIA_DEBUG << "\n[NoMobilityModule_"<<parentModule()->index()<<"] t= " << simTime() << ", WARNING: Unexpected message: " << msgKind;
+	int msgKind = msg->getKind(); 
+	CASTALIA_DEBUG << "\n[NoMobilityModule_"<<getParentModule()->getIndex()<<"] t= " << simTime() << ", WARNING: Unexpected message: " << msgKind;
 	delete msg;
 	msg = NULL;
 }
 
 
-void NoMobilityModule::finish() 
-{
-}
+void NoMobilityModule::finish() { }

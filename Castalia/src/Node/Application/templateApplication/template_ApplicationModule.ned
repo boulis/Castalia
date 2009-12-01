@@ -10,24 +10,28 @@
 //*											*
 //***************************************************************************************
 
-
+package Node.Application.templateApplication;
 
 // The sensor node module. Connects to the wireless channel in order to communicate 
 // with other nodes. Connects to psysical processes so it can sample them.
+ 
+simple template_ApplicationModule like Node.Application.ApplicationGenericModule
 
-simple template_ApplicationModule
-
+{
     parameters:
-    	applicationID:  string,
-    	printDebugInfo:	bool,
-		priority 	  : const,
-		maxAppPacketSize  : const,	// in bytes
-		packetHeaderOverhead: const,	// in bytes
-		constantDataPayload:const,	// in bytes
-		isSink: bool;   
+        string applicationID;
+        bool printDebugInfo;
+        int priority;
+        int maxAppPacketSize;		// in bytes
+        int packetHeaderOverhead;	// in bytes
+        int constantDataPayload;	// in bytes
+        bool isSink;
 
     gates:
-        out:	toCommunicationModule, toSensorDeviceManager;
-        in:	fromCommunicationModule, fromSensorDeviceManager, fromResourceManager;
+        output toCommunicationModule;
+        output toSensorDeviceManager;
+        input fromCommunicationModule;
+        input fromSensorDeviceManager;
+        input fromResourceManager;
 
-endsimple
+}

@@ -48,7 +48,7 @@ channelTemporalModel::channelTemporalModel(const char *file, int rng) {
 
     while (getline(f,s)) {
         cStringTokenizer t(s.c_str(),":");
-        while (ct = t.nextToken()) {
+        while ((ct = t.nextToken())) {
     	    while (ct[0] == ' ') { ct++; }
     	    if (!ct[0] || ct[0] == '%') { break; }
     	    
@@ -184,17 +184,17 @@ void channelTemporalModel::parsePDF(const char * str, PDFType * pdf) {
     std::vector <std::string> v = t.asVector();
     pdf->numOfLayers = v.size();
     pdf->layers = new PDFLayerType[v.size()];
-    for (int i = 0; i < v.size(); i++) {
+    for (int i = 0; i < (int)v.size(); i++) {
 	parseLayer(v[i].c_str(), &pdf->layers[i]);
     }
-    for (int i = 0; i < v.size(); i++) {
+    for (int i = 0; i < (int)v.size(); i++) {
 	PDFLayerType * layer = &pdf->layers[i];
-	for (int j = 0; j < layer->numOfSublayers; j++) {
-	    for (int k = 0; k < v.size(); k++) {
+	for (int j = 0; j < (int)layer->numOfSublayers; j++) {
+	    for (int k = 0; k < (int)v.size(); k++) {
 		if (layer->sublayers[j] == pdf->layers[k].id) {
 		    layer->sublayers[j] = k; break;
 		}
-		if (k == v.size()-1) {
+		if (k == (int)v.size()-1) {
 		    std::cout << "[TemporalModel] ERROR: Unable to parse PDF - malformed layers (string is '" << str << "')" << std::endl;
 		    exit(1);
 		}
@@ -225,7 +225,7 @@ void channelTemporalModel::parseLayer(const char * str, PDFLayerType * layer) {
     
     layer->numOfTotalElements = v.size();
     int sublayers = 0;
-    for (int i = 0; i < v.size(); i++) {
+    for (int i = 0; i < (int)v.size(); i++) {
 	if (isValidLayer(v[i].c_str())) {
 	    sublayers++;
 	} 
@@ -238,7 +238,7 @@ void channelTemporalModel::parseLayer(const char * str, PDFLayerType * layer) {
     sublayers = 0;
     int values = 0;
     
-    for (int i = 0; i < v.size(); i++) {
+    for (int i = 0; i < (int)v.size(); i++) {
 	if (isValidLayer(v[i].c_str())) {
 	    layer->sublayers[sublayers++] = v[i].c_str()[0];
 	} else {

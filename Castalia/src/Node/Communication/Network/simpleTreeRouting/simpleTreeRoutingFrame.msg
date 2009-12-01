@@ -16,7 +16,8 @@
 
 cplusplus {{
 #include "NetworkGenericFrame_m.h"
-}};
+}}
+
 
 
 class Network_GenericFrame;
@@ -26,12 +27,14 @@ class Network_GenericFrame;
 // Extra Network layer protocol types (used to give values to the frameType field of struct networkHeaderInfo)
 // A NET_FRAME can be of any of the following types:
 
+
 enum simpleTreeRouting_FrameType
 {
-	SIMPLE_TREE_ROUTING_TOPOLOGY_SETUP_FRAME = 0010; // can get integer values within the range [0,65535]
+
+    SIMPLE_TREE_ROUTING_TOPOLOGY_SETUP_FRAME = 0010; // can get integer values within the range [0,65535]
 													 // as the frameType field in the header of Network_GenericFrame
 													 // is unsigned short int
-};
+}
 
 
 
@@ -45,19 +48,19 @@ enum simpleTreeRouting_FrameType
 
 message simpleTreeRouting_DataFrame extends Network_GenericFrame
 {
-	fields:
-		// information related to the sink (tree root)		
-		unsigned short sinkID;  // value range: 0 to 65535
-		
-		
+    fields:
+    // information related to the sink (tree root)		
+    unsigned short sinkID;  // value range: 0 to 65535
+
+
 		// information related to the sender
 		// the ID of the sender can be found in the "header" field,
 		// which is inherited from the Network_GenericFrame
-		
-		short senderLevel; // value range: -32768 to 32767
-		
-		unsigned short senderParentID;  //NO_PARENT value is 65535
-};
+
+    short senderLevel; // value range: -32768 to 32767
+
+    unsigned short senderParentID;  //NO_PARENT value is 65535
+}
 
 
 
@@ -70,18 +73,18 @@ message simpleTreeRouting_DataFrame extends Network_GenericFrame
 
 message simpleTreeRouting_TopoSetup_Frame extends Network_GenericFrame
 {
-	fields:
-		// information related to the sink (tree root)
-		unsigned short sinkID;
-		
-		
+    fields:
+    // information related to the sink (tree root)
+    unsigned short sinkID;
+
+
 		// information related to the sender
 		// the ID of the sender can be found in the "header" field,
 		// which is inherited from the Network_GenericFrame
-		
-		short senderLevel;
-		
-		unsigned short senderParentID; //NO_PARENT value is 65535
-};
+
+    short senderLevel;
+
+    unsigned short senderParentID; //NO_PARENT value is 65535
+}
 
 

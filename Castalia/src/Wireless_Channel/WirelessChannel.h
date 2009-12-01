@@ -20,14 +20,13 @@
 #include "MacGenericFrame_m.h"
 #include "DebugInfoWriter.h"
 #include "VirtualMobilityModule.h"
-#include "cstrtokenizer.h"
 #include "time.h"
 #include <omnetpp.h>
 #include <math.h>
 #include <list>
 using namespace std;
 
-#define EV ev.disabled()?(ostream&)ev:ev
+//#define EV ev.isDisabled()?(ostream&)ev:ev ==> EV is now part of <omnetpp.h>
 #define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 
 #define BAD_LINK_PROB_THRESHOLD  0.05
@@ -214,7 +213,8 @@ class WirelessChannel : public cSimpleModule {
 		channelTemporalModel * temporalModel;
 
 	protected:
-		virtual void initialize();
+	
+		virtual void initialize(int);
 		virtual void handleMessage(cMessage *msg);
 		virtual void finish();
 
@@ -227,6 +227,8 @@ class WirelessChannel : public cSimpleModule {
 		void updatePathLossElement(int,int,float);
 		double estimateCustomModulationSNR(double, double *);
 		float calculateProb(float, int);
+		
+		int numInitStages() const;
 };
 
 

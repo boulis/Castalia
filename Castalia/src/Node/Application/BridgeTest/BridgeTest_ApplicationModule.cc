@@ -303,13 +303,8 @@ void BridgeTest_ApplicationModule::handleMessage(cMessage *msg)
 			disabled = 1;
 			outOfEnergy = simTime();
 			CASTALIA_DEBUG << "\n[Application_"<< self <<"] t= " << simTime() << ": out of energy, will try to finish";
-<<<<<<< .mine
 		    
 //			getParentModule()->callFinish();			    
-=======
->>>>>>> .r87
-
-//			parentModule()->callFinish();
 
 			break;
 		}

@@ -4,20 +4,18 @@ use strict;
 
 use Getopt::Long;
 
-use constant WC_IDEAL => "../Parameter_Include_Files/WChannel/No_Interference/WChannel_Ideal.ini";
-use constant WC_REAL => "../Parameter_Include_Files/WChannel/Additive_Interference_Model/WChannel_Realistic.ini";
-use constant R_IDEAL => "../Parameter_Include_Files/Radio/TelosB_CC2420/radio_CC2420_IDEALmodulation.ini";
-use constant R_REAL => "../Parameter_Include_Files/Radio/TelosB_CC2420/radio_CC2420.ini";
+use constant WC_IDEAL => "../Parameters/WirelessChannel/Ideal.ini";
+use constant WC_REAL => "../Parameters/WirelessChannel/Realistic.ini";
+use constant R_IDEAL => "../Parameters/Radio/CC2420_IDEALmodulation.ini";
+use constant R_REAL => "../Parameters/Radio/CC2420.ini";
 use constant MAC_TUNABLE => "./MAC_Tunable.ini";
-use constant MAC_TMAC => "../Parameter_Include_Files/T_MAC.ini";
-use constant MAC_SMAC => "../Parameter_Include_Files/S_MAC.ini";
-use constant ROUTING_MP => "../Parameter_Include_Files/Routing_multipathRings.ini";
-use constant ROUTING_ST => "../Parameter_Include_Files/Routing_simpleTree.ini";
-use constant ROUTING_BP => "../Parameter_Include_Files/Routing_bypass.ini";
+use constant MAC_TMAC => "../Parameters/MAC/TMAC.ini";
+use constant MAC_SMAC => "../Parameters/MAC/SMAC.ini";
+use constant ROUTING_MP => "../Parameters/Routing/MultipathRings.ini";
+use constant ROUTING_ST => "../Parameters/Routing/SimpleTree.ini";
+use constant ROUTING_BP => "../Parameters/Routing/Bypass.ini";
 
 use constant Z_CONFIDENCE => 1.96;
-
-die "this script was not converted to omnet4.0\n";
 
 my $stat = {};
 my $conf = {
@@ -86,25 +84,12 @@ my $broadcast = ($alg == 3 || $alg == 5 || $alg == 7);
 my $ini = "
 
 [General]
-preload-ned-files = *.ned @../../nedfiles.lst
-include ../Parameter_Include_Files/general_and_RNGs.ini
 
-output-vector-file = Castalia-statistics.vec
-output-scalar-file = Castalia-statistics.sca
+include ../Parameters/Castalia.ini
 
 sim-time-limit = ".$time."s
 
-[Cmdenv]
-include ../Parameter_Include_Files/omnet_cmdenv_reporting.ini
-
-[Parameters]
-
-include ../Parameter_Include_Files/BackwardCompatibility.ini
-
-SN.debugInfoFilename = \"Castalia-Debug.txt\"
-
-include ../Parameter_Include_Files/resourceMgr_2AAbatteries.ini
-include ../Parameter_Include_Files/nodeSensorDevMgr_Accelerometer.ini
+include ../Parameters/SensorDevice/Accelerometer.ini
 include ".($ideal ? WC_IDEAL : WC_REAL)."
 include ".($ideal ? R_IDEAL : R_REAL)."
 include ".($tmac ? MAC_TMAC : ($smac ? MAC_SMAC : MAC_TUNABLE))."
@@ -113,6 +98,7 @@ include ".($broadcast ? ROUTING_BP : ($alg == 2 ? ROUTING_MP : ROUTING_ST))."
 SN.node[*].networkInterface.MAC.dutyCycle = $duty_cycle
 SN.node[*].networkInterface.MAC.listenInterval = $listen
 " : "")."
+
 SN.node[*].appModuleName = \"BridgeTest_ApplicationModule\"
 SN.node[*].nodeApplication.applicationID = \"bridgeTest\"
 SN.node[*].nodeApplication.printDebugInfo = false
@@ -125,7 +111,6 @@ SN.node[*].nodeApplication.reportTreshold = 10
 SN.node[*].nodeApplication.sampleInterval = $sample
 SN.node[*].nodeApplication.broadcastReports = ".($broadcast ? "true" : "false")."
 
-SN.numPhysicalProcesses = 1
 SN.physicalProcessModuleName = \"CarsPhysicalProcess\"
 SN.physicalProcess[0].printDebugInfo = false
 SN.physicalProcess[0].description = \"Cars\"
@@ -165,21 +150,16 @@ SN.node[0].xCoor = ".($sim->{x}/2)."
 SN.node[0].yCoor = ".($sim->{y}/2)."
 SN.node[0].nodeApplication.isSink = true
 $tmp
-";
 
-for (my $i = 1; $i <= $n; $i++) {
-    $ini .= "
-[Run $i]
-seed-1-mt = ".int(rand(99999))."
-seed-2-mt = ".int(rand(99999))."
-"
-}
+repeat = $n
+
+";
 
 open INI, ">omnetpp.ini" || die "Unable to write omnetpp.ini";
 print INI $ini;
 close INI;
 
-my $result = `../../bin/CastaliaBin`;
+my $result = `../../CastaliaBin`;
 my @lines = split /\n/, $result;
 my $run = 0;
 
@@ -205,14 +185,14 @@ for my $line (@lines) {
     } elsif ($line =~ /^(\d+)\s(\d+)$/) {
 	if ($sink_res) {
 	    add_stat("Node $1 reports received", "$curr_run:$1", $2, 0);
-	    add_stat("Overall reception", "$curr_run:$1", $2, 0);
+	    add_stat("Overall reception", "$curr_run", $2, 0);
 	} elsif ($node_res) {
 	    add_stat("Version reception", "$curr_run:$node_res", $2, 0);
 	    add_stat("Version reception", "$curr_run:$node_res", $total_version_packets, 1);
 	}
     } elsif ($line =~ /^Node (\d+) sent (\d+) packets/) {
 	add_stat("Node $1 reports received", "$curr_run:$1", $2, 1);
-	add_stat("Overall reception", "$curr_run:$1", $2, 1);
+	add_stat("Overall reception", "$curr_run", $2, 1);
     } elsif ($line =~ /^Node \d+ ran out of energy at (\d+)/) {
 	$simlen = $1 if !$simlen || $simlen > $1;
     } elsif ($line =~ /^Node \[(\d+)\] spent energy: (\d+)/) {
@@ -237,10 +217,10 @@ sub add_stat {
         $s = $stat->{$desc} = { total => {}, good => {}, total_sum => 0, good_sum => 0 };
     }
     if ($total) {
-	$s->{total}->{$k} = $v;
+	$s->{total}->{$k} += $v;
 	$s->{total_sum} += $v;
     } else {
-	$s->{good}->{$k} = $v;
+	$s->{good}->{$k} += $v;
 	$s->{good_sum} += $v;
     }
 }
@@ -283,8 +263,8 @@ sub confidence {
     my $mean = shift || mean($a);
     my $sqmean = 0;
     for (@$a) { $sqmean += ($mean-$_)*($mean-$_); }
-    my $std = sqrt($sqmean/@$a)/sqrt(@$a);
-    my $c = Z_CONFIDENCE*$std;
+    my $std = sqrt($sqmean/@$a)/sqrt(@$a-1);
+    my $c = Z_CONFIDENCE*$std/sqrt(@$a);
 #    print "@$a\n ==> M:$mean S:$std C:$c\n";
     return $c;
 }

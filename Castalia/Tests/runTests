@@ -54,16 +54,14 @@ def cleanFile(file):
 
 #initialise important paths
 pathToTests = sys.path[0]
-os.chdir(pathToTests + "/../");
-pathToCastalia = os.getcwd()
-pathToBin = pathToCastalia + "/bin/CastaliaBin"
+pathToCastalia = os.path.abspath(pathToTests + "/../")
+pathToBin = pathToCastalia + "/CastaliaBin"
 pathToSims = pathToCastalia + "/Simulations"
-pathToParams = pathToSims + "/Parameter_Include_Files"
-pathToExtract = pathToParams + "/extractOmnetppINI"
+pathToParams = pathToSims + "/Parameters"
+pathToExtract = pathToCastalia + "/bin/extractOmnetppINI"
 pathToTestTargets = pathToTests + "/targets.txt"
 pathToExceptions = pathToTests + "/exceptions.txt"
 pathToRepository = pathToTests + "/Repository"
-pathToNedfiles = pathToCastalia + "/nedfiles.lst"
 
 if (not os.path.exists(pathToTestTargets) or not os.path.isfile(pathToTestTargets)):
     quit("ERROR: targets.txt file is missing\n  " + pathToTestTargets)
@@ -102,11 +100,11 @@ for curDir in testDirs:
 	
 	if (not os.path.exists(curPath) or not os.path.isdir(curPath)):
 	    print "WARNING: bad simulation path " + curDir + ", will skip"
-	    break
+	    continue
 
 	if (not os.path.exists(curPath + "/omnetpp.ini") or not os.path.isfile(curPath + "/omnetpp.ini")):
 	    print "WARNING: bad simulation in " + curDir + ", no omnetpp.ini file found, will skip"
-	    break
+	    continue
 	
 	os.makedirs(curTestDir)
 	os.chdir(curPath)
@@ -114,14 +112,14 @@ for curDir in testDirs:
 	f = open(curTestDir + "/omnetpp.ini","w")
 	lines = inifile.split("\n")
 	for line in lines:
-	    if (line.find("preload-ned-files") != -1): 
-		line = "preload-ned-files = *.ned @" + pathToNedfiles + "\n"
-	    elif (line.find("PRRMapFile =") != -1):
+	    if (line.find("PRRMapFile =") != -1):
 		line = saveFile('PRRMap',line,curTestDir)
 	    elif (line.find("temporalModelParametersFile =") != -1):
 		line = saveFile('temporalModel',line,curTestDir)
 	    elif (line.find("pathLossMapFile =") != -1):
 		line = saveFile('pathLossMap',line,curTestDir)
+	    elif (line.find("ned-path =") != -1):
+		line = "ned-path = " + pathToCastalia + "/src"
 	    f.write(line + "\n")
         f.close()
         
@@ -129,38 +127,37 @@ for curDir in testDirs:
 	commands.getoutput(pathToBin + " > Castalia-Primary-Output.base")
 	cleanFile("Castalia-Primary-Output.base")
 	
-	if (os.path.exists(curTestDir + "/Castalia-Debug.txt")):
-	    commands.getoutput("mv Castalia-Debug.txt Castalia-Debug.base")
-	    cleanFile("Castalia-Debug.base")
+	if (os.path.exists(curTestDir + "/Castalia-Trace.txt")):
+	    commands.getoutput("mv Castalia-Trace.txt Castalia-Trace.base")
+	    cleanFile("Castalia-Trace.base")
 	else:
-	    commands.getoutput("touch Castalia-Debug.base")
+	    commands.getoutput("touch Castalia-Trace.base")
 	
     else:
 	sys.stdout.write("Testing " + curDir + " .... ")
 	sys.stdout.flush()
 	
 	if (not os.path.exists(curTestDir) or not os.path.exists(curTestDir + "/omnetpp.ini")):
-	    print "ERROR:"
-	    quit(curDir + " not found in repository run '" + sys.argv[0] + " snapshot' to recreate repository")
+	    quit("ERROR: " + curDir + " not found in repository run '" + sys.argv[0] + " snapshot' to recreate repository")
 	
 	os.chdir(curTestDir)
-	commands.getoutput(pathToBin + " > Castalia-Primary-Output.txt")
+	commands.getoutput(pathToBin + " -n " + pathToCastalia + "/src > Castalia-Primary-Output.txt")
 	cleanFile("Castalia-Primary-Output.txt")
 	
-	if (not os.path.exists(curTestDir + "/Castalia-Debug.txt")):
-	    commands.getoutput("touch Castalia-Debug.txt")
+	if (not os.path.exists(curTestDir + "/Castalia-Trace.txt")):
+	    commands.getoutput("touch Castalia-Trace.txt")
 	else:
-	    cleanFile("Castalia-Debug.txt")
+	    cleanFile("Castalia-Trace.txt")
 
 	diff_primary = commands.getoutput("diff Castalia-Primary-Output.txt Castalia-Primary-Output.base")
-	diff_debug = commands.getoutput("diff Castalia-Debug.txt Castalia-Debug.base")
-	commands.getoutput("rm Castalia-Debug.txt")
+	diff_debug = commands.getoutput("diff Castalia-Trace.txt Castalia-Trace.base")
+	commands.getoutput("rm Castalia-Trace.txt")
 	commands.getoutput("rm Castalia-Primary-Output.txt")
 	
 	if (diff_primary or diff_debug):
 	    print "FAILED:"
 	    if (diff_primary): print "Differences in Castalia-Primary-Output:\n" + diff_primary
-	    if (diff_debug): print "Differences in Castalia-Debug:\n" + diff_debug
+	    if (diff_debug): print "Differences in Castalia-Trace:\n" + diff_debug
 	    print "\n"
 	else:
 	    print "PASSED"

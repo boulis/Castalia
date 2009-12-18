@@ -11,21 +11,38 @@
 # *											*
 # **************************************************************************************/
 
-def read_file(name):
+import sys, os.path
+
+def read_file(name,hasGeneral = 0):
+    
+    if (not os.path.exists(name) or not os.path.isfile(name)):
+	quit("ERROR: no such file " + name)
+
     f = open(name,"r")
     lines = f.readlines()
     f.close()
 
     for line in lines:
 	line = line.strip()
+	if (line == "[General]"): 
+	    if (hasGeneral): continue
+	    hasGeneral = 1
 	if (len(line) == 0 or line[0] == '#'): continue
+	pos = line.find('#')
+	if (pos != -1): 
+	    line = line[:pos].strip()
 	if (line.find("include") == 0):
 	    file = line[8:]
-	    pos = file.find(" #")
-	    if (pos != -1): file = file[:pos]
-	    read_file(file)
+	    read_file(file, hasGeneral)
 	else: print line
     
     return
-    
-read_file("omnetpp.ini")
+
+file = "omnetpp.ini"
+if (len(sys.argv) > 1):
+    file = sys.argv[1]
+    if (os.path.dirname(file) != ''):
+	os.chdir(os.path.dirname(file))
+	file = os.path.basename(file)
+            
+read_file(file)

@@ -1,13 +1,7 @@
 BANtest
 connectivityMap
-connectivityMap/multipleRunsExample
-customModulationExample
-customPRRMapTest
-mobilityTest1
-mobilityTest2
-mobilityTest3
+mobilityTest
 simpleAggregation
+throughputTest
 valuePropagation
-valuePropagation/multipleRunsExample/hardcodedConnectivity
-valuePropagation/multipleRunsExample/nonHardcodedConnectivity
 valueReporting

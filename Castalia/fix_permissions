@@ -2,21 +2,7 @@
 
 chmod u+x ./makemake
 chmod u+x Tests/runTests
-chmod u+x Simulations/Parameter_Include_Files/extractOmnetppINI
+chmod u+x bin/extractOmnetppINI
 
-chmod u+x Simulations/BANtest/runTest
 chmod u+x Simulations/BridgeTest/bridgeTestRun
-chmod u+x Simulations/connectivityMap/runTest
-chmod u+x Simulations/connectivityMap/multipleRunsExample/runMultiConnMap
-chmod u+x Simulations/customModulationExample/runTest
-chmod u+x Simulations/customPRRMapTest/runTest
-chmod u+x Simulations/mobilityTest1/runTest
-chmod u+x Simulations/mobilityTest2/runTest
-chmod u+x Simulations/mobilityTest3/runTest
-chmod u+x Simulations/simpleAggregation/runSimpleAggregation
-chmod u+x Simulations/valuePropagation/runValProp
-chmod u+x Simulations/valuePropagation/multipleRunsExample/hardcodedConnectivity/runMultiValProp
-chmod u+x Simulations/valuePropagation/multipleRunsExample/nonHardcodedConnectivity/runMultiValProp
-chmod u+x Simulations/valueReporting/runValueReporting
-chmod u+x Simulations/simpleAggregation/test.sh
- 
+chmod u+x Simulations/simpleAggregation/runTest.sh

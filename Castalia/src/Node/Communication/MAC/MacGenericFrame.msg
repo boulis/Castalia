@@ -14,7 +14,6 @@
 // simulation related message type (used to set/get the message kind)
 enum MAC_GenericFrameType
 {
-
     MAC_FRAME = 2100;  	//data frame MAC-->Radio and Radio-->MAC
     MAC_FRAME_SELF_PUSH_TX_BUFFER = 2101;
 }

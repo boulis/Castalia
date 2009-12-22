@@ -18,8 +18,9 @@ moduleinterface MacGenericModule
 {
     parameters:
         bool printDebugInfo;
-
-        int maxMACFrameSize;		// in bytes
+        bool collectTraceInfo;
+        
+        int macMaxFrameSize;		// in bytes
         int macFrameOverhead;		// in 802.15.4 = 5 + (4-->20) bytes
         int macBufferSize;		//in number of messages
 

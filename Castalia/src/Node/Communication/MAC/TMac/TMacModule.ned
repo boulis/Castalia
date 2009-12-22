@@ -16,6 +16,7 @@ simple TMacModule like Node.Communication.MAC.MacGenericModule
 {
     parameters:
         //debug parameters
+        bool collectTraceInfo = default(false);
         bool printDebugInfo = default(false);
         bool printDroppedPackets = default(false);
         bool printStateTransitions = default(false);
@@ -27,6 +28,7 @@ simple TMacModule like Node.Communication.MAC.MacGenericModule
         int ctsFrameSize = default(14);
 
         //mac layer parameters
+        int macMaxFrameSize = default(0);
         int maxMACFrameSize = default(121);
         int macFrameOverhead = default(14);	
         int macBufferSize = default(32);

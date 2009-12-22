@@ -15,7 +15,9 @@
 
 enum MAC_ControlMessageType
 {
-
+    MAC_SELF_TIMER = 2020;
+    MAC_SELF_CARRIER_SENSE = 2021;
+    
     //change state directive MAC-->Radio
     MAC_2_RADIO_ENTER_SLEEP = 2000;
     MAC_2_RADIO_ENTER_LISTEN = 2001;
@@ -53,8 +55,7 @@ enum MAC_ControlMessageType
 
     MAC_TIMEOUT = 210;
 
-	//802.15.4 specific control messages
-
+    //802.15.4 specific control messages
     MAC_SELF_PERFORM_CCA = 301;
     MAC_SELF_RESET_TX = 302;
     MAC_SELF_BEACON_TIMEOUT = 303;
@@ -68,4 +69,5 @@ message MAC_ControlMessage
     simtime_t sense_carrier_interval;
     int radioTxMode;
     int powerLevel;
+    int timerIndex;
 }

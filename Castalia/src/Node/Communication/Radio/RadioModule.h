@@ -43,6 +43,12 @@ enum nonValid_CS_Codes
 	RADIO_NON_READY = 106
 };
 
+enum Valid_CS_Codes
+{
+	CARRIER_CLEAR = 108,
+	CARRIER_BUSY = 109
+};
+
 class RadioModule : public cSimpleModule 
 {
 	private:

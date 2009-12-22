@@ -10,62 +10,19 @@
 //*											*
 //***************************************************************************************
 
+#ifndef BYPASSMACMODULE
+#define BYPASSMACMODULE
 
-
-#ifndef TUNABLEMACMODULE
-#define TUNABLEMACMODULE
-
-#include <vector>
-#include <queue>
 #include <omnetpp.h>
-//#include "App_GenericDataPacket_m.h"
-#include "App_ControlMessage_m.h"
-#include "NetworkGenericFrame_m.h"
-#include "NetworkControlMessage_m.h"
 #include "MacGenericFrame_m.h"
-#include "MacControlMessage_m.h"
-#include "RadioControlMessage_m.h"
-#include "ResourceGenericManager.h"
-#include "RadioModule.h"
-#include "DebugInfoWriter.h"
+#include "BaseMacModule.h"
+
 using namespace std;
 
-
-class BypassMacModule : public cSimpleModule 
-{
-	private: 
-	// parameters and variables
-		
-		/*--- The .ned file's parameters ---*/
-		int maxMACFrameSize;	//in bytes
-		int macFrameOverhead;	//in bytes
-		int macBufferSize;	//in # of messages
-		int phyLayerOverhead;
-		bool printDebugInfo;
-		
-		/*--- Custom class parameters ---*/
-		int self;				// the node's ID
-		RadioModule *radioModule;		//a pointer to the object of the Radio Module (used for direct method calls)
-		double radioDelayForValidCS;
-		ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
-		double radioDataRate;
-		
-		queue<MAC_GenericFrame *> TXBuffer;	// a buffer that can hold up to 9 values to get trasmitted
-		
-		double epsilon;				//used to keep/manage the order between two messages that are sent at the same simulation time
-		double cpuClockDrift;
-		int disabled;
-
-	protected:
-		virtual void initialize();
-		virtual void handleMessage(cMessage *msg);
-		virtual void finish();
-		void readIniFileParameters(void);
-		void setRadioState(MAC_ControlMessageType typeID, double delay=0.0);
-		void setRadioTxMode(Radio_TxMode txTypeID, double delay=0.0);
-		void setRadioPowerLevel(int powLevel, double delay=0.0);
-		int encapsulateNetworkFrame(Network_GenericFrame *networkFrame, MAC_GenericFrame *retFrame);
-		int deliver2NextHop(const char *nextHop);
+class BypassMacModule : public BaseMacModule {
+    protected:
+        void fromRadioLayer(MAC_GenericFrame* );
+        void fromNetworkLayer(MAC_GenericFrame* );
 };
 
-#endif //TUNABLEMACMODULE
+#endif 

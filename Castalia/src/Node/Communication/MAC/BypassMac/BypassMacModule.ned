@@ -15,7 +15,9 @@ package Node.Communication.MAC.BypassMac;
 simple BypassMacModule like Node.Communication.MAC.MacGenericModule
 {
     parameters:
+	bool collectTraceInfo = default(false);
         bool printDebugInfo = default(false);
+        int macMaxFrameSize = default(0);
         int maxMACFrameSize = default(121); 
         int macFrameOverhead = default(14); 
         int macBufferSize = default(32);

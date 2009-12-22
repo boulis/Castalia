@@ -22,6 +22,7 @@ simple TunableMacModule like Node.Communication.MAC.MacGenericModule
 
 {
     parameters:
+	bool collectTraceInfo = default(false);
         bool printDebugInfo = default(false);
         bool printPotentiallyDroppedPacketsStatistics = default(false);
         bool printStateTransitions = default(false);
@@ -41,6 +42,7 @@ simple TunableMacModule like Node.Communication.MAC.MacGenericModule
 
 	//=============== End of tunable parameters ===================================
 
+	int macMaxFrameSize = default(0);
         int maxMACFrameSize = default(121);	
         int macFrameOverhead = default(14);	
         int beaconFrameSize = default(14);

@@ -856,7 +856,7 @@ void TMacModule::carrierIsClear() {
 	    // create and send RTS frame
 	    if (rtsFrame) cancelAndDelete(rtsFrame);
 	    rtsFrame = new MAC_GenericFrame("RTS message", MAC_FRAME);
-    	    rtsFrame->setKind(MAC_FRAME) ;
+    	    rtsFrame->setKind(MAC_FRAME);
 	    rtsFrame->getHeader().srcID = self;
 	    rtsFrame->getHeader().destID = txAddr;
 	    rtsFrame->getHeader().NAV = ctsTxTime + ackTxTime + TX_TIME(TXBuffer.front()->getByteLength() + macFrameOverhead) + NAV_EXTENSION;

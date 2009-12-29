@@ -32,21 +32,18 @@ using namespace std;
 
 class BaseMacModule : public cSimpleModule 
 {
-    private: 
+    private:
+	double cpuClockDrift;
+	int disabled;
+	MAC_ControlMessage *selfCarrierSenseMsg;
+
+    protected:
 	int self;				// the node's ID
     	RadioModule *radioModule;		//a pointer to the object of the Radio Module (used for direct method calls)
 	ResourceGenericManager *resMgrModule;	//a pointer to the object of the Resource Manager Module (used for direct method calls)
 	queue <MAC_GenericFrame *> TXBuffer;
-
 	map <int, MAC_ControlMessage *> timerMessages;
-
-	double cpuClockDrift;
-	int disabled;
 		
-	//Duty Cycle scheduled message references
-	MAC_ControlMessage *selfCarrierSenseMsg;
-		
-    protected:
 	void initialize();
 	void handleMessage(cMessage *msg);
 	void finish();
@@ -61,8 +58,8 @@ class BaseMacModule : public cSimpleModule
 	int bufferFrame(MAC_GenericFrame*);
 	
 	void setTimer(int index, simtime_t time);
-	void cancelTimer(int index); //cancelTimer
-	virtual void timerFiredCallback(int index); // timer fired (callback?)
+	void cancelTimer(int index); 
+	virtual void timerFiredCallback(int index); 
 	
 	void carrierSense(simtime_t time = 0.0);
 	virtual void carrierSenseCallback(int returnCode);

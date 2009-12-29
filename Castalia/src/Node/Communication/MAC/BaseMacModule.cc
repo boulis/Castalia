@@ -14,11 +14,6 @@
 
 #include "BaseMacModule.h"
 
-#define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
-#define BASIC_INFO "\n[MAC-"<<self<<"-"<<simTime()<<"] "
-#define CASTALIA_TRACE CASTALIA_DEBUG << BASIC_INFO
-
-
 void BaseMacModule::initialize() {
 
     self = getParentModule()->getParentModule()->getIndex();
@@ -37,7 +32,7 @@ void BaseMacModule::initialize() {
     cpuClockDrift = resMgrModule->getCPUClockDrift();
     
     selfCarrierSenseMsg = NULL;
-
+    disabled = 1;
 }
 
 void BaseMacModule::startup() {}
@@ -72,8 +67,8 @@ void BaseMacModule::cancelTimer(int timerIndex) {
     if(iter != timerMessages.end()) {
         if (timerMessages[timerIndex] != NULL && timerMessages[timerIndex]->isScheduled()) {
             cancelAndDelete(timerMessages[timerIndex]);
-	    timerMessages[timerIndex] = NULL;
 	}
+	timerMessages.erase(iter);
     }
 
 }
@@ -87,7 +82,8 @@ void BaseMacModule::setTimer(int timerIndex, simtime_t time) {
 
 std::ostream &BaseMacModule::trace() {
     if (par("collectTraceInfo")) {
-	return (ostream&)DebugInfoWriter::getStream() << "\n[MAC-"<<self<<"-"<<simTime()<<"] ";
+//	(ostream&)DebugInfoWriter::getStream() << "\n[MAC-"<<self<<"-"<<simTime()<<"] ";
+	return DebugInfoWriter::getStream() << "\n[MAC-"<<self<<"-"<<simTime()<<"] ";
     } else {
 	return DebugInfoWriter::getStream();
     }
@@ -133,12 +129,13 @@ void BaseMacModule::handleMessage(cMessage *msg) {
 	}
 
 	case NETWORK_FRAME: {
-	    Network_GenericFrame *dataFrame = check_and_cast<Network_GenericFrame*>(msg);
+	    Network_GenericFrame *dataFrame = check_and_cast<Network_GenericFrame*>(msg->dup());
 	    if ((int)par("macMaxFrameSize") > 0 && (int)par("macMaxFrameSize") < 
 		    dataFrame->getByteLength() + (int)par("macFrameOverhead")) {
 		trace() << "Oversized packet dropped. Size:" << dataFrame->getByteLength() << 
 			    ", MAC layer overhead:" << (int)par("macFrameOverhead") << 
 			    ", max MAC frame size:" << (int)par("macMaxFrameSize");
+		cancelAndDelete(dataFrame);
 		break;
 	    }
 	    MAC_GenericFrame *macFrame = new MAC_GenericFrame("MAC data frame", MAC_FRAME);
@@ -150,11 +147,14 @@ void BaseMacModule::handleMessage(cMessage *msg) {
 	case MAC_SELF_TIMER: {
 	    MAC_ControlMessage *ctrlMsg = check_and_cast<MAC_ControlMessage*>(msg);
 	    int timerIndex = ctrlMsg->getTimerIndex();
+	    ctrlMsg = NULL;
 	    map<int,MAC_ControlMessage *>::iterator iter = timerMessages.find(timerIndex);
 	    if(iter != timerMessages.end()) {
-		//timerMessages[timerIndex] == NULL;
-		timerFiredCallback(timerIndex);	
-	    }                        
+		timerMessages.erase(iter);
+		timerFiredCallback(timerIndex);
+	    } else {
+		trace() << "WARNING: Timer service malfunction, unknown timer id " << timerIndex;
+	    }
 	    break;
 	}
 	    
@@ -256,16 +256,16 @@ void BaseMacModule::handleMessage(cMessage *msg) {
 
     }
 
-    delete msg;
+    delete msg; 
     msg = NULL;		// safeguard
 }
 
 void BaseMacModule::finish() {
+    finalize();
     while(!TXBuffer.empty()) {
 	cancelAndDelete(TXBuffer.front());
         TXBuffer.pop();
     }
-    finalize();               
 }
 
 void BaseMacModule::finalize() { }
@@ -302,7 +302,7 @@ void BaseMacModule::encapsulateNetworkFrame(Network_GenericFrame *networkFrame, 
     retFrame->getHeader().srcID = self;
     retFrame->getHeader().destID = resolveNextHop(networkFrame->getHeader().nextHop.c_str());
     retFrame->getHeader().frameType = (unsigned short)MAC_PROTO_DATA_FRAME;
-    retFrame->encapsulate(networkFrame->dup());
+    retFrame->encapsulate(networkFrame);
 }
 
 int BaseMacModule::resolveNextHop(const char *nextHop) {

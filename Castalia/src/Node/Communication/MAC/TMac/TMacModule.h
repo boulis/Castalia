@@ -12,21 +12,9 @@
 #ifndef TMACMODULE
 #define TMACMODULE
 
-#include <vector>
-#include <queue>
-#include <map>
-#include <omnetpp.h>
-
-#include "App_ControlMessage_m.h"
-#include "NetworkGenericFrame_m.h"
-#include "NetworkControlMessage_m.h"
-
-#include "MacGenericFrame_m.h"
-#include "MacControlMessage_m.h"
-#include "RadioControlMessage_m.h"
-#include "ResourceGenericManager.h"
 #include "RadioModule.h"
-#include "DebugInfoWriter.h"
+#include "BaseMacModule.h"
+
 using namespace std;
 
 enum MacStates {
@@ -48,13 +36,26 @@ enum MacStates {
     MAC_STATE_WAIT_FOR_ACK = 122,
 };
 
+enum Timers {
+    SYNC_SETUP = 1,
+    SYNC_CREATE = 2,
+    SYNC_RENEW = 3,
+    FRAME_START = 4,
+    CHECK_TA = 5,
+    CARRIER_SENSE = 6,
+    TRANSMISSION_TIMEOUT = 7,
+    WAKEUP_SILENT = 8, 	// this timer has to be last as TMAC will 
+			// schedule multiple timers for silent wakeup 
+			// if more than one secondary schedule is present
+};
+
 struct TMacSchedule {
     simtime_t offset;
     int ID;
     int SN;
 };
 
-class TMacModule : public cSimpleModule
+class TMacModule : public BaseMacModule
 {
 	private:
 	// parameters and variables
@@ -93,10 +94,6 @@ class TMacModule : public cSimpleModule
 	/*--- General MAC variable ---*/
 	bool isSink;
 	int phyLayerOverhead;
-	int self;				// the node's ID
-	int disabled;
-	RadioModule *radioModule;		//a pointer to the object of the Radio Module (used for direct method calls)
-	ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
 	simtime_t radioDelayForValidCS;      	// delay for valid CS
 	simtime_t radioDelayForSleep2Listen;	// delay to switch from sleep state to listen state
 	double radioDataRate;
@@ -111,11 +108,6 @@ class TMacModule : public cSimpleModule
 	bool primaryWakeup;		//used to distinguish between primary and secondary schedules
 	bool needResync;		//set to 1 when a SYNC frame has to be sent
 	simtime_t currentFrameStart;	//recorded start time of the current frame
-
-	/*--- TMAC message pointers (to cancel it and reschedule if necessary) ---*/
-	MAC_ControlMessage *carrierSenseMsg;
-	MAC_ControlMessage *nextFrameMsg;
-	MAC_ControlMessage *macTimeoutMsg;
 
 	/*--- TMAC activation timeout variable ---*/
 	simtime_t activationTimeout;	//time untill MAC_CHECK_TA message arrival
@@ -132,21 +124,18 @@ class TMacModule : public cSimpleModule
 	simtime_t ctsTxTime;
 	simtime_t ackTxTime;
 
-	/*--- TMAC transmission buffer ---*/
-	queue <Network_GenericFrame *> TXBuffer;
-
 	/*--- TMAC Schedule table (list of effective schedules) ---*/
 	vector <TMacSchedule> scheduleTable;
 
 	protected:
-	virtual void initialize();
-	virtual void handleMessage(cMessage *msg);
-	virtual void finish();
-	void readIniFileParameters(void);
-	void setRadioState(MAC_ControlMessageType typeID, double delay=0);
-	void setRadioTxMode(Radio_TxMode txTypeID, double delay=0);
-	void setRadioPowerLevel(int powLevel, double delay=0);
+	void startup();
+	void finalize();
 	
+	void timerFiredCallback(int);
+	void carrierSenseCallback(int);
+	void fromNetworkLayer(MAC_GenericFrame*);
+	void fromRadioLayer(MAC_GenericFrame*);
+
 	void resetDefaultState();
 	void setMacState(int newState);
 	void createPrimarySchedule();

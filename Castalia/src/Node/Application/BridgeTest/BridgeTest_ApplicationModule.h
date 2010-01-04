@@ -16,34 +16,32 @@
 #ifndef _BRIDGETEST_APPLICATIONMODULE_H_
 #define _BRIDGETEST_APPLICATIONMODULE_H_
 
-#include <omnetpp.h>
 #include <string>
+
 #include "SensorDevMgr_GenericMessage_m.h"
-
-/*** 
-     You have to MODIFY the following "#define" statement by placing the
-     header file (*_m.h) that is produced from you custom *.msg message definition file
- ***/
 #include "BridgeTest_DataPacket_m.h"
-
 #include "App_GenericDataPacket_m.h"
 #include "App_ControlMessage_m.h"
 #include "NetworkControlMessage_m.h"
+
+#include "VirtualCastaliaModule.h"
 #include "ResourceGenericManager.h"
-#include "DebugInfoWriter.h"
+
 using namespace std;
 
 struct version_info {
     int version;
+    int seq;
     vector <int> parts;
 };
 
 struct report_info {
     int source;
+    int seq;
     vector <int> parts;
 };
 
-class BridgeTest_ApplicationModule : public cSimpleModule 
+class BridgeTest_ApplicationModule : public VirtualCastaliaModule 
 {
 	private:
 	// parameters and variables
@@ -90,7 +88,7 @@ class BridgeTest_ApplicationModule : public cSimpleModule
 	protected:
 		virtual void initialize();
 		virtual void handleMessage(cMessage *msg);
-		virtual void finish();
+		void finishSpecific();
 		
 		void send2NetworkDataPacket(const char *destID, const char *pcktID, int data, int pckSeqNumber, int size);
 		void requestSampleFromSensorManager();

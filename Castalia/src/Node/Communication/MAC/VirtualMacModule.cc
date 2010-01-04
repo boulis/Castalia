@@ -12,9 +12,9 @@
 
 
 
-#include "BaseMacModule.h"
+#include "VirtualMacModule.h"
 
-void BaseMacModule::initialize() {
+void VirtualMacModule::initialize() {
 
     self = getParentModule()->getParentModule()->getIndex();
 
@@ -35,12 +35,12 @@ void BaseMacModule::initialize() {
     disabled = 1;
 }
 
-void BaseMacModule::startup() {}
-void BaseMacModule::radioBufferFullCallback() {}
+void VirtualMacModule::startup() {}
+void VirtualMacModule::radioBufferFullCallback() {}
 
-void BaseMacModule::carrierSenseCallback(int returnCode) {}
+void VirtualMacModule::carrierSenseCallback(int returnCode) {}
 
-void BaseMacModule::carrierSense(simtime_t time) {
+void VirtualMacModule::carrierSense(simtime_t time) {
     
     if (selfCarrierSenseMsg) { cancelAndDelete(selfCarrierSenseMsg); selfCarrierSenseMsg = NULL; }
 
@@ -60,9 +60,9 @@ void BaseMacModule::carrierSense(simtime_t time) {
     }
 }
 
-void BaseMacModule::timerFiredCallback(int timerIndex) {}
+void VirtualMacModule::timerFiredCallback(int timerIndex) {}
 
-void BaseMacModule::cancelTimer(int timerIndex) {
+void VirtualMacModule::cancelTimer(int timerIndex) {
     map<int,MAC_ControlMessage *>::iterator iter = timerMessages.find(timerIndex);
     if(iter != timerMessages.end()) {
         if (timerMessages[timerIndex] != NULL && timerMessages[timerIndex]->isScheduled()) {
@@ -73,25 +73,16 @@ void BaseMacModule::cancelTimer(int timerIndex) {
 
 }
 
-void BaseMacModule::setTimer(int timerIndex, simtime_t time) {
+void VirtualMacModule::setTimer(int timerIndex, simtime_t time) {
     cancelTimer(timerIndex);
     timerMessages[timerIndex] = new MAC_ControlMessage("MAC timer", MAC_SELF_TIMER);
     timerMessages[timerIndex]->setTimerIndex(timerIndex);
     scheduleAt(simTime() + cpuClockDrift * time, timerMessages[timerIndex]);
 }
 
-std::ostream &BaseMacModule::trace() {
-    if (par("collectTraceInfo")) {
-//	(ostream&)DebugInfoWriter::getStream() << "\n[MAC-"<<self<<"-"<<simTime()<<"] ";
-	return DebugInfoWriter::getStream() << "\n[MAC-"<<self<<"-"<<simTime()<<"] ";
-    } else {
-	return DebugInfoWriter::getStream();
-    }
-}
+void VirtualMacModule::processOverheardFrame(MAC_GenericFrame* rcvFrame) {}
 
-void BaseMacModule::processOverheardFrame(MAC_GenericFrame* rcvFrame) {}
-
-int BaseMacModule::bufferFrame(MAC_GenericFrame* rcvFrame) {
+int VirtualMacModule::bufferFrame(MAC_GenericFrame* rcvFrame) {
     if ((int)TXBuffer.size() >= (int)par("macBufferSize")) {
 	send(new MAC_ControlMessage("MAC buffer is full Radio->Mac", MAC_2_NETWORK_FULL_BUFFER), "toNetworkModule");
 	trace() << "TXBuffer is FULL! Network layer packet is dropped";
@@ -104,7 +95,7 @@ int BaseMacModule::bufferFrame(MAC_GenericFrame* rcvFrame) {
     }
 }	
                 
-void BaseMacModule::handleMessage(cMessage *msg) {
+void VirtualMacModule::handleMessage(cMessage *msg) {
     
     int msgKind = (int)msg->getKind();
 
@@ -260,17 +251,17 @@ void BaseMacModule::handleMessage(cMessage *msg) {
     msg = NULL;		// safeguard
 }
 
-void BaseMacModule::finish() {
-    finalize();
+void VirtualMacModule::finish() {
+    finishSpecific();
     while(!TXBuffer.empty()) {
 	cancelAndDelete(TXBuffer.front());
         TXBuffer.pop();
     }
+    VirtualCastaliaModule::finish();
 }
 
-void BaseMacModule::finalize() { }
 
-void BaseMacModule::setRadioState(MAC_ControlMessageType typeID, simtime_t delay) {
+void VirtualMacModule::setRadioState(MAC_ControlMessageType typeID, simtime_t delay) {
     if( (typeID != MAC_2_RADIO_ENTER_SLEEP) && (typeID != MAC_2_RADIO_ENTER_LISTEN) && (typeID != MAC_2_RADIO_ENTER_TX) )
 	opp_error("MAC attempt to set Radio into an unknown state. ERROR commandID");
 
@@ -278,7 +269,7 @@ void BaseMacModule::setRadioState(MAC_ControlMessageType typeID, simtime_t delay
     sendDelayed(ctrlMsg, delay, "toRadioModule");
 }
 
-void BaseMacModule::setRadioTxMode(Radio_TxMode txTypeID, simtime_t delay) {
+void VirtualMacModule::setRadioTxMode(Radio_TxMode txTypeID, simtime_t delay) {
     if( (txTypeID != CARRIER_SENSE_NONE)&&(txTypeID != CARRIER_SENSE_ONCE_CHECK)&&(txTypeID != CARRIER_SENSE_PERSISTENT) )
     	opp_error("MAC attempt to set Radio CarrierSense into an unknown type. ERROR commandID");
 
@@ -287,7 +278,7 @@ void BaseMacModule::setRadioTxMode(Radio_TxMode txTypeID, simtime_t delay) {
     sendDelayed(ctrlMsg, delay, "toRadioModule");
 }
 
-void BaseMacModule::setRadioPowerLevel(int powLevel, simtime_t delay) {
+void VirtualMacModule::setRadioPowerLevel(int powLevel, simtime_t delay) {
     if(powLevel >= 0 && powLevel < radioModule->getTotalTxPowerLevels()) {
 	MAC_ControlMessage * ctrlMsg = new MAC_ControlMessage("Set power level command strobe MAC->radio", MAC_2_RADIO_CHANGE_POWER_LEVEL);
 	ctrlMsg->setPowerLevel(powLevel);
@@ -297,7 +288,7 @@ void BaseMacModule::setRadioPowerLevel(int powLevel, simtime_t delay) {
 	trace() <<"WARNING: in function setRadioPowerLevel() of Mac module, parameter powLevel has invalid value";
 }
 
-void BaseMacModule::encapsulateNetworkFrame(Network_GenericFrame *networkFrame, MAC_GenericFrame *retFrame) {
+void VirtualMacModule::encapsulateNetworkFrame(Network_GenericFrame *networkFrame, MAC_GenericFrame *retFrame) {
     retFrame->setByteLength((int)par("macFrameOverhead")); //networkFrame->getByteLength() extra bytes will be added after the encapsulation
     retFrame->getHeader().srcID = self;
     retFrame->getHeader().destID = resolveNextHop(networkFrame->getHeader().nextHop.c_str());
@@ -305,7 +296,7 @@ void BaseMacModule::encapsulateNetworkFrame(Network_GenericFrame *networkFrame, 
     retFrame->encapsulate(networkFrame);
 }
 
-int BaseMacModule::resolveNextHop(const char *nextHop) {
+int VirtualMacModule::resolveNextHop(const char *nextHop) {
     string strNextHop(nextHop);
     // Resolve Network-layer IDs to MAC-layer IDs
     if(strNextHop.compare(BROADCAST) == 0) {
@@ -315,14 +306,14 @@ int BaseMacModule::resolveNextHop(const char *nextHop) {
     }
 }
 
-void BaseMacModule::toNetworkLayer(MAC_GenericFrame* macFrame) {
+void VirtualMacModule::toNetworkLayer(MAC_GenericFrame* macFrame) {
     Network_GenericFrame *netDataFrame;
     netDataFrame = check_and_cast<Network_GenericFrame *>(macFrame->decapsulate());
     netDataFrame->setRssi(macFrame->getRssi());
     send(netDataFrame, "toNetworkModule");                                                
 }
 
-void BaseMacModule::toRadioLayer(MAC_GenericFrame* macFrame) {
+void VirtualMacModule::toRadioLayer(MAC_GenericFrame* macFrame) {
     macFrame->setKind(MAC_FRAME);
     send(macFrame, "toRadioModule");
     setRadioState(MAC_2_RADIO_ENTER_TX);

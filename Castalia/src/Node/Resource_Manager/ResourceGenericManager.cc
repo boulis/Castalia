@@ -15,14 +15,7 @@
 
 #include "ResourceGenericManager.h"
 
-//#define EV   ev.isDisabled() ? (ostream&)ev : ev ==> EV is now part of <omnetpp.h>
-
-#define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
-
-
 Define_Module(ResourceGenericManager);
-
-
 
 void ResourceGenericManager::initialize() 
 {
@@ -66,7 +59,7 @@ void ResourceGenericManager::handleMessage(cMessage *msg)
 	    }
 	    
 	    default: {
-	    	CASTALIA_DEBUG << "\n[Resource Manager] t= " << simTime() << ": WARNING: Unexpected message: " << msgKind;
+	    	trace() << "\n[Resource Manager] t= " << simTime() << ": WARNING: Unexpected message: " << msgKind;
 	    }
 	}
 	
@@ -75,8 +68,10 @@ void ResourceGenericManager::handleMessage(cMessage *msg)
 }
 
 
-void ResourceGenericManager::finish()
+void ResourceGenericManager::finishSpecific()
 {
+	declareOutput(1,"Consumed Energy",self);
+	collectOutput(1,getSpentEnergy());
 	// DO NOT ADD HERE ANY CODE FOR RECORDING SCALARS OR VECTORS
 	// SOME MODULES MAY CONSUME ADDITIONAL ENERGY OR OCCUPY EXTRA RESOURCES
 	// AFTER THE END OF THIS FINISH() 
@@ -113,7 +108,7 @@ void ResourceGenericManager::consumeEnergy(double amount)
 	else
 		remainingEnergy -= amount;
 		
-	//CASTALIA_DEBUG << "\n[Resource Manager]: consume: " << amount << "  Remaining energy: " << remainingEnergy << "\n";
+	//trace() << "\n[Resource Manager]: consume: " << amount << "  Remaining energy: " << remainingEnergy << "\n";
 }
 
 
@@ -140,7 +135,7 @@ int ResourceGenericManager::RamStore(int numBytes)
 	
 	if(!ramHasSpace)
 	{
-		CASTALIA_DEBUG << "\n[Resource Manager] t= " << simTime() << ": WARNING: Data not stored to Ram. Not enough space to store them.";
+		trace() << "\n[Resource Manager] t= " << simTime() << ": WARNING: Data not stored to Ram. Not enough space to store them.";
 		return 0;
 	}
 	else

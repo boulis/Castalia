@@ -11,8 +11,8 @@
 //***************************************************************************************
 
 
-#ifndef BASEMACMODULE
-#define BASEMACMODULE
+#ifndef VIRTUALMACMODULE
+#define VIRTUALMACMODULE
 
 #include <queue>
 #include <map>
@@ -26,11 +26,12 @@
 #include "RadioControlMessage_m.h"
 #include "ResourceGenericManager.h"
 #include "RadioModule.h"
-#include "DebugInfoWriter.h"
+
+#include "VirtualCastaliaModule.h"
 
 using namespace std;
 
-class BaseMacModule : public cSimpleModule 
+class VirtualMacModule : public VirtualCastaliaModule
 {
     private:
 	double cpuClockDrift;
@@ -47,9 +48,7 @@ class BaseMacModule : public cSimpleModule
 	void initialize();
 	void handleMessage(cMessage *msg);
 	void finish();
-	virtual void finalize();
 	virtual void startup();
-	std::ostream &trace();
 	
 	void toNetworkLayer(MAC_GenericFrame*);
 	void toRadioLayer(MAC_GenericFrame*);

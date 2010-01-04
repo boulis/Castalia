@@ -99,6 +99,8 @@ void TMacModule::startup() {
     currentFrameStart = -1;
     activationTimeout = 0;
 
+    declareOutput(1,"Sent packets breakdown",self);
+
     if (isSink && allowSinkSync) {
 	createPrimarySchedule();
     } else {
@@ -339,7 +341,8 @@ void TMacModule::fromNetworkLayer(MAC_GenericFrame *macFrame) {
     }
 }
 
-void TMacModule::finalize() {
+void TMacModule::finishSpecific() {
+
     if (packetsSent.size() > 0) {
 	trace() << "Sent packets breakdown: ";
 	int total = 0;
@@ -665,6 +668,7 @@ void TMacModule::carrierIsClear() {
 	    toRadioLayer(rtsFrame);
 	    if (useRtsCts) txRetries--;
 	    packetsSent["RTS"]++;
+	    collectOutput(1,"RTS");
 	    rtsFrame = NULL;
 
 	    // update MAC state
@@ -683,6 +687,7 @@ void TMacModule::carrierIsClear() {
 		toRadioLayer(syncFrame);
 
 		packetsSent["SYNC"]++;
+		collectOutput(1,"SYNC");
 		syncFrame = NULL;
 
 		// Clear the resync flag
@@ -709,6 +714,7 @@ void TMacModule::carrierIsClear() {
 		// Send CTS packet to radio
 		toRadioLayer(ctsFrame);
 		packetsSent["CTS"]++;
+		collectOutput(1,"CTS");
 		ctsFrame = NULL;
 
 		// update MAC state
@@ -736,6 +742,7 @@ void TMacModule::carrierIsClear() {
 	    // transmission buffer and send it to the radio
 	    toRadioLayer(TXBuffer.front()->dup());
 	    packetsSent["DATA"]++;
+	    collectOutput(1,"DATA");
 
 	    //update MAC state based on transmission time and destination address
 	    double txTime = TX_TIME(TXBuffer.front()->getByteLength());
@@ -769,6 +776,7 @@ void TMacModule::carrierIsClear() {
 		// Send ACK packet to the radio
 		toRadioLayer(ackFrame);
 		packetsSent["ACK"]++;
+		collectOutput(1,"ACK");
 		ackFrame = NULL;
 
 		// update MAC state

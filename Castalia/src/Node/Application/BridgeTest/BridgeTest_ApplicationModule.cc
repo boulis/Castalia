@@ -93,7 +93,7 @@ void BridgeTest_ApplicationModule::initialize()
 	 **/
 	 currentVersionPacket = 0;
 	 currentVersion = 0;
-	 currSentSampleSN = 0;
+	 currSentSampleSN = 1;
 	 outOfEnergy = 0;
 	 currentSampleAccumulated = 0;
 
@@ -218,7 +218,7 @@ void BridgeTest_ApplicationModule::handleMessage(cMessage *msg)
 			 *  send2NetworkDataPacket(BROADCAST_ADDR, data2send, 1);
 			 */
 			currentVersion++;
-			currentVersionPacket = 0;
+			currentVersionPacket = 1;
 			scheduleAt(simTime() + DRIFTED_TIME(REPROGRAM_INTERVAL), new App_ControlMessage("Application self message (reprogram nodes)", APP_TIMER_1));
 			scheduleAt(simTime(), new App_ControlMessage("Application self message (send reprogram packet)", APP_TIMER_2));
 			break;
@@ -377,7 +377,7 @@ void BridgeTest_ApplicationModule::handleMessage(cMessage *msg)
 
 
 
-void BridgeTest_ApplicationModule::finish()
+void BridgeTest_ApplicationModule::finishSpecific()
 {
 	// output the spent energy of the node
 	EV <<  "Node [" << self << "] spent energy: " << resMgrModule->getSpentEnergy() << "\n";
@@ -385,14 +385,20 @@ void BridgeTest_ApplicationModule::finish()
 	    EV << "Sink is at version: " << currentVersion << " packet: " << currentVersionPacket << " total: " << totalVersionPackets << "\n";
 	    EV << "Sink received from:\n";
 	    for (int i=0; i<(int)report_info_table.size(); i++) {
+		declareOutput(i,"Report reception",report_info_table[i].source);
+		collectOutput(i,"Success",report_info_table[i].parts.size());
+		collectOutput(1,"Fail",report_info_table[i].seq-report_info_table[i].parts.size());
 		EV << report_info_table[i].source << " " << report_info_table[i].parts.size() << "\n";
 	    }
 	} else {
 	    if (outOfEnergy > 0) EV << "Node "<<self<<" ran out of energy at "<<outOfEnergy<<"\n";
 	    EV << "Node "<<self<<" sent "<<currSentSampleSN<<" packets\n";
 	    EV << "Node "<<self<<" received version information:\n";
+	    declareOutput(1,"Reporgram reception",self);
 	    for (int i=0; i<(int)version_info_table.size(); i++) {
 		EV << version_info_table[i].version << " " << version_info_table[i].parts.size() << "\n";
+		collectOutput(1,"Success",version_info_table[i].parts.size());
+		collectOutput(1,"Fail",version_info_table[i].seq-version_info_table[i].parts.size());
 	    }
 	}
 	//close the output stream that CASTALIA_DEBUG is writing to
@@ -441,12 +447,16 @@ int BridgeTest_ApplicationModule::updateReportTable(int src, int seq) {
 	newInfo.source = src;
 	newInfo.parts.clear();
 	newInfo.parts.push_back(seq);
+	newInfo.seq = seq;
 	report_info_table.push_back(newInfo);
     } else {
 	for (int i=0; i<(int)report_info_table[pos].parts.size(); i++) {
 	    if (report_info_table[pos].parts[i] == seq) return 0;
 	}
 	report_info_table[pos].parts.push_back(seq);
+	if (seq > report_info_table[pos].seq) {
+	    report_info_table[pos].seq = seq;
+	}
     }
     return 1;
 }
@@ -462,12 +472,17 @@ int BridgeTest_ApplicationModule::updateVersionTable(int version, int seq) {
 	newInfo.version = version;
 	newInfo.parts.clear();
 	newInfo.parts.push_back(seq);
+	newInfo.seq = seq;
 	version_info_table.push_back(newInfo);
     } else {
 	for (int i=0; i<(int)version_info_table[pos].parts.size(); i++) {
 	    if (version_info_table[pos].parts[i] == seq) return 0;
 	}
 	version_info_table[pos].parts.push_back(seq);
+	if (seq > version_info_table[pos].seq) {
+	    version_info_table[pos].seq = seq;
+	}
+	
     }
     return 1;
 }

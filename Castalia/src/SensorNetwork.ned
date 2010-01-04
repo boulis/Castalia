@@ -63,7 +63,7 @@ network SN
             gates:
 		toPhysicalProcess[numPhysicalProcesses];
 		fromPhysicalProcess[numPhysicalProcesses];
-
+		
         }
 
     connections:

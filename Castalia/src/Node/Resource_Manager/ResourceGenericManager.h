@@ -16,13 +16,13 @@
 #ifndef _RESOURCEGENERICMANAGER_H_
 #define _RESOURCEGENERICMANAGER_H_
 
-#include <omnetpp.h>
 #include "ResourceGenericManager_Message_m.h"
-#include "DebugInfoWriter.h"
+#include "VirtualCastaliaModule.h"
+
 using namespace std;
 
 
-class ResourceGenericManager : public cSimpleModule 
+class ResourceGenericManager : public VirtualCastaliaModule 
 {
 	private:
 	// parameters and variables
@@ -45,7 +45,7 @@ class ResourceGenericManager : public cSimpleModule
 	protected:
 		virtual void initialize();
 		virtual void handleMessage(cMessage *msg);
-		virtual void finish();
+		virtual void finishSpecific();
 	
 	
 	public:

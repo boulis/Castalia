@@ -13,7 +13,7 @@
 #define TMACMODULE
 
 #include "RadioModule.h"
-#include "BaseMacModule.h"
+#include "VirtualMacModule.h"
 
 using namespace std;
 
@@ -55,7 +55,7 @@ struct TMacSchedule {
     int SN;
 };
 
-class TMacModule : public BaseMacModule
+class TMacModule : public VirtualMacModule
 {
 	private:
 	// parameters and variables
@@ -129,7 +129,7 @@ class TMacModule : public BaseMacModule
 
 	protected:
 	void startup();
-	void finalize();
+	void finishSpecific();
 	
 	void timerFiredCallback(int);
 	void carrierSenseCallback(int);

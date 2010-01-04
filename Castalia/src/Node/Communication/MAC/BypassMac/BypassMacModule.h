@@ -15,11 +15,11 @@
 
 #include <omnetpp.h>
 #include "MacGenericFrame_m.h"
-#include "BaseMacModule.h"
+#include "VirtualMacModule.h"
 
 using namespace std;
 
-class BypassMacModule : public BaseMacModule {
+class BypassMacModule : public VirtualMacModule {
     protected:
         void fromRadioLayer(MAC_GenericFrame* );
         void fromNetworkLayer(MAC_GenericFrame* );

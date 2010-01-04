@@ -2,6 +2,5 @@ BANtest
 connectivityMap
 mobilityTest
 simpleAggregation
-throughputTest
 valuePropagation
 valueReporting

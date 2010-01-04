@@ -16,10 +16,10 @@ simple TMacModule like Node.Communication.MAC.MacGenericModule
 {
     parameters:
         //debug parameters
-        bool collectTraceInfo = default(false);
-        bool printDebugInfo = default(false);
+        bool collectTraceInfo = default(true);
+        bool printDebugInfo = default(true);
         bool printDroppedPackets = default(false);
-        bool printStateTransitions = default(false);
+        bool printStateTransitions = default(true);
 
         //mac layer packet sizes
         int ackFrameSize = default(14);

@@ -19,16 +19,16 @@ simple BridgeTest_ApplicationModule like Node.Application.ApplicationGenericModu
 
 {
     parameters:
-        string applicationID;
-        bool printDebugInfo;
-        int priority;
-        int maxAppPacketSize;		// in bytes
-        int packetHeaderOverhead;	// in bytes
+        string applicationID = default("BridgeTest");
+        bool printDebugInfo = default(false);
+        int priority = default(1);
+        int maxAppPacketSize = default(0);		// in bytes
+        int packetHeaderOverhead = default(8);		// in bytes
         
-        bool isSink;
-        bool broadcastReports;
-        double reportTreshold;
-        double sampleInterval;
+        bool isSink = default(false);
+        bool broadcastReports = default(false);
+        double reportTreshold = default(10);
+        double sampleInterval = default(100);
 
     gates:
         output toCommunicationModule;

@@ -385,20 +385,20 @@ void BridgeTest_ApplicationModule::finishSpecific()
 	    EV << "Sink is at version: " << currentVersion << " packet: " << currentVersionPacket << " total: " << totalVersionPackets << "\n";
 	    EV << "Sink received from:\n";
 	    for (int i=0; i<(int)report_info_table.size(); i++) {
-		declareOutput(i,"Report reception",report_info_table[i].source);
-		collectOutput(i,"Success",report_info_table[i].parts.size());
-		collectOutput(1,"Fail",report_info_table[i].seq-report_info_table[i].parts.size());
+		declareOutput("Report reception",report_info_table[i].source);
+		collectOutput("Report reception",report_info_table[i].source,"Success",report_info_table[i].parts.size());
+		collectOutput("Report reception",report_info_table[i].source,"Fail",report_info_table[i].seq-report_info_table[i].parts.size());
 		EV << report_info_table[i].source << " " << report_info_table[i].parts.size() << "\n";
 	    }
 	} else {
 	    if (outOfEnergy > 0) EV << "Node "<<self<<" ran out of energy at "<<outOfEnergy<<"\n";
 	    EV << "Node "<<self<<" sent "<<currSentSampleSN<<" packets\n";
 	    EV << "Node "<<self<<" received version information:\n";
-	    declareOutput(1,"Reporgram reception",self);
+	    declareOutput("Reporgram reception");
 	    for (int i=0; i<(int)version_info_table.size(); i++) {
 		EV << version_info_table[i].version << " " << version_info_table[i].parts.size() << "\n";
-		collectOutput(1,"Success",version_info_table[i].parts.size());
-		collectOutput(1,"Fail",version_info_table[i].seq-version_info_table[i].parts.size());
+		collectOutput("Reporgram reception","Success",version_info_table[i].parts.size());
+		collectOutput("Reporgram reception","Fail",version_info_table[i].seq-version_info_table[i].parts.size());
 	    }
 	}
 	//close the output stream that CASTALIA_DEBUG is writing to

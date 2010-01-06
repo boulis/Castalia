@@ -23,7 +23,6 @@ void LineMobilityModule::initialize()
 	VirtualMobilityModule::initialize();
 	cModule * node = getParentModule();
 	
-	printDebugInfo = par("printDebugInfo");
 	updateInterval = par("updateInterval"); 
 	updateInterval = updateInterval/1000;
 	
@@ -87,22 +86,16 @@ void LineMobilityModule::handleMessage(cMessage *msg)
 		notifyWirelessChannel();
 		scheduleAt(simTime() + updateInterval, new MobilityModule_Message("Periodic location update message", MOBILITY_PERIODIC));
 		
-		CASTALIA_DEBUG << setiosflags(ios::fixed) << setprecision(1) <<
-			"[Mob-" << getParentModule()->getIndex() << "-" << simTime() << "] new location(x:y:z) is " << 
+		trace() << setiosflags(ios::fixed) << setprecision(1) << "changed location(x:y:z) to " << 
 			nodeLocation.x << ":" << nodeLocation.y << ":" << nodeLocation.z << "\n";
 		break;
 	    }
 	    
 	    default: {
-	    	CASTALIA_DEBUG << "\n[Mobility module] t= " << simTime() << ": WARNING: Unexpected message: " << msgKind;
+	    	trace() << "WARNING: Unexpected message " << msgKind;
 	    }
 	}
 	
 	delete msg;
 	msg = NULL;
-}
-
-
-void LineMobilityModule::finish() 
-{
 }

@@ -12,9 +12,8 @@
 #ifndef _VIRTUALBILITYMODULE_H_
 #define _VIRTUALBILITYMODULE_H_
 
-#include <omnetpp.h>
 #include "WirelessChannelMessages_m.h"
-#include "DebugInfoWriter.h"
+#include "VirtualCastaliaModule.h"
 
 using namespace std;
 
@@ -28,10 +27,9 @@ struct NodeLocation_type{
 };
 
 
-class VirtualMobilityModule : public cSimpleModule 
+class VirtualMobilityModule : public VirtualCastaliaModule
 {
     protected:
-        bool printDebugInfo;
         NodeLocation_type nodeLocation;
 
         cModule *wchannel;

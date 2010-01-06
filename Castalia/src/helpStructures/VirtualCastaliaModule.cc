@@ -1,7 +1,7 @@
 //***************************************************************************************
-//*  Copyright: National ICT Australia,  2007, 2008, 2009				*
+//*  Copyright: National ICT Australia,  2010						*
 //*  Developed at the Networks and Pervasive Computing program				*
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis				*
+//*  Author(s): Yuriy Tselishchev							*
 //*  This file is distributed under the terms in the attached LICENSE file.		*
 //*  If you do not find this file, copies can be found by writing to:			*
 //*											*
@@ -16,20 +16,30 @@
 
 void VirtualCastaliaModule::finish() {
     finishSpecific();
-    EV << "CASTALIA module:" << getName() << endl;
-    map<int, OutputTypeDef>::iterator iter;
-    for (iter = outputs.begin(); iter != outputs.end(); iter++) {
-	OutputTypeDef out = iter->second;
+    if (simpleoutputs.size() == 0 && histograms.size() == 0) return; 
+    EV << "CASTALIA module:" << getFullPath() << endl;
+    simpleOutputMapType::iterator i;
+    for (i = simpleoutputs.begin(); i != simpleoutputs.end(); i++) {
+	outputKeyDef key = i->first;
+	simpleOutputTypeDef out = i->second;
 	if (out.data.size() != 0) {
-	    EV << "CASTALIA index:" << out.index << " output:" << out.description << endl << "CASTALIA results";
-	    map<string, int>::iterator iter2;
-	    for (iter2 = out.data.begin(); iter2 != out.data.end(); iter2++) {
-		EV << " " << iter2->first << ":" << iter2->second;
+	    EV << "CASTALIA index:" << key.index << " output:" << key.descr << endl;
+	    map<string, double>::iterator i2;
+	    for (i2 = out.data.begin(); i2 != out.data.end(); i2++) {
+	        EV << "CASTALIA value:" << i2->second << " label:" << i2->first << endl;
 	    }
-	} else if (out.value_declared == 1) {
-	    EV << "CASTALIA index:" << out.index << " output:" << out.description << endl << "CASTALIA value:" << out.value;
-	} else {
-	    continue;
+	} 
+    }
+    histogramOutputMapType::iterator i3;
+    for (i3 = histograms.begin(); i3 != histograms.end(); i3++) {
+	outputKeyDef key = i3->first;
+	histogramOutputTypeDef hist = i3->second;
+	if (!hist.active) { continue; }
+	EV << "CASTALIA index:" << key.index << " output:" << key.descr << endl;
+	EV << "CASTALIA histogram_min:" << hist.min << " histogram_max:" << hist.max << endl;
+	EV << "CASTALIA histogram_values";
+	for (int i = 0; i < hist.numBuckets+2; i++) {
+	    EV << " " << hist.buckets[i];
 	}
 	EV << endl;
     }
@@ -49,57 +59,51 @@ std::ostream &VirtualCastaliaModule::debug() {
     return cerr;
 }
 
-void VirtualCastaliaModule::declareOutput(int id, const char* descr, int index) {
-    outputs[id].description = descr;
-    outputs[id].data.clear();
-    outputs[id].value = 0.0;
-    outputs[id].value_declared = 1;
-    outputs[id].index = index;
+void VirtualCastaliaModule::declareOutput(const char* descr, int index) {
+    outputKeyDef key(descr,index);
+    simpleoutputs[key].data.clear();
 }
 
-void VirtualCastaliaModule::collectOutput(int id, const char * descr, int amt) {
-    map <int, OutputTypeDef>::iterator iter = outputs.find(id);
-    if (iter != outputs.end()) {
-	outputs[id].data[descr] += amt;
+void VirtualCastaliaModule::collectOutput(const char* descr, int index, const char* label, double amt) {
+    outputKeyDef key(descr,index);
+    simpleOutputMapType::iterator i = simpleoutputs.find(key);
+    if (i != simpleoutputs.end()) {
+	simpleoutputs[key].data[label] += amt;
     }
 }
+            
 
-void VirtualCastaliaModule::collectOutput(int id, double value) {
-    map <int, OutputTypeDef>::iterator iter = outputs.find(id);
-    if (iter != outputs.end()) {
-	outputs[id].value = value;
-	outputs[id].value_declared = 1;
-    }
-}
-
-void VirtualCastaliaModule::declareHistogram(int id, const char* descr, double min, double max, int buckets, int index) {
+void VirtualCastaliaModule::declareHistogram(const char* descr, double min, double max, int buckets, int index) {
     if (min >= max || buckets < 1) {
 	debug() << "ERROR: declareHistogram failed, bad parameters";
 	return;
     }
-    histograms[id].description = descr;
-    histograms[id].index = index;
-    histograms[id].buckets.clear();
-    histograms[id].buckets.resize(buckets+2);
+    outputKeyDef key(descr,index);
+    histograms[key].buckets.clear();
+    histograms[key].buckets.resize(buckets+2);
     for (int i = 0; i < buckets+2; i++) {
-	histograms[id].buckets[i] = 0;
+	histograms[key].buckets[i] = 0;
     }
-    histograms[id].min = min;
-    histograms[id].max = max;
-    histograms[id].numBuckets = buckets;
+    histograms[key].min = min;
+    histograms[key].max = max;
+    histograms[key].cell = (max - min)/buckets;
+    histograms[key].numBuckets = buckets;
+    histograms[key].active = false;
 }
 
-void VirtualCastaliaModule::collectHistogram(int id, double value) {
-    map <int, HistogramTypeDef>::iterator iter = histograms.find(id);
-    if(iter != histograms.end()) {
+void VirtualCastaliaModule::collectHistogram(const char* descr, int index, double value) {
+    outputKeyDef key(descr,index);
+    histogramOutputMapType::iterator i = histograms.find(key);
+    if(i != histograms.end()) {
 	int num;
-	if (value < histograms[id].min) {
+	if (value < histograms[key].min) {
 	    num = 0;
-	} else if (value >= histograms[id].max) {
-	    num = histograms[id].numBuckets + 1;
+	} else if (value >= histograms[key].max) {
+	    num = histograms[key].numBuckets + 1;
 	} else {
-	    num = (int)ceil((value - histograms[id].min)/histograms[id].numBuckets);
+	    num = (int)ceil((value - histograms[key].min)/histograms[key].cell);
 	}
-	histograms[id].buckets[num]++;
+	histograms[key].buckets[num]++;
+	histograms[key].active = true;
     }
 }

@@ -16,22 +16,17 @@
 #ifndef _THROUGHPUTTEST_APPLICATIONMODULE_H_
 #define _THROUGHPUTTEST_APPLICATIONMODULE_H_
 
-#include <omnetpp.h>
+#include "VirtualCastaliaModule.h"
+
 #include <string>
 #include <map>
 #include "SensorDevMgr_GenericMessage_m.h"
-
-/*** 
-     You have to MODIFY the following "#define" statement by placing the
-     header file (*_m.h) that is produced from you custom *.msg message definition file
- ***/
 #include "throughputTest_DataPacket_m.h"
-
 #include "App_GenericDataPacket_m.h"
 #include "App_ControlMessage_m.h"
 #include "NetworkControlMessage_m.h"
 #include "ResourceGenericManager.h"
-#include "DebugInfoWriter.h"
+
 using namespace std;
 
 struct packet_info
@@ -39,7 +34,7 @@ struct packet_info
     map <int, bool> packets_received;
 };
 
-class throughputTest_ApplicationModule : public cSimpleModule 
+class throughputTest_ApplicationModule : public VirtualCastaliaModule
 {
 	private:
 	// parameters and variables
@@ -69,11 +64,6 @@ class throughputTest_ApplicationModule : public cSimpleModule
 		int disabled;
 		double cpuClockDrift;
 		
-		cOutVector appVector;	// the vector object to write the statistics
-		
-		/**
-		   ADD HERE YOUR CUSTOM private MEMBER VARIABLES AND FUNCTIONS
-		 **/
 		float packet_spacing;
 		map <int, packet_info> packet_info_table; // this table records the number of packets received by node 0 from each other node
 		int total_packets_received;
@@ -87,7 +77,7 @@ class throughputTest_ApplicationModule : public cSimpleModule
 	protected:
 		virtual void initialize();
 		virtual void handleMessage(cMessage *msg);
-		virtual void finish();
+		virtual void finishSpecific();
 		
 		void send2NetworkDataPacket(const char *destID, int data, int pckSeqNumber);
 		void requestSampleFromSensorManager();

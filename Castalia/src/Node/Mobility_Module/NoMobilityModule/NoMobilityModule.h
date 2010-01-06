@@ -22,7 +22,6 @@ class NoMobilityModule : public VirtualMobilityModule
 {
 	protected:
 	    void handleMessage(cMessage *msg);
-	    void finish();
 };
 
 #endif 

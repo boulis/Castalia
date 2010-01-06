@@ -78,11 +78,8 @@ void throughputTest_ApplicationModule::initialize()
 	latencyHistogramBuckets = hasPar("latencyHistogramBuckets") ? par("latencyHistogramBuckets") : 50;
 	latencyHistogram.setRange(latencyHistogramMin,latencyHistogramMax);
 	latencyHistogram.setNumCells(latencyHistogramBuckets);
+	declareHistogram("Application latency",latencyHistogramMin,latencyHistogramMax,latencyHistogramBuckets);
 	latencyOverflow = 0;
-
-	char buff[35];
-	sprintf(buff, "Application Vector of Node %d", self);
-	appVector.setName(buff);
 
 	// Send the STARTUP message to MAC & to Sensor_Manager modules so that the node start to operate. (after a random delay, because we don't want the nodes to be synchronized)
 	double random_startup_delay = genk_dblrand(0) * STARTUP_DELAY + CIRCUITS_PREPARE_DELAY;
@@ -179,6 +176,7 @@ void throughputTest_ApplicationModule::handleMessage(cMessage *msg)
 			    long latency = lround(SIMTIME_DBL((simTime() - rcvPacket->getTimestamp())*1000));
 			    if (latency > latencyHistogramMax) latencyOverflow++;
 			    latencyHistogram.collect(latency);
+			    collectHistogram("Application latency",latency);
 			} else {
 			    throughputTest_DataPacket *dupPacket = check_and_cast<throughputTest_DataPacket *>(rcvPacket->dup());
 			    dupPacket->getHeader().destination = dstAddr;
@@ -329,7 +327,7 @@ void throughputTest_ApplicationModule::handleMessage(cMessage *msg)
 
 
 
-void throughputTest_ApplicationModule::finish()
+void throughputTest_ApplicationModule::finishSpecific()
 {
 	// print out the number of packets received from each node by node 0, and also the total number
 	if(self == nextRecipient)

@@ -1,5 +1,5 @@
 //***************************************************************************************
-//*  Copyright: National ICT Australia, 2009						*
+//*  Copyright: National ICT Australia, 2009, 2010					*
 //*  Developed at the Networks and Pervasive Computing program				*
 //*  Author(s): Yuriy Tselishchev							*
 //*  This file is distributed under the terms in the attached LICENSE file.		*
@@ -57,8 +57,8 @@ class VirtualMacModule : public VirtualCastaliaModule
 	int bufferFrame(MAC_GenericFrame*);
 	
 	void setTimer(int index, simtime_t time);
-	void cancelTimer(int index); 
-	virtual void timerFiredCallback(int index); 
+	void cancelTimer(int index);
+	virtual void timerFiredCallback(int index);
 	
 	void carrierSense(simtime_t time = 0.0);
 	virtual void carrierSenseCallback(int returnCode);

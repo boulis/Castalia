@@ -70,8 +70,8 @@ void ResourceGenericManager::handleMessage(cMessage *msg)
 
 void ResourceGenericManager::finishSpecific()
 {
-	declareOutput(1,"Consumed Energy",self);
-	collectOutput(1,getSpentEnergy());
+	declareOutput("Consumed Energy");
+	collectOutput("Consumed Energy","in Joules",getSpentEnergy());
 	// DO NOT ADD HERE ANY CODE FOR RECORDING SCALARS OR VECTORS
 	// SOME MODULES MAY CONSUME ADDITIONAL ENERGY OR OCCUPY EXTRA RESOURCES
 	// AFTER THE END OF THIS FINISH() 

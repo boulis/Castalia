@@ -12,10 +12,8 @@
 #ifndef _MOBILITYMODULE_H_
 #define _MOBILITYMODULE_H_
 
-#include <omnetpp.h>
 #include "MobilityModule_Message_m.h"
 #include "VirtualMobilityModule.h"
-#include "DebugInfoWriter.h"
 
 using namespace std;
 
@@ -42,7 +40,6 @@ class LineMobilityModule : public VirtualMobilityModule
 	protected:
 	    void initialize();
 	    void handleMessage(cMessage *msg);
-	    void finish();
 };
 
 #endif 

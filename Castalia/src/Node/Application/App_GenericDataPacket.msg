@@ -30,8 +30,6 @@ struct AppHeaderInfo
 packet App_GenericDataPacket
 {
     AppHeaderInfo header;
-
-    // simulation-specific fields
     double rssi;
     double timestamp;
     string currentPathFromSource;

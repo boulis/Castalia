@@ -11,13 +11,10 @@
 
 #include "VirtualMobilityModule.h"
 
-#define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
-
 Define_Module(VirtualMobilityModule);
 
 void VirtualMobilityModule::initialize() 
 {
-    bool printDebugInfo = par("printDebugInfo");
     cModule * node = getParentModule();
     cModule * network = node->getParentModule();
     wchannel = network->getSubmodule("wirelessChannel");
@@ -63,8 +60,7 @@ void VirtualMobilityModule::initialize()
         nodeLocation.z = node->par("zCoor");
     }
     
-    CASTALIA_DEBUG << "[Mob-" << index << "-" <<simTime() << "] initial location(x:y:z) is " 
-	<< nodeLocation.x << ":" << nodeLocation.y << ":" << nodeLocation.z << "\n"; 
+    trace() << "initial location(x:y:z) is " << nodeLocation.x << ":" << nodeLocation.y << ":" << nodeLocation.z << "\n"; 
 }
 
 void VirtualMobilityModule::setLocation(double x, double y, double z, double phi, double theta) 

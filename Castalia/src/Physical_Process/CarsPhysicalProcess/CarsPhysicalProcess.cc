@@ -10,18 +10,11 @@
 //*											*
 //***************************************************************************************
 
-
-
 #include "CarsPhysicalProcess.h"
-#include "PhyProcessGenericMessage_m.h"
-#include <math.h>
-#include <string>
 
-//#define EV   ev.isDisabled() ? (ostream&)ev : ev ==> EV is now part of <omnetpp.h>
 #define K_PARAM 0.1
 #define A_PARAM 1
 
-#define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
 
 Define_Module(CarsPhysicalProcess);
 
@@ -41,7 +34,7 @@ void CarsPhysicalProcess::initialize() {
     }
 	                                                                
     scheduleAt(simTime() + genk_dblrand(0)*car_interarrival + car_interarrival/2, 
-        new PhyProcess_GenericMessage("new car", PHY_PROCESS_TIMER_1));
+        new cMessage("New car arrival message", TIMER_SERVICE));
 }
 
 
@@ -50,24 +43,22 @@ void CarsPhysicalProcess::handleMessage(cMessage *msg) {
 	
 
 	switch (msg->getKind()) {
-	    case PHY_SAMPLE_REQ: {
-		PhyProcess_GenericMessage *receivedMsg = check_and_cast<PhyProcess_GenericMessage*>(msg);
-		int nodeIndex = receivedMsg->getSrcID();
-		int sensorIndex = receivedMsg->getSensorIndex();
+	    case PHYSICAL_PROCESS_SAMPLING: {
+		PhysicalProcessMessage *phyMsg = check_and_cast<PhysicalProcessMessage*>(msg);
+		int nodeIndex = phyMsg->getSrcID();
+		int sensorIndex = phyMsg->getSensorIndex();
 	
 		// get the sensed value
 		double returnValue;
-		returnValue = calculateScenarioReturnValue(receivedMsg->getXCoor(), receivedMsg->getYCoor(), receivedMsg->getSendingTime());
+		returnValue = calculateScenarioReturnValue(phyMsg->getXCoor(), phyMsg->getYCoor(), phyMsg->getSendingTime());
 
 		// Send reply back to the node who made the request
-		PhyProcess_GenericMessage *reply = new PhyProcess_GenericMessage("sample", PHY_SAMPLE_REPLY);
-		reply->setValue(returnValue);
-		reply->setSensorIndex(sensorIndex);
-		send(reply, "toNode", nodeIndex);
-		break;
+		phyMsg->setValue(returnValue);
+		send(phyMsg, "toNode", nodeIndex);
+		return;
 	    }
-	    
-	    case PHY_PROCESS_TIMER_1: {
+	
+	    case TIMER_SERVICE: {
 		int pos = -1;
 		for (int i=0; pos == -1 && i < max_num_cars; i++) {
 		    if (sources_snapshots[i][1].time < simTime()) {
@@ -91,12 +82,12 @@ void CarsPhysicalProcess::handleMessage(cMessage *msg) {
 		}
 		
 		scheduleAt(simTime()+ genk_dblrand(0)*car_interarrival + car_interarrival/2, 
-		    new PhyProcess_GenericMessage("new car", PHY_PROCESS_TIMER_1));
+		    new cMessage("new car", TIMER_SERVICE));
 		break;
 	    }
 	    
 	    default: {
-		CASTALIA_DEBUG << "\n[CarsPhysicalProcess] t= " << simTime() << ":\n Physical Process received message other than SAMPLE_REQ or TIMER_1";
+		opp_error(":\n Physical Process received message other than PHYSICAL_PROCESS_SAMPLING");
 	    }
 	}
 	delete msg;
@@ -104,10 +95,10 @@ void CarsPhysicalProcess::handleMessage(cMessage *msg) {
 
 
 
-void CarsPhysicalProcess::finish() {
+void CarsPhysicalProcess::finishSpecific() {
 	int i;
 	for(i=0; i<max_num_cars; i++)	{
-    	    delete[] sources_snapshots[i];
+	    delete[] sources_snapshots[i];
 	}
 	delete[] sources_snapshots;
 }
@@ -128,8 +119,6 @@ void CarsPhysicalProcess::readIniFileParameters(void)
 	point2_y_coord = par("point2_y_coord");
 
 	description = par("description");
-
-    	
 }
 
 

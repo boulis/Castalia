@@ -35,6 +35,8 @@ ofstream & DebugInfoWriter::getStream(void)
 {
 	if (!theFile.is_open())
 		theFile.open(fileName.c_str(), ios::app);
+		theFile.setf(ios::left);
+		
 	
 	return theFile;
 }

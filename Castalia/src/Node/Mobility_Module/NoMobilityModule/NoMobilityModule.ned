@@ -16,5 +16,5 @@ simple NoMobilityModule like Node.Mobility_Module.VirtualMobilityModule
 
 {
     parameters:
-	bool printDebugInfo = default(false);
+	bool collectTraceInfo = default(false);
 }

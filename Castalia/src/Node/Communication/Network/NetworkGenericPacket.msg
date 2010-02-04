@@ -11,26 +11,15 @@
 //***************************************************************************************
 
 
-// This file describes the message(s) used in the SN-simulator 
-// based on OMNeT++ designed at NICTA
-
-enum App_DataPacketType
-{
-    APP_DATA_PACKET = 1100;
-}
-
-struct AppHeaderInfo
-{
+struct NetworkInteractionControl_type {
+    double RSSI;
+    double LQI;
+    int nextHop;
+    int lastHop;
+    string pathFromSource;
     string source;
-    string destination;
-    int seqNumber;
-    string applicationID;
 }
 
-packet App_GenericDataPacket
-{
-    AppHeaderInfo header;
-    double rssi;
-    double timestamp;
-    string currentPathFromSource;
+packet NetworkGenericPacket {
+    NetworkInteractionControl_type NetworkInteractionControl;
 }

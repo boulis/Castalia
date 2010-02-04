@@ -17,8 +17,9 @@
 
 #define SIMTIME_STEP 0.01
 
-#include <omnetpp.h>
-#include "DebugInfoWriter.h"
+#include "VirtualCastaliaModule.h"
+#include "PhyProcessGenericMessage_m.h"
+
 using namespace std;
 
 enum phyProcessType
@@ -37,7 +38,7 @@ typedef struct{
 
 
 
-class CustomizablePhysicalProcess : public cSimpleModule 
+class CustomizablePhysicalProcess : public VirtualCastaliaModule
 {
 	private:
 		// parameters and variables
@@ -65,7 +66,7 @@ class CustomizablePhysicalProcess : public cSimpleModule
 	protected:
 		virtual void initialize();
 		virtual void handleMessage(cMessage *msg);
-		virtual void finish();
+		virtual void finishSpecific();
 		double calculateScenarioReturnValue(const double & x_coo, const double & y_coo, const simtime_t & stime);
 		void readIniFileParameters(void);
 		void readScenariosFromIniFile(void);

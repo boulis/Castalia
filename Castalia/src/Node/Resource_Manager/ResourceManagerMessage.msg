@@ -1,7 +1,7 @@
 //***************************************************************************************
-//*  Copyright: National ICT Australia,  2007, 2008, 2009				*
+//*  Copyright: National ICT Australia,  2010						*
 //*  Developed at the Networks and Pervasive Computing program				*
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis				*
+//*  Author(s): Yuriy Tselishchev							*
 //*  This file is distributed under the terms in the attached LICENSE file.		*
 //*  If you do not find this file, copies can be found by writing to:			*
 //*											*
@@ -11,16 +11,6 @@
 //***************************************************************************************
 
 
-
-cplusplus {{
-#include "App_GenericDataPacket_m.h"
-}}
-
-
-class App_GenericDataPacket;
-
-
-message valuePropagation_DataPacket extends App_GenericDataPacket
-{
-    double data;
+message ResourceManagerMessage {
+    double powerConsumed;
 }

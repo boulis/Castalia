@@ -17,91 +17,59 @@
 #ifndef SIMPLETREEROUTINGMODULE
 #define SIMPLETREEROUTINGMODULE
 
-#include <vector>
-#include <queue>
-#include <algorithm>
-#include <omnetpp.h>
+#include "VirtualNetworkModule.h"
+#include "simpleTreeRoutingControl_m.h"
+#include "simpleTreeRoutingPacket_m.h"
 
-#include "App_GenericDataPacket_m.h"
-#include "App_ControlMessage_m.h"
-#include "simpleTreeRoutingControlMessage_m.h"
-#include "simpleTreeRoutingFrame_m.h"
-#include "MacGenericFrame_m.h"
-#include "MacControlMessage_m.h"
-#include "ResourceGenericManager.h"
-#include "RadioModule.h"
-#include "DebugInfoWriter.h"
+
 using namespace std;
 
-struct neighborRec
-{
-	int id;
-	int parentID;
-	int level;
-	int sinkID;
-	double rssi;
+enum Timers {
+    TOPOLOGY_SETUP_TIMEOUT = 1,
 };
 
-class simpleTreeRoutingModule : public cSimpleModule 
-{
-	private: 
-	// parameters and variables
-		
-		/*--- The .ned file's parameters ---*/
-		int maxNetFrameSize;	//in bytes
-		int netDataFrameOverhead;	//in bytes
-		int netBufferSize;	//in # of messages
-		int macFrameOverhead;
-		bool printDebugInfo;
-		
-		int netTreeSetupFrameOverhead;// in bytes
-		double netSetupTimeout;
-		double topoSetupUdateTimeout;
-		int maxNumberOfParents;
-		int maxNeighborsTableSize;
-		bool rssiBased_NeighborQuality;
-		double neighbor_RSSIThreshold;
-		
-		/*--- Custom class parameters ---*/
-		int self;					// the node's ID
-		RadioModule *radioModule;	//a pointer to the object of the Radio Module (used for direct method calls)
-		double radioDataRate;
-		ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
-		
-		queue <Network_GenericFrame *> TXBuffer;
+struct neighborRec {
+    int id;
+    int parentID;
+    int level;
+    int sinkID;
+    double rssi;
+};
 
-		//used to keep/manage the order between two messages that are sent at the same simulation time
-		double epsilon;				
-		double cpuClockDrift;
-		int disabled;
-		string strSelfID;
-		
-		// simpleTreeRouting-related member variables
-		bool isSink; //is a .ned file parameter of the Application module 
-		int currentSinkID;
-		int currentLevel;
-		vector <neighborRec> currParents;
-		vector <int> parentIDs;
-		bool isConnected; //attached under a parent node
-		bool isScheduledNetSetupTimeout;
-		
-		vector <neighborRec> neighborsTable;		
+class simpleTreeRoutingModule : public VirtualNetworkModule {
+    private: 
+	int netTreeSetupFrameOverhead;// in bytes
+	double netSetupTimeout;
+	double topoSetupUdateTimeout;
+	int maxNumberOfParents;
+	int maxNeighborsTableSize;
+	bool rssiBased_NeighborQuality;
+	double neighbor_RSSIThreshold;
 
-		
-	protected:
-		virtual void initialize();
-		virtual void handleMessage(cMessage *msg);
-		virtual void finish();
-		void readIniFileParameters(void);
-		int encapsulateAppPacket(App_GenericDataPacket *appPacket, simpleTreeRouting_DataFrame *retFrame);
-		void simpleTreeRoute_forwardPacket(simpleTreeRouting_DataFrame *theMsg);
-		void filterIncomingNetworkDataFrames(Network_GenericFrame *theFrame);
-		void decapsulateAndDeliverToApplication(simpleTreeRouting_DataFrame * parFrame2Deliver);
-		void sendTopoSetupMesage(int parSinkID, int parSenderLevel);
-		
-		void storeNeighbor(neighborRec parNeighREC, bool rssiBasedQuality);
-		void applyNeigborEvictionRule(neighborRec parNeighREC, bool rssiBasedQuality);
-		int getBestQualityNeighbors(int bestN, vector <neighborRec> & parResult, bool rssiBasedQuality);
+	bool isSink; //is a .ned file parameter of the Application module 
+	int currentSinkID;
+	int currentLevel;
+	vector <neighborRec> currParents;
+	vector <int> parentIDs;
+	bool isConnected; //attached under a parent node
+	bool isScheduledNetSetupTimeout;
+	
+	vector <neighborRec> neighborsTable;
+
+    protected:
+	void startup();
+	void fromApplicationLayer(cPacket*, const char*);
+	void fromMacLayer(cPacket*, int, double, double);
+	void timerFiredCallback(int);
+
+	int encapsulateAppPacket(cPacket *, simpleTreeRoutingPacket *);
+	void simpleTreeRoute_forwardPacket(simpleTreeRoutingPacket *);
+	void filterIncomingNetworkDataFrames(simpleTreeRoutingPacket *);
+	void decapsulateAndDeliverToApplication(simpleTreeRoutingPacket *);
+	void sendTopoSetupMesage(int parSinkID, int parSenderLevel);
+	void storeNeighbor(neighborRec parNeighREC, bool rssiBasedQuality);
+	void applyNeigborEvictionRule(neighborRec parNeighREC, bool rssiBasedQuality);
+	int getBestQualityNeighbors(int bestN, vector <neighborRec> & parResult, bool rssiBasedQuality);
 };
 
 bool cmpNeigh_level(neighborRec a, neighborRec b);

@@ -10,29 +10,17 @@
 //*											*
 //***************************************************************************************
 
-
-
 #include "SensorDevMgrModule.h"
 
-//#define EV   ev.isDisabled() ? (ostream&)ev : ev ==> EV is now part of <omnetpp.h>
-
-#define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
-
-#define CONSUME_ENERGY(a) resMgrModule->consumeEnergy(a)
-
 Define_Module(SensorDevMgrModule);
-
-
 
 void SensorDevMgrModule::initialize() 
 {
 	self = getParentModule()->getIndex();
-
-	printDebugInfo = par("printDebugInfo");
 	
 	//get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
 	//instead of using extra messages & message types for tighlty couplped operations.
-	resMgrModule = check_and_cast<ResourceGenericManager*>(getParentModule()->getSubmodule("nodeResourceMgr"));
+//	resMgrModule = check_and_cast<ResourceGenericManager*>(getParentModule()->getSubmodule("nodeResourceMgr"));
 	nodeMobilityModule = check_and_cast<VirtualMobilityModule*>(getParentModule()->getSubmodule("nodeMobilityModule"));
 	disabled = 1;
 	
@@ -57,11 +45,10 @@ void SensorDevMgrModule::handleMessage(cMessage *msg)
 	int msgKind = msg->getKind();
 	
 	
-	if((disabled) && (msgKind != APP_NODE_STARTUP))
-	{
-		delete msg;
-		msg = NULL;		// safeguard
-		return;
+	if(disabled && msgKind != NODE_STARTUP) {
+	    delete msg;
+	    msg = NULL;		// safeguard
+	    return;
 	}
 	
 	switch (msgKind) 
@@ -70,12 +57,10 @@ void SensorDevMgrModule::handleMessage(cMessage *msg)
 		/*--------------------------------------------------------------------------------------------------------------
 		 * Sent by the Application submodule in order to start/switch-on the Sensor Device Manager submodule.
 		 *--------------------------------------------------------------------------------------------------------------*/
-		case APP_NODE_STARTUP:
+		case NODE_STARTUP:
 		{
 			disabled = 0;
-			
-			CASTALIA_DEBUG << "\n[SensoDevMgr_" << self <<"] t= " << simTime() << ": Received STARTUP MESSAGE";
-		
+			trace() << "Received STARTUP MESSAGE";
 			break;
 		}
 		
@@ -85,56 +70,53 @@ void SensorDevMgrModule::handleMessage(cMessage *msg)
 		 * Each sensor device has its own samplerate and so its sample requests occur/are schedules with different intervals that
 		 * are hold inside vector minSamplingIntervals[].
 		 */
-		case APP_2_SDM_SAMPLE_REQUEST:
-		{
-			SensorDevMgr_GenericMessage *rcvPacket;
-			rcvPacket = check_and_cast<SensorDevMgr_GenericMessage*>(msg);
-			int sensorIndex = rcvPacket->getSensorIndex();
+		case SENSOR_READING_MESSAGE: {
+		    SensorReadingGenericMessage *rcvPacket = check_and_cast<SensorReadingGenericMessage*>(msg);
+		    int sensorIndex = rcvPacket->getSensorIndex();
+		
+		    simtime_t currentTime = simTime();
+		    simtime_t interval = currentTime - sensorlastSampleTime[sensorIndex];
+		    int getNewSample = (interval < minSamplingIntervals[sensorIndex])?0:1;
+		
+		    if(getNewSample) { //the last request for sample was more than minSamplingIntervals[sensorIndex] time ago
+			PhysicalProcessMessage *requestMsg = new PhysicalProcessMessage("sample request", PHYSICAL_PROCESS_SAMPLING);
+			requestMsg->setSrcID(self); //insert information about the ID of the node
+			requestMsg->setSensorIndex(sensorIndex); //insert information about the index of the sensor that requests the sample
+			requestMsg->setXCoor(nodeMobilityModule->getLocation().x);
+			requestMsg->setYCoor(nodeMobilityModule->getLocation().y);
 			
-			simtime_t currentTime = simTime();
-			simtime_t interval = currentTime - sensorlastSampleTime[sensorIndex];
-			int getNewSample = (interval < minSamplingIntervals[sensorIndex])?0:1;
+			//send the request to the physical process (using the appropriate gate index for the respective sensor device )
+			send(requestMsg, "toNodeContainerModule", corrPhyProcess[sensorIndex]);
 			
-			if(getNewSample) //the last request for sample was more than minSamplingIntervals[sensorIndex] time ago
-			{ 
-				PhyProcess_GenericMessage *requestMsg;
-				requestMsg = new PhyProcess_GenericMessage("sample request", PHY_SAMPLE_REQ);
-				requestMsg->setSrcID(self); //insert information about the ID of the node
-				requestMsg->setSensorIndex(sensorIndex); //insert information about the index of the sensor that requests the sample
-				requestMsg->setXCoor(nodeMobilityModule->getLocation().x);
-				requestMsg->setYCoor(nodeMobilityModule->getLocation().y);
-				
-				//send the request to the physical process (using the appropriate gate index for the respective sensor device )
-				send(requestMsg, "toNodeContainerModule", corrPhyProcess[sensorIndex]);
-				
-				//update the remaining energy of the node
-				CONSUME_ENERGY(pwrConsumptionPerDevice[sensorIndex]);
-				
-				// update the most recent sample times in sensorlastSampleTime[]
-				sensorlastSampleTime[sensorIndex] = currentTime;
-			}
-			else // send back the old sample value
-			{
-				SensorDevMgr_GenericMessage *readingMsg;
-				readingMsg = new SensorDevMgr_GenericMessage("sensor reading", SDM_2_APP_SENSOR_READING);
-				readingMsg->setSensorType(sensorTypes[sensorIndex].c_str());
-				readingMsg->setSensedValue(sensorLastValue[sensorIndex]);
-				readingMsg->setSensorIndex(sensorIndex);
-				
-				send(readingMsg, "toApplicationModule"); //send the sensor reading to the Application module
-			}
+			//update the remaining energy of the node
+			// CONSUME_ENERGY(pwrConsumptionPerDevice[sensorIndex]);
+			// will need to change to powerDrawn();
 			
-			break;
+			// update the most recent sample times in sensorlastSampleTime[]
+			sensorlastSampleTime[sensorIndex] = currentTime;
+		    } else { // send back the old sample value
+			//SensorDevMgr_GenericMessage *readingMsg;
+			//readingMsg = new SensorDevMgr_GenericMessage("sensor reading", SDM_2_APP_SENSOR_READING);
+			//readingMsg->setSensorType(sensorTypes[sensorIndex].c_str());
+			//readingMsg->setSensedValue(sensorLastValue[sensorIndex]);
+			//readingMsg->setSensorIndex(sensorIndex);
+			//send(readingMsg, "toApplicationModule"); //send the sensor reading to the Application module
+			rcvPacket->setSensorType(sensorTypes[sensorIndex].c_str());
+			rcvPacket->setSensedValue(sensorLastValue[sensorIndex]);
+			send(rcvPacket, "toApplicationModule");
+			return;
+		    }
+		
+		    break;
 		}
 		
 		
 		/*
 		 * Message received by the physical process. It holds a value and the index of the sensor that sent the sample request.
 		 */
-		case PHY_SAMPLE_REPLY:
+		case PHYSICAL_PROCESS_SAMPLING:
 		{
-			PhyProcess_GenericMessage *phyReply;
-			phyReply = check_and_cast<PhyProcess_GenericMessage*>(msg);
+			PhysicalProcessMessage *phyReply = check_and_cast<PhysicalProcessMessage*>(msg);
 			int sensorIndex = phyReply->getSensorIndex();
 			double theValue = phyReply->getValue();
 				
@@ -149,8 +131,7 @@ void SensorDevMgrModule::handleMessage(cMessage *msg)
 		
 			sensorLastValue[sensorIndex] = theValue;
 			
-			SensorDevMgr_GenericMessage *readingMsg;
-			readingMsg = new SensorDevMgr_GenericMessage("sensor reading", SDM_2_APP_SENSOR_READING);
+			SensorReadingGenericMessage *readingMsg = new SensorReadingGenericMessage("sensor reading", SENSOR_READING_MESSAGE);
 			readingMsg->setSensorType(sensorTypes[sensorIndex].c_str());
 			readingMsg->setSensedValue(theValue);
 			readingMsg->setSensorIndex(sensorIndex);
@@ -160,54 +141,28 @@ void SensorDevMgrModule::handleMessage(cMessage *msg)
 			break;
 		}
 
-
-		case PHY_PROCESS_DESTROY_NODE:
-		{
-			cMessage *killNodeMsg;
-			killNodeMsg = check_and_cast<cMessage *>(msg->dup());
-			killNodeMsg->setKind(SDM_2_APP_KILL_NODE);
-			send(killNodeMsg, "toApplicationModule");
-			
-			break;
-		}
-
-
-
-		/*--------------------------------------------------------------------------------------------------------------
-		 * Message received by the ResourceManager module. It commands the module to stop its operation.
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case RESOURCE_MGR_DESTROY_NODE:
-		{
-			disabled = 1;
-			break;
+		case OUT_OF_ENERGY: {
+		    disabled = 1;
+		    break;
 		}
 		
-		
-		/*--------------------------------------------------------------------------------------------------------------
-		 * 
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case RESOURCE_MGR_OUT_OF_ENERGY:
+		case DESTROY_NODE:
 		{
-			disabled = 1;
-			break;
+		    disabled = 1;
+		    send(msg->dup(), "toApplicationModule");
+		    break;
 		}
 		
 		
 		default:
 		{
-			CASTALIA_DEBUG << "\\n[SensorDevMgr_" << self <<"] t= " << simTime() << ": WARNING: received packet of unknown type";
+			trace() << "WARNING: received packet of unknown type";
 			break;
 		}
 	}
 	
 	delete msg;
 	msg = NULL;		// safeguard
-}
-
-
-void SensorDevMgrModule::finish()
-{
-	
 }
 
 
@@ -313,7 +268,7 @@ double SensorDevMgrModule::getSensorDeviceBias(int index)
 	Enter_Method("getSensorDeviceBias()");
 	if( (totalSensors <= index) || (index < 0) )
 	{
-		CASTALIA_DEBUG << "\n[SensoDevMgr_" << self <<"] t= " << simTime() << ": WARNING: Sensor index out of bound ( direct method call : getSensorDeviceBias() )";
+		trace() << "WARNING: Sensor index out of bound ( direct method call : getSensorDeviceBias() )";
 		return -1.0f;
 	}
 	else

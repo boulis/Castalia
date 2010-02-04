@@ -20,13 +20,16 @@ simple connectivityMap_ApplicationModule like Node.Application.ApplicationGeneri
 {
     parameters:
         string applicationID = default("connMap");
-        bool printDebugInfo = default(false);
-        bool printConnectivityMap = default(true);
+        bool collectTraceInfo = default(false);
+        int packetHeaderOverhead = default(8);
+        int maxAppPacketSize = default(0);
         int priority = default(1);
+        int constantDataPayload = default(8);
         
-        int maxAppPacketSize = default(30);	 	// in bytes
-        int packetHeaderOverhead = default(8); 		// in bytes
-        int constantDataPayload = default(4);	 	// in bytes
+        
+        int packetSpacing = default(100);	// in ms
+        int packetsPerNode = default(100);
+        int packetSize = default(32);		// in bytes
 
     gates:
         output toCommunicationModule;

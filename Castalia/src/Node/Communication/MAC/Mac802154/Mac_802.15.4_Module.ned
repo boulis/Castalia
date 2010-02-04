@@ -21,9 +21,8 @@ simple Mac802154Module like Node.Communication.MAC.MacGenericModule
         bool printStateTransitions = default(false);
 
         //mac layer parameters
-        int macMaxFrameSize = default(0);
-        int maxMACFrameSize = default(121);
-        int macFrameOverhead = default(14);
+        int macMaxPacketSize = default(0);
+        int macPacketOverhead = default(14);
         int macBufferSize = default(32);
 
         bool enableSlottedCSMA = default(true);

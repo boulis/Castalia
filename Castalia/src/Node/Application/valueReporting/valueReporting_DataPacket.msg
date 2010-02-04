@@ -15,29 +15,22 @@
 
 
 cplusplus {{
-#include "App_GenericDataPacket_m.h"
+#include "ApplicationGenericPacket_m.h"
 }}
 
+class ApplicationGenericDataPacket;
 
-class App_GenericDataPacket;
+struct valueReportData {
+    unsigned short nodeID;	//the ID of the Node
+    double locX;		// x-coordinate of the node
+    double locY;		// y-coordinate of the node
 
-
-
-struct valueReportData
-{
-    unsigned short nodeID;  //the ID of the Node
-    double locX;  // x-coordinate of the node
-    double locY;  // y-coordinate of the node
-
-    int sampleSN; //sample Sequence number
-    double value; //the reported value
+    int sampleSN;		//sample Sequence number
+    double value;		//the reported value
 }
 
 
-message valueReporting_DataPacket extends App_GenericDataPacket
-{
-    valueReportData data;
-
-    // simulation-specific fields
+message valueReporting_DataPacket extends ApplicationGenericDataPacket {
+    valueReportData extraData;
     simtime_t sentTstamp;
 }

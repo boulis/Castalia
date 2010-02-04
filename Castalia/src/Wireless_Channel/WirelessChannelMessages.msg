@@ -1,7 +1,7 @@
 //*************************************************************************
-//*  Copyright: National ICT Australia,  2007, 2008, 2009
+//*  Copyright: National ICT Australia,  2007 - 2010
 //*  Developed at the ATP lab, Networked Systems theme
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis
+//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis, Yuriy Tselishchev
 //*  This file is distributed under the terms in the attached LICENSE file.
 //*  If you do not find this file, copies can be found by writing to:
 //*
@@ -9,31 +9,23 @@
 //*      Attention:  License Inquiry.
 //*************************************************************************/
 
-
-enum WChannel_MessageTypes
-{
-
-    WC_CARRIER_SENSE_BEGIN = 8000;
-    WC_CARRIER_SENSE_END = 8001;
-    WC_CARRIER_SENSED = 8002;
-    WC_PKT_BEGIN_TX = 8003;
-    WC_PKT_END_TX = 8004;
-    WC_SIMTIME_LIMIT = 8005;
-    WC_CARRIER_SENSE_INSTANTANEOUS = 8006;
-    WC_NO_CARRIER_SENSED = 8007;
-    WC_NODE_MOVEMENT = 8008;
+message WirelessChannelSignalBegin {
+    int nodeID;
+    double power_dBm;
+    double carrierFreq;
+    double bandwidth;
+    int modulationType;
+    int encodingType;
 }
 
-
-packet WChannel_GenericMessage
-{
-    int srcAddress;
-    double rssi;
-    double txPower_dB;
+// NOTE: signal end is of type 'packet' so we can encapsulate the 
+// actual packet being transfered
+packet WirelessChannelSignalEnd {
+    int nodeID;		//references the original nodeID in signal begin
 }
 
-message WChannel_NodeMoveMessage extends WChannel_GenericMessage
-{
+message WirelessChannelNodeMoveMessage {
+    int nodeID;
     double x;
     double y;
     double z;

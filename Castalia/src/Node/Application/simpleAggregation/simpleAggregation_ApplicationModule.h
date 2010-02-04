@@ -1,7 +1,7 @@
 //***************************************************************************************
-//*  Copyright: National ICT Australia,  2007, 2008, 2009				*
+//*  Copyright: National ICT Australia,  2007, 2008, 2009, 2010				*
 //*  Developed at the Networks and Pervasive Computing program				*
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis				*
+//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis, Yuriy Tselishchev		*
 //*  This file is distributed under the terms in the attached LICENSE file.		*
 //*  If you do not find this file, copies can be found by writing to:			*
 //*											*
@@ -10,90 +10,34 @@
 //*											*
 //***************************************************************************************
 
- 
- 
-
 #ifndef _SIMPLEAGGREGATION_APPLICATIONMODULE_H_
 #define _SIMPLEAGGREGATION_APPLICATIONMODULE_H_
 
-#include <omnetpp.h>
-#include <string>
-#include "SensorDevMgr_GenericMessage_m.h"
+#include "VirtualApplicationModule.h"
 
-/*** 
-     You have to MODIFY the following "#define" statement by placing the
-     header file (*_m.h) that is produced from you custom *.msg message definition file
- ***/
-#include "simpleAggregation_DataPacket_m.h"
-
-#include "App_GenericDataPacket_m.h"
-#include "App_ControlMessage_m.h"
-#include "NetworkControlMessage_m.h"
-#include "ResourceGenericManager.h"
-#include "DebugInfoWriter.h"
 using namespace std;
 
+enum Timers {
+    REQUEST_SAMPLE = 1,
+    SEND_AGGREGATED_VALUE = 2
+};
 
-class simpleAggregation_ApplicationModule : public cSimpleModule 
+class simpleAggregation_ApplicationModule : public VirtualApplicationModule
 {
 	private:
-	// parameters and variables
-	
-	/*--- The .ned file's parameters ---*/
-		string applicationID;
-		bool printDebugInfo;
-		int priority;
-		int maxAppPacketSize;
-		int packetHeaderOverhead;
-		int constantDataPayload;
-		bool isSink;
-		
-	/*--- Custom class parameters ---*/
-		int self;	// the node's ID
-		double self_xCoo;
-		double self_yCoo;
-		ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
-		int disabled;
-		double cpuClockDrift;
-		
-		cOutVector appVector;	// the vector object to write the statistics
-		
-		/**
-		   ADD HERE YOUR CUSTOM private MEMBER VARIABLES AND FUNCTIONS
-		 **/
-		 
-		 double aggregatedValue;
-		 int routingLevel;
-		 double waitingTimeForLowerLevelData;
-		 App_ControlMessage *app_timer_A;
-		 double lastSensedValue;
-		 int totalPackets;
+	     double aggregatedValue;
+	     int routingLevel;
+	     double waitingTimeForLowerLevelData;
+	     double lastSensedValue;
+	     double sampleInterval;
+	     int totalPackets;
 	
 	protected:
-		virtual void initialize();
-		virtual void handleMessage(cMessage *msg);
-		virtual void finish();
-		
-		void send2NetworkDataPacket(const char *destID, double data, int pckSeqNumber);
-		void requestSampleFromSensorManager();
-		
-		
-		/************ Header file for Declaration of Functions of TunableMAC set functions  ******************************/
-		// If you are not going to use the TunableMAC module, then you can comment the following line and build Castalia
-		// the following includes are located at ../commonIncludeFiles
-		#include "radioControl.h"
-		#include "tunableMacControl.h"
-		/************ Connectivity Map Definitions  ************************************************/
-		
-
-		/**
-		   ADD HERE YOUR CUSTOM protected MEMBER VARIABLES AND FUNCTIONS
-		 **/
-
-	public:
-		/**
-		   ADD HERE YOUR CUSTOM public MEMBER VARIABLES AND FUNCTIONS
-		 **/
+	    void startup();
+	    void timerFiredCallback(int);
+	    void handleSensorReading(SensorReadingGenericMessage*);
+	    void handleNeworkControlMessage(cMessage*);
+	    void fromNetworkLayer(ApplicationGenericDataPacket*, const char*, const char *, double, double);
 };
 
 #endif // _SIMPLEAGGREGATION_APPLICATIONMODULE_H_

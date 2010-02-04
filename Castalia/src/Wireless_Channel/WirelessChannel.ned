@@ -21,8 +21,7 @@ simple WirelessChannel
 
 {
     parameters:
-        bool printDebugInfo = default(false);
-        bool printStatistics = default(false);
+        bool collectTraceInfo = default(false);
         bool onlyStaticNodes = default(true);
 
         double pathLossExponent = default(2.4);			// how fast is the signal strength fading

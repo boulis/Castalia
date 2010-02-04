@@ -12,8 +12,8 @@
 #ifndef TMACMODULE
 #define TMACMODULE
 
-#include "RadioModule.h"
 #include "VirtualMacModule.h"
+#include "TMacPacket_m.h"
 
 using namespace std;
 
@@ -66,18 +66,14 @@ class TMacModule : public VirtualMacModule
 
 	/*--- The .ned file's parameters ---*/
 	bool printDebugInfo;
-	bool printDroppedPackets;
 	bool printStateTransitions;
 
-	int maxMACFrameSize;		//in bytes
 	int maxTxRetries;
-	int macFrameOverhead;		//in bytes
-	int macBufferSize;		//in # of messages
 
-	int ackFrameSize;		//in bytes
-	int syncFrameSize;		//in bytes
-	int rtsFrameSize;		//in bytes
-	int ctsFrameSize;		//in bytes
+	int ackPacketSize;		//in bytes
+	int syncPacketSize;		//in bytes
+	int rtsPacketSize;		//in bytes
+	int ctsPacketSize;		//in bytes
 
 	bool allowSinkSync;
 	int resyncTime;
@@ -94,35 +90,27 @@ class TMacModule : public VirtualMacModule
 	/*--- General MAC variable ---*/
 	bool isSink;
 	int phyLayerOverhead;
-	simtime_t radioDelayForValidCS;      	// delay for valid CS
-	simtime_t radioDelayForSleep2Listen;	// delay to switch from sleep state to listen state
-	double radioDataRate;
-	double epsilon;				//used to keep/manage the order between two messages that are sent at the same simulation time
-	double cpuClockDrift;
-	double totalSimTime;
+	simtime_t phyDelayForValidCS;      	// delay for valid CS
+//	simtime_t radioDelayForSleep2Listen;	// delay to switch from sleep state to listen state
+	double phyDataRate;
 
 	/*--- TMAC state variables  ---*/
 	int macState;
 	int txAddr;			//current communication peer (can be BROADCAST)
 	int txRetries;			//number of transmission attempts to txAddr (when reaches 0 - packet is dropped)
+	int txSequenceNum;		//sequence number for current transmission
 	bool primaryWakeup;		//used to distinguish between primary and secondary schedules
-	bool needResync;		//set to 1 when a SYNC frame has to be sent
+	bool needResync;		//set to 1 when a SYNC packet has to be sent
 	simtime_t currentFrameStart;	//recorded start time of the current frame
 
 	/*--- TMAC activation timeout variable ---*/
 	simtime_t activationTimeout;	//time untill MAC_CHECK_TA message arrival
 
-	/*--- TMAC frame pointers (sometimes frame is created not immediately before sending) ---*/
-	MAC_GenericFrame *syncFrame;
-	MAC_GenericFrame *rtsFrame;
-	MAC_GenericFrame *ctsFrame;
-	MAC_GenericFrame *ackFrame;
-
-	/*--- TMAC transmission times ---*/
-	simtime_t syncTxTime;
-	simtime_t rtsTxTime;
-	simtime_t ctsTxTime;
-	simtime_t ackTxTime;
+	/*--- TMAC packet pointers (sometimes packet is created not immediately before sending) ---*/
+	TMacPacket *syncPacket;
+	TMacPacket *rtsPacket;
+	TMacPacket *ctsPacket;
+	TMacPacket *ackPacket;
 
 	/*--- TMAC Schedule table (list of effective schedules) ---*/
 	vector <TMacSchedule> scheduleTable;
@@ -133,14 +121,14 @@ class TMacModule : public VirtualMacModule
 	
 	void timerFiredCallback(int);
 	void carrierSenseCallback(int);
-	void fromNetworkLayer(MAC_GenericFrame*);
-	void fromRadioLayer(MAC_GenericFrame*);
+	void fromNetworkLayer(cPacket*,int);
+	void fromRadioLayer(cPacket*,double,double);
 
 	void resetDefaultState();
 	void setMacState(int newState);
 	void createPrimarySchedule();
-	void scheduleSyncFrame(simtime_t when);
-	void processMacFrame(MAC_GenericFrame *rcvFrame);
+	void scheduleSyncPacket(simtime_t when);
+	void processMacPacket(TMacPacket *);
 	void carrierIsClear();
 	void updateScheduleTable(simtime_t wakeup, int ID, int SN);
 	void performCarrierSense(int newState, simtime_t delay = 0);
@@ -149,7 +137,6 @@ class TMacModule : public VirtualMacModule
 	void popTxBuffer();
 	void updateTimeout(simtime_t t);
 	void clearTimeout();
-
 };
 
 #endif //TMACMODULE

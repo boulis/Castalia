@@ -1,5 +1,5 @@
 //***************************************************************************
-//*  Copyright: National ICT Australia,  2009
+//*  Copyright: National ICT Australia,  2009, 2010
 //*  Developed at the ATP lab, Networked Systems theme
 //*  Author(s): Athanassios Boulis, Yuri Tselishchev
 //*  This file is distributed under the terms in the attached LICENSE file.
@@ -11,53 +11,47 @@
 
 package Node.Communication.MAC.TMac;
 
-simple TMacModule like Node.Communication.MAC.MacGenericModule
-
-{
+simple TMacModule like Node.Communication.MAC.MacGenericModule {
     parameters:
-        //debug parameters
-        bool collectTraceInfo = default(true);
-        bool printDebugInfo = default(true);
-        bool printDroppedPackets = default(false);
-        bool printStateTransitions = default(true);
+	//debug parameters
+	bool collectTraceInfo = default(true);
+	bool printStateTransitions = default(true);
 
-        //mac layer packet sizes
-        int ackFrameSize = default(14);
-        int syncFrameSize = default(22);
-        int rtsFrameSize = default(14);
-        int ctsFrameSize = default(14);
+	//mac layer packet sizes, these parameters are described in TMacFrame.msg file
+	int ackPacketSize = default(11);
+	int syncPacketSize = default(11);
+	int rtsPacketSize = default(13);
+	int ctsPacketSize = default(13);
 
-        //mac layer parameters
-        int macMaxFrameSize = default(0);
-        int maxMACFrameSize = default(121);
-        int macFrameOverhead = default(14);	
-        int macBufferSize = default(32);
+	//mac layer parameters
+	int macMaxPacketSize = default(0);		//no limit on frame size
+	int macPacketOverhead = default(11);		//DATA frame overhead is described in TMacFrame.msg
+	int macBufferSize = default(32);		//buffer of 32 packets by default
+
+	//TMAC protocol parameters
 	int maxTxRetries = default(2);
+	bool allowSinkSync = default(true);		//This parameter allows sink node to start synchronisation immediately
+	bool useFrts = default(false);			//enable/disable FRTS (Future Request To Send), true value not supported
+	bool useRtsCts = default(true);			//This allows to enable/disable RTS/CTS handshake
+	bool disableTAextension = default(false);	//disabling TA extension effectively creates an SMAC protocol
+	bool conservativeTA = default(true);		//conservative activation timeout - will always stay awake for 
+							//atleast 15 ms after any activity on the radio
 
-        //TMAC algorithm parameters			
-        bool allowSinkSync = default(true);
-        bool useFrts = default(false);				// enable/disable FRTS (Future Request To Send), not supported
-        bool useRtsCts = default(true);
-        bool disableTAextension = default(false);			//disabling TA extension effectively creates an SMAC protocol
-        bool conservativeTA = default(true);			// conservative activation timeout - will always stay awake for 
-								// atleast 15 ms after any activity on the radio
+	double resyncTime = default(40);		// timer for re-sending SYNC msg, in seconds
+	double contentionPeriod = default(10);		// 10 ms
+	double listenTimeout = default(15);		// 15 ms, is the timeout TA (Activation event)
+	double waitTimeout = default(5);		// timeout for expecting a reply to DATA or RTS packet
+	double frameTime = default(610);		// frame time (standard = 610ms)
 
-        double resyncTime = default(40);		// timer for re-sending SYNC msg
-        double contentionPeriod = default(10);
-        double listenTimeout = default(15);		// 15 ms, is the timeout TA(Activation event)
-        double waitTimeout = default(5);		// timeout for expecting a reply to DATA or RTS packet
-        double frameTime = default(610);		// frame time (standard = 610ms)
-
-        int collisionResolution = default(1);			// collision resolution mechanism, choose from 
-  								//	0 - immediate retry
-								// 	1 - based on overhearing
-								//	2 - retry next frame
-								
+	int collisionResolution = default(1);		// collision resolution mechanism, choose from 
+							//	0 - immediate retry (low collision avoidance)
+							//	1 - based on overhearing (default)
+							//	2 - retry next frame (aggressive collision avoidance)
+							
     gates:
-
-        output toNetworkModule;
-        output toRadioModule;
-        input fromNetworkModule;
-        input fromRadioModule;
-        input fromCommModuleResourceMgr;
+	output toNetworkModule;
+	output toRadioModule;
+	input fromNetworkModule;
+	input fromRadioModule;
+	input fromCommModuleResourceMgr;
 }

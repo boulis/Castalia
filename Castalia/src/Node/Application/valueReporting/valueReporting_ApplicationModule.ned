@@ -23,7 +23,7 @@ simple valueReporting_ApplicationModule like Node.Application.ApplicationGeneric
 {
     parameters:
         string applicationID = default("valueReporting");
-        bool printDebugInfo = default(true);
+        bool collectTraceInfo = default(true);
         int priority = default(1);
         int maxAppPacketSize = default(30);		// in bytes
         int packetHeaderOverhead = default(8);		// in bytes

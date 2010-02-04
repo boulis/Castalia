@@ -33,7 +33,7 @@ class VirtualMobilityModule : public VirtualCastaliaModule
         NodeLocation_type nodeLocation;
 
         cModule *wchannel;
-	WChannel_NodeMoveMessage *positionUpdateMsg;
+	WirelessChannelNodeMoveMessage *positionUpdateMsg;
 
 	virtual void initialize();
         virtual void notifyWirelessChannel();

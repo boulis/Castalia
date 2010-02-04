@@ -16,7 +16,7 @@ simple LineMobilityModule like Node.Mobility_Module.VirtualMobilityModule
 
 {
     parameters:
-        bool printDebugInfo = default(false);
+        bool collectTraceInfo = default(false);
 	
         double updateInterval = default(1000);
         double xCoorDestination;

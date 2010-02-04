@@ -60,7 +60,7 @@ void VirtualMobilityModule::initialize()
         nodeLocation.z = node->par("zCoor");
     }
     
-    trace() << "initial location(x:y:z) is " << nodeLocation.x << ":" << nodeLocation.y << ":" << nodeLocation.z << "\n"; 
+    trace() << "initial location(x:y:z) is " << nodeLocation.x << ":" << nodeLocation.y << ":" << nodeLocation.z; 
 }
 
 void VirtualMobilityModule::setLocation(double x, double y, double z, double phi, double theta) 
@@ -81,13 +81,13 @@ void VirtualMobilityModule::setLocation(NodeLocation_type newLocation)
 
 void VirtualMobilityModule::notifyWirelessChannel() 
 {
-    positionUpdateMsg = new WChannel_NodeMoveMessage("location update message",WC_NODE_MOVEMENT);
+    positionUpdateMsg = new WirelessChannelNodeMoveMessage("location update message",WC_NODE_MOVEMENT);
     positionUpdateMsg->setX(nodeLocation.x);
     positionUpdateMsg->setY(nodeLocation.y);
     positionUpdateMsg->setZ(nodeLocation.z);
     positionUpdateMsg->setPhi(nodeLocation.phi);
     positionUpdateMsg->setTheta(nodeLocation.theta);
-    positionUpdateMsg->setSrcAddress(getParentModule()->getIndex());
+    positionUpdateMsg->setNodeID(getParentModule()->getIndex());
     sendDirect(positionUpdateMsg,wchannel,"fromMobilityModule");
 }
 

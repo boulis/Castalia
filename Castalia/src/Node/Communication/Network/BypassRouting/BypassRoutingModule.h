@@ -1,7 +1,7 @@
 //***************************************************************************************
-//*  Copyright: National ICT Australia,  2007, 2008, 2009				*
+//*  Copyright: National ICT Australia,  2007, 2008, 2009, 2010				*
 //*  Developed at the Networks and Pervasive Computing program				*
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis				*
+//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis, Yuriy Tselishchev		*
 //*  This file is distributed under the terms in the attached LICENSE file.		*
 //*  If you do not find this file, copies can be found by writing to:			*
 //*											*
@@ -10,64 +10,18 @@
 //*											*
 //***************************************************************************************
 
-
-
 #ifndef BYPASSROUTINGMODULE
 #define BYPASSROUTINGMODULE
 
-#include <vector>
-#include <queue>
-#include <omnetpp.h>
+#include "VirtualNetworkModule.h"
+#include "BypassRoutingPacket_m.h"
 
-#include "App_GenericDataPacket_m.h"
-#include "App_ControlMessage_m.h"
-#include "NetworkControlMessage_m.h"
-#include "NetworkGenericFrame_m.h"
-#include "MacGenericFrame_m.h"
-#include "MacControlMessage_m.h"
-#include "ResourceGenericManager.h"
-#include "RadioModule.h"
-#include "DebugInfoWriter.h"
 using namespace std;
 
-enum RoutingDecisions
-{
-	DELIVER_MSG_2_APP = 3200,
-	FORWARD_MSG_2_MAC = 3201,
-};
-
-class BypassRoutingModule : public cSimpleModule 
-{
-	private: 
-	// parameters and variables
-		
-		/*--- The .ned file's parameters ---*/
-		int maxNetFrameSize;	//in bytes
-		int netDataFrameOverhead;	//in bytes
-		int netBufferSize;	//in # of messages
-		int macFrameOverhead;
-		bool printDebugInfo;
-		
-		/*--- Custom class parameters ---*/
-		int self;					// the node's ID
-		RadioModule *radioModule;	//a pointer to the object of the Radio Module (used for direct method calls)
-		double radioDataRate;
-		ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
-		
-		queue <Network_GenericFrame *> TXBuffer;
-		
-		double epsilon;				//used to keep/manage the order between two messages that are sent at the same simulation time
-		
-		double cpuClockDrift;
-		int disabled;
-		string strSelfID;
-
-	protected:
-		virtual void initialize();
-		virtual void handleMessage(cMessage *msg);
-		virtual void finish();
-		void readIniFileParameters(void);
-		int encapsulateAppPacket(App_GenericDataPacket *appPacket, Network_GenericFrame *retFrame);
+class BypassRoutingModule : public VirtualNetworkModule {
+    protected:
+	void fromApplicationLayer(cPacket *, const char *);
+	void fromMacLayer(cPacket *, int, double,double);
 };
 
 #endif //BYPASSROUTINGMODULE

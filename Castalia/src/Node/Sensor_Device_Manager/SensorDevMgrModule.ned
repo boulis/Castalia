@@ -21,7 +21,7 @@ simple SensorDevMgrModule
 
 {
     parameters:
-        bool printDebugInfo = default(false);
+        bool collectTraceInfo = default(false);
         int numSensingDevices = default(1);		// how many sensing devices the node has (has to be <= SensorNetwork.numPhysicalProcesses)
         string pwrConsumptionPerDevice = default("0.02");
         string sensorTypes = default("Temperature");	// Humidity OR Temperature OR Light

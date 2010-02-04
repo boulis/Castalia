@@ -46,7 +46,7 @@ simple simpleTreeRoutingModule like Node.Communication.Network.NetworkGenericMod
 
 {
     parameters:
-        bool printDebugInfo = default(false);
+        bool collectTraceInfo = default(false);
         int maxNetFrameSize = default(84);			// bytes
         int netBufferSize = default(32);			// number of messages
         int netDataFrameOverhead = default(16);			// bytes

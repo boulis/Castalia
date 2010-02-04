@@ -16,11 +16,9 @@ simple BypassMacModule like Node.Communication.MAC.MacGenericModule
 {
     parameters:
 	bool collectTraceInfo = default(false);
-        bool printDebugInfo = default(false);
-        int macMaxFrameSize = default(0);
-        int maxMACFrameSize = default(121); 
-        int macFrameOverhead = default(14); 
-        int macBufferSize = default(32);
+        int macMaxPacketSize = default(0);	//BypassMac does not limit packet size
+        int macPacketOverhead = default(8); 	//only 2 fields are added in simple MAC frame, 8 bytes in total
+        int macBufferSize = default(0);		//BypassMac does not use buffers
 
     gates:
         output toNetworkModule;

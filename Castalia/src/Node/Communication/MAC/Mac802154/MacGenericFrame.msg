@@ -11,15 +11,6 @@
 // **************************************************************************************/
 
 
-// simulation related message type (used to set/get the message kind)
-enum MAC_GenericFrameType
-{
-    MAC_FRAME = 2100;  	//data frame MAC-->Radio and Radio-->MAC
-    MAC_FRAME_SELF_PUSH_TX_BUFFER = 2101;
-}
-
-
-
 // MAC layer protocol types (used to give values to the frameType field of struct macHeaderInfo)
 // A MAC_FRAME can be of any of the following types:
 enum MAC_ProtocolFrameType
@@ -41,11 +32,6 @@ enum MAC_ProtocolFrameType
     MAC_802154_ACK_FRAME = 1004;
     MAC_802154_GTS_REQUEST_FRAME = 1005;
 }
-
-cplusplus {{
-#define MAC_BROADCAST_ADDR -1
-}}
-
 
 struct macHeaderInfo
 {

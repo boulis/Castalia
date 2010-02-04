@@ -1,0 +1,48 @@
+// **************************************************************************************
+// *  Copyright: National ICT Australia,  2010						*
+// *  Developed at the Networks and Pervasive Computing program				*
+// *  Author(s): Yuriy Tselishchev							*
+// *  This file is distributed under the terms in the attached LICENSE file.		*
+// *  If you do not find this file, copies can be found by writing to:			*
+// *											*
+// *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia			*
+// *      Attention:  License Inquiry.							*
+// *			CASTALIA 2.0							*
+// **************************************************************************************/
+
+cplusplus {{
+#include "MacGenericPacket_m.h"
+}}
+
+class MacGenericPacket;
+
+enum TmacPacket_type {
+    SYNC_FRAME = 1;
+    RTS_FRAME = 2;
+    CTS_FRAME = 3;
+    DS_FRAME = 4;
+    FRTS_FRAME = 5;
+    DATA_FRAME = 6;
+    ACK_FRAME = 7;
+}
+
+packet TMacPacket extends MacGenericPacket {
+
+    // These are basic fields, essential for any packet (9 bytes in total)
+    int type enum(TmacPacket_type);		// 1 byte
+    int source = 0;				// 4 bytes
+    int destination = 0;			// 4 bytes
+    
+    // RTS and CTS frames also contain nav field, bringing their size to 13 bytes
+    simtime_t nav = 0;				// 4 bytes
+
+    // Sequence number is essential for ACK and DATA frames, but they do not contain NAV field, therefore
+    // the size of ACK packet and MAC layer overhead in general is 11 bytes
+    int sequenceNumber = 0;			// 2 bytes
+
+    // SYNC packet has only three fields: sequence number, sync value and sync ID, making its total size only 11 bytes 
+    // (1 extra byte comes from packet type) In reality, SYNC id would probably be stored in source field and sync 
+    // value in NAV field. But in this model we do not create a separate packet subclass for each packet type
+    simtime_t sync = 0;				// 4 bytes
+    int syncId = 0;				// 4 bytes
+}

@@ -17,8 +17,12 @@
 #include <map>
 #include <vector>
 #include <omnetpp.h>
+#include <iostream>
+#include <iomanip>
 
 #include "DebugInfoWriter.h"
+#include "CastaliaMessages.h"
+#include "ResourceManagerMessage_m.h"
 
 using namespace std;
 
@@ -52,29 +56,43 @@ struct histogramOutputTypeDef {
 typedef map<outputKeyDef, simpleOutputTypeDef> simpleOutputMapType;
 typedef map<outputKeyDef, histogramOutputTypeDef> histogramOutputMapType;
 
-class VirtualCastaliaModule : public cSimpleModule 
+class VirtualCastaliaModule : public virtual cSimpleModule 
 {
     private: 
 	simpleOutputMapType simpleoutputs;
 	histogramOutputMapType histograms;
 	
+	cModule* resourceManager;
+
+	void collectOutputNocheck(const char *, int , const char *, double); 
+	void collectHistogramNocheck(const char *, int, double);
+	void declareHistogramNocheck(const char *, double, double, int, int);
+		
     protected:
 	virtual void finish();
-	virtual void finishSpecific();
+	virtual void finishSpecific() {};
 	std::ostream &trace();
 	std::ostream &debug();
 	
 	nullstream empty;
 	
-	void declareOutput(const char *descr, int index = -1);
-	void collectOutput(const char *descr, int index, const char *label, double amt);
-	void collectOutput(const char *descr, const char *label) { return collectOutput(descr,-1,label,1); }
-	void collectOutput(const char *descr, const char *label, double amt) { return collectOutput(descr,-1,label,amt); }
-	void collectOutput(const char *descr, int index, const char *label) { return collectOutput(descr,index,label,1); }
+	void declareOutput(const char *);
+	void declareOutput(const char *, int);
 
-	void declareHistogram(const char *descr, double min, double max, int buckets, int index = -1);
-	void collectHistogram(const char *descr, int index, double value);
-	void collectHistogram(const char *descr, double value) { return collectHistogram(descr,-1,value); }
+	void collectOutput(const char *, int, const char *);
+	void collectOutput(const char *, int, const char *, double);
+
+	void collectOutput(const char * descr) { collectOutputNocheck(descr,-1,"total",1); }
+	void collectOutput(const char * descr, const char *label) { collectOutputNocheck(descr,-1,label,1); }
+	void collectOutput(const char * descr, const char *label, double amt) { collectOutputNocheck(descr,-1,label,amt); }
+
+	void declareHistogram(const char * descr, double min, double max, int buckets) { declareHistogramNocheck(descr,min,max,buckets,-1); }
+	void declareHistogram(const char *, double, double, int, int);
+
+	void collectHistogram(const char *, int, double);
+	void collectHistogram(const char * descr, double value) { collectHistogramNocheck(descr,-1,value); }
+	
+	void powerDrawn(double);
 	
 };
 

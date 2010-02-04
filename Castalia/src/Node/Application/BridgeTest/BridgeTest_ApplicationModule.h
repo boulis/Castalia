@@ -1,5 +1,5 @@
 //***************************************************************************************
-//*  Copyright: National ICT Australia,  2007, 2008, 2009				*
+//*  Copyright: National ICT Australia,  2009, 2010					*
 //*  Developed at the Networks and Pervasive Computing program				*
 //*  Author(s): Yuri Tselishchev							*
 //*  This file is distributed under the terms in the attached LICENSE file.		*
@@ -10,22 +10,13 @@
 //*											*
 //***************************************************************************************
 
- 
- 
-
 #ifndef _BRIDGETEST_APPLICATIONMODULE_H_
 #define _BRIDGETEST_APPLICATIONMODULE_H_
 
 #include <string>
 
-#include "SensorDevMgr_GenericMessage_m.h"
-#include "BridgeTest_DataPacket_m.h"
-#include "App_GenericDataPacket_m.h"
-#include "App_ControlMessage_m.h"
-#include "NetworkControlMessage_m.h"
+#include "VirtualApplicationModule.h"
 
-#include "VirtualCastaliaModule.h"
-#include "ResourceGenericManager.h"
 
 using namespace std;
 
@@ -41,77 +32,50 @@ struct report_info {
     vector <int> parts;
 };
 
-class BridgeTest_ApplicationModule : public VirtualCastaliaModule 
+enum Timers {
+    REQUEST_SAMPLE = 1,
+    REPROGRAM_NODES = 2,
+    SEND_REPROGRAM_PACKET = 3,
+};
+
+class BridgeTest_ApplicationModule : public VirtualApplicationModule 
 {
 	private:
-	// parameters and variables
+	    int reportTreshold;
+	    double sampleInterval;
+	    bool broadcastReports;
+	    int reprogramInterval;
+	    int reprogramPacketDelay;
+	    int reprogramPayload;
+	    int sampleSize;
+	    int maxPayload;
 	
-	/*--- The .ned file's parameters ---*/
-		string applicationID;
-		bool printDebugInfo;
-		int priority;
-		int maxAppPacketSize;
-		int packetHeaderOverhead;
-		int constantDataPayload;
-		int reportTreshold;
-		double sampleInterval;
-		bool isSink;
-		bool broadcastReports;
-		
-	/*--- Custom class parameters ---*/
-		int self;	// the node's ID
-		double self_xCoo;
-		double self_yCoo;
-		ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
-		int disabled;
-		double cpuClockDrift;
-		simtime_t outOfEnergy;		
-		cOutVector appVector;	// the vector object to write the statistics
-		
-		/**
-		   ADD HERE YOUR CUSTOM private MEMBER VARIABLES AND FUNCTIONS
-		 **/
-		
-		char selfAddr[16];
-		char broadcastAddr[16];
-		
-		int currentVersion;
-		int currentVersionPacket;
-		int currSentSampleSN;
-		int currentSampleAccumulated;
-		int maxSampleAccumulated;
-		int totalVersionPackets;
-		int routingLevel;
-		vector <version_info> version_info_table;
-		vector <report_info> report_info_table;
-		
+	    simtime_t outOfEnergy;
+	
+	    char selfAddr[16];
+	    char broadcastAddr[16];
+	
+	    int currentVersion;
+	    int currentVersionPacket;
+	    int currSampleSN;
+	    int currentSampleAccumulated;
+	    int maxSampleAccumulated;
+	    int totalVersionPackets;
+	    int routingLevel;
+	    vector <version_info> version_info_table;
+	    vector <report_info> report_info_table;
+	
 	protected:
-		virtual void initialize();
-		virtual void handleMessage(cMessage *msg);
-		void finishSpecific();
-		
-		void send2NetworkDataPacket(const char *destID, const char *pcktID, int data, int pckSeqNumber, int size);
-		void requestSampleFromSensorManager();
-		
-		
-		/************ Header file for Declaration of Functions of TunableMAC set functions  ******************************/
-		// If you are not going to use the TunableMAC module, then you can comment the following line and build Castalia
-		// the following includes are located at ../commonIncludeFiles
-		#include "radioControl.h"
-		#include "tunableMacControl.h"
-		/************ Connectivity Map Definitions  ************************************************/
-		
-
-		/**
-		   ADD HERE YOUR CUSTOM protected MEMBER VARIABLES AND FUNCTIONS
-		 **/
-		int updateVersionTable(int version, int seq);
-		int updateReportTable(int src, int seq);
-
-	public:
-		/**
-		   ADD HERE YOUR CUSTOM public MEMBER VARIABLES AND FUNCTIONS
-		 **/
+	    virtual void startup();
+	    void finishSpecific();
+	
+	    void send2NetworkDataPacket(const char *destID, const char *pcktID, int data, int pckSeqNumber, int size);
+	    int updateVersionTable(int version, int seq);
+	    int updateReportTable(int src, int seq);
+	
+	    void fromNetworkLayer(ApplicationGenericDataPacket*, const char*, const char *, double, double);
+	    void timerFiredCallback(int);
+	    void handleSensorReading(SensorReadingGenericMessage *);
 };
 
 #endif // _BRIDGETEST_APPLICATIONMODULE_H_

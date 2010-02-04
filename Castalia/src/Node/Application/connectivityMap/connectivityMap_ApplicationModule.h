@@ -1,7 +1,7 @@
 //***************************************************************************************
-//*  Copyright: National ICT Australia,  2007, 2008, 2009				*
+//*  Copyright: National ICT Australia,  2007, 2008, 2009, 2010				*
 //*  Developed at the Networks and Pervasive Computing program				*
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis				*
+//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis, Yuriy Tselishchev		*
 //*  This file is distributed under the terms in the attached LICENSE file.		*
 //*  If you do not find this file, copies can be found by writing to:			*
 //*											*
@@ -15,93 +15,50 @@
 #ifndef _CONNECTIVITYMAP_APPLICATIONMODULE_H_
 #define _CONNECTIVITYMAP_APPLICATIONMODULE_H_
 
-#include <omnetpp.h>
+#include "VirtualApplicationModule.h"
 
-#include <string>
-#include <vector>
-#include "SensorDevMgr_GenericMessage_m.h"
-#include "connectivityMap_DataPacket_m.h"
-#include "App_GenericDataPacket_m.h"
-#include "App_ControlMessage_m.h"
-#include "NetworkControlMessage_m.h"
-#include "ResourceGenericManager.h"
-#include "DebugInfoWriter.h"
 using namespace std;
 
 
-struct neighborRecord
-{
-	int id;
-	int timesRx;
-	int receivedPackets;
+struct neighborRecord {
+    int id;
+    int timesRx;
+    int receivedPackets;
 };
 
+enum Timers {
+    SEND_PACKET = 1,
+};
 
-class connectivityMap_ApplicationModule : public cSimpleModule
+class connectivityMap_ApplicationModule : public VirtualApplicationModule
 {
-	private:
+    private:
 	// parameters and variables
 
-	/*--- The .ned file's parameters ---*/
-		string applicationID;
-		bool printDebugInfo;
-		int priority;
-		int maxAppPacketSize;
-		int packetHeaderOverhead;
-		bool printConnMap;
-		int constantDataPayload;
+	int priority;
+	int maxAppPacketSize;
+	int packetHeaderOverhead;
+	bool printConnMap;
+	int constantDataPayload;
+	double packetSpacing;
+	int packetsPerNode;
+	int packetSize;
 
-	/*--- Custom class parameters ---*/
-		int self;	// the node's ID
-		double self_xCoo;
-		double self_yCoo;
-		ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
-		int disabled;
-		double cpuClockDrift;
+	vector <neighborRecord> neighborTable;
+	int packetsSent;
+	int serialNumber;
+	int totalSNnodes;
+	double txInterval_perNode;
+	double txInterval_total;
 
-		cOutVector appVector;	// the vector object to write the statistics
+    protected:
+	void startup();
+	void finishSpecific();
 
-		/**
-		   ADD HERE YOUR CUSTOM private MEMBER VARIABLES AND FUNCTIONS
-		 **/
-		vector <neighborRecord> neighborTable;
-		int packetsSent;
-		double last_sensed_value;
-		int serialNumber;
-		int totalSNnodes;
-		simtime_t totalSimTime;
-		int numTxPowerLevels;
-		char txPowerLevelNames[15][7];
-		simtime_t txInterval_perNode;
-		simtime_t txInterval_perPowerLevel;
-		int currentPowerLevel;
+	void fromNetworkLayer(ApplicationGenericDataPacket*, const char*, const char*, double, double);
+	void timerFiredCallback(int);
 
-	protected:
-		virtual void initialize();
-		virtual void handleMessage(cMessage *msg);
-		virtual void finish();
-
-		void send2NetworkDataPacket(const char *destID, int data, int pckSeqNumber);
-		void requestSampleFromSensorManager();
-
-
-		/************ Header file for Declaration of Functions of TunableMAC set functions  ******************************/
-		// If you are not going to use the TunableMAC module, then you can comment the following line and build Castalia
-		// the following includes are located at ../commonIncludeFiles
-		#include "radioControl.h"
-		#include "tunableMacControl.h"
-		/************ Connectivity Map Definitions  ************************************************/
-
-
-		/**
-		   ADD HERE YOUR CUSTOM protected MEMBER VARIABLES AND FUNCTIONS
-		 **/
-		void updateNeighborTable(int nodeID, int theSN);
-
-	public:
-		/**
-		   ADD HERE YOUR CUSTOM public MEMBER VARIABLES AND FUNCTIONS
-		 **/
+	void updateNeighborTable(int nodeID, int theSN);
 };
 
 #endif // _CONNECTIVITYMAP_APPLICATIONMODULE_H_

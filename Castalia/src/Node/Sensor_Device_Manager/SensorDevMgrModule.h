@@ -1,7 +1,7 @@
 //***************************************************************************************
-//*  Copyright: National ICT Australia,  2007, 2008, 2009				*
+//*  Copyright: National ICT Australia,  2007 - 2010					*
 //*  Developed at the Networks and Pervasive Computing program				*
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis				*
+//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis, Yuriy Tselishchev		*
 //*  This file is distributed under the terms in the attached LICENSE file.		*
 //*  If you do not find this file, copies can be found by writing to:			*
 //*											*
@@ -11,24 +11,20 @@
 //***************************************************************************************
 
 
-
-
 #ifndef _APPLICATIONMODULESIMPLE_H_
 #define _APPLICATIONMODULESIMPLE_H_
 
-#include <omnetpp.h>
-#include <vector>
-#include <string>
-#include "SensorDevMgr_GenericMessage_m.h"
-#include "ResourceGenericManager.h"
-#include "VirtualMobilityModule.h"
+#include "SensorReadingGenericMessage_m.h"
 #include "PhyProcessGenericMessage_m.h"
-#include "App_ControlMessage_m.h"
-#include "DebugInfoWriter.h"
+
+#include "VirtualMobilityModule.h"
+#include "VirtualCastaliaModule.h"
+
+
 using namespace std;
 
 
-class SensorDevMgrModule : public cSimpleModule 
+class SensorDevMgrModule : public VirtualCastaliaModule
 {
 	private:
 	// parameters and variables
@@ -52,7 +48,6 @@ class SensorDevMgrModule : public cSimpleModule
 		vector <simtime_t> sensorlastSampleTime;
 		vector <double> sensorLastValue;
 		vector <double> sensorBias;
-		ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
 		VirtualMobilityModule *nodeMobilityModule;
 		int disabled;
 		
@@ -60,7 +55,6 @@ class SensorDevMgrModule : public cSimpleModule
 	protected:
 		virtual void initialize();
 		virtual void handleMessage(cMessage *msg);
-		virtual void finish();
 		
 		void parseStringParams(void);
 		

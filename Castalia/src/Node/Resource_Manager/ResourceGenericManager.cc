@@ -17,59 +17,71 @@
 
 Define_Module(ResourceGenericManager);
 
-void ResourceGenericManager::initialize() 
-{
-	self = getParentModule()->getIndex();
-
-	printDebugInfo = par("printDebugInfo");
+void ResourceGenericManager::initialize() {
 	sigmaCPUClockDrift = par("sigmaCPUClockDrift");
 	cpuClockDrift = normal(0, sigmaCPUClockDrift);  //using the "0" rng generator of the ResourceGenericManager module 
 	initialEnergy = par("initialEnergy");
 	ramSize = par("ramSize");
 	baselineNodePower = par("baselineNodePower");
-	periodicEnergyCalculationInterval = par("periodicEnergyCalculationInterval");
-
-	if (baselineNodePower > 0 && periodicEnergyCalculationInterval > 0) {
-	    periodicEnergyCalculationInterval = periodicEnergyCalculationInterval / 1000;
-	    baselineNodePower = (baselineNodePower / 1000) * periodicEnergyCalculationInterval;
-	    scheduleAt(simTime()+ periodicEnergyCalculationInterval, 
-		new ResourceGenericManager_Message("Periodic energy message", RESOURCE_MGR_PERIODIC_ENERGY));
-	}
+	periodicEnergyCalculationInterval = (double)par("periodicEnergyCalculationInterval")/1000;
 	
+	if (baselineNodePower < 0 || periodicEnergyCalculationInterval < 0) opp_error("Illegal values for baselineNodePower and/or periodicEnergyCalculationInterval in resource manager module");
+	
+	currentNodePower = baselineNodePower;
 	remainingEnergy = initialEnergy;
+	timeOfLastCalculation = simTime();
 	totalRamData = 0;
+	
+	energyMsg = new cMessage("Periodic energy calculation message", TIMER_SERVICE);
+	scheduleAt(simTime() + periodicEnergyCalculationInterval, energyMsg);
 }
 
+void ResourceGenericManager::calculateEnergySpent() {
+    simtime_t timePassed = simTime() - timeOfLastCalculation;
+    trace() << "energy consumed in the last " << timePassed << "s is " << (timePassed * currentNodePower);
+    consumeEnergy(SIMTIME_DBL(timePassed * currentNodePower / 1000.0));
+    timeOfLastCalculation = simTime();
+    if (remainingEnergy > 0) {
+	cancelEvent(energyMsg);
+	scheduleAt(simTime() + periodicEnergyCalculationInterval, energyMsg);
+    }
+}
 
 void ResourceGenericManager::handleMessage(cMessage *msg)
 {
-	//The ResourceGenericManager module is not connected with other modules.
-	//They use instead its public methods.
-	//The only possible message is periodic energy consumption
-	
-	int msgKind = msg->getKind();
-	switch (msgKind) {
-	    
-	    case RESOURCE_MGR_PERIODIC_ENERGY: {
-		consumeEnergy(baselineNodePower);
-		if (remainingEnergy > 0) {
-		    scheduleAt(simTime()+ periodicEnergyCalculationInterval, 
-			new ResourceGenericManager_Message("Periodic energy message", RESOURCE_MGR_PERIODIC_ENERGY));
-		}
-	    }
-	    
-	    default: {
-	    	trace() << "\n[Resource Manager] t= " << simTime() << ": WARNING: Unexpected message: " << msgKind;
-	    }
+    //The ResourceGenericManager module is not connected with other modules.
+    //They use instead its public methods.
+    //The only possible message is periodic energy consumption. There is no
+    //message object associated to that message kind
+
+    switch (msg->getKind()) {
+	case TIMER_SERVICE: {
+	    calculateEnergySpent();
+	    return;
 	}
 	
-	delete msg;
-	msg = NULL;
+	case RESOURCE_MANAGER_DRAW_POWER: {
+	    ResourceManagerMessage *resMsg = check_and_cast<ResourceManagerMessage*>(msg);
+	    int id = resMsg->getSenderModuleId();
+	    double oldPower = storedPowerConsumptions[id];
+	    trace() << "New power consumption, id = " << id << ", oldPower = " << currentNodePower << ", newPower = " << currentNodePower - oldPower + resMsg->getPowerConsumed();
+	    calculateEnergySpent();
+	    currentNodePower = currentNodePower - oldPower + resMsg->getPowerConsumed();
+	    storedPowerConsumptions[id] = resMsg->getPowerConsumed();
+	    break;
+	}
+
+	default: {
+	    opp_error("ERROR: Unexpected message received by resource manager: %s",msg->getKind());
+	}
+    }
+    delete msg;
 }
 
 
 void ResourceGenericManager::finishSpecific()
 {
+	calculateEnergySpent();
 	declareOutput("Consumed Energy");
 	collectOutput("Consumed Energy","in Joules",getSpentEnergy());
 	// DO NOT ADD HERE ANY CODE FOR RECORDING SCALARS OR VECTORS
@@ -98,17 +110,15 @@ void ResourceGenericManager::consumeEnergy(double amount)
 	
 	if(remainingEnergy < amount)
 	{
-		send(new ResourceGenericManager_Message("Out of energy message", RESOURCE_MGR_OUT_OF_ENERGY), "toSensorDevManager");
-		send(new ResourceGenericManager_Message("Out of energy message", RESOURCE_MGR_OUT_OF_ENERGY), "toApplication");
-		send(new ResourceGenericManager_Message("Out of energy message", RESOURCE_MGR_OUT_OF_ENERGY), "toNetwork");
-		send(new ResourceGenericManager_Message("Out of energy message", RESOURCE_MGR_OUT_OF_ENERGY), "toMac");
-		send(new ResourceGenericManager_Message("Out of energy message", RESOURCE_MGR_OUT_OF_ENERGY), "toRadio");
-		
+	    remainingEnergy = 0;
+	    send(new cMessage("Destroy node message", DESTROY_NODE), "toSensorDevManager");
+	    send(new cMessage("Destroy node message", DESTROY_NODE), "toApplication");
+	    send(new cMessage("Destroy node message", DESTROY_NODE), "toNetwork");
+	    send(new cMessage("Destroy node message", DESTROY_NODE), "toMac");
+	    send(new cMessage("Destroy node message", DESTROY_NODE), "toRadio");
 	}
 	else
-		remainingEnergy -= amount;
-		
-	//trace() << "\n[Resource Manager]: consume: " << amount << "  Remaining energy: " << remainingEnergy << "\n";
+	    remainingEnergy -= amount;
 }
 
 
@@ -117,13 +127,11 @@ void ResourceGenericManager::destroyNode(void)
 {
 	Enter_Method("destroyNode(void)");
 	
-	send(new ResourceGenericManager_Message("Destroy node message", RESOURCE_MGR_DESTROY_NODE), "toSensorDevManager");
-	send(new ResourceGenericManager_Message("Destroy node message", RESOURCE_MGR_DESTROY_NODE), "toApplication");
-	send(new ResourceGenericManager_Message("Destroy node message", RESOURCE_MGR_DESTROY_NODE), "toNetwork");
-	send(new ResourceGenericManager_Message("Destroy node message", RESOURCE_MGR_DESTROY_NODE), "toMac");
-	send(new ResourceGenericManager_Message("Destroy node message", RESOURCE_MGR_DESTROY_NODE), "toRadio");
-	
-	//EV << "\n[Resource Manager_" << self << "]: Node destroyed" << "\n";
+	send(new cMessage("Destroy node message", DESTROY_NODE), "toSensorDevManager");
+	send(new cMessage("Destroy node message", DESTROY_NODE), "toApplication");
+	send(new cMessage("Destroy node message", DESTROY_NODE), "toNetwork");
+	send(new cMessage("Destroy node message", DESTROY_NODE), "toMac");
+	send(new cMessage("Destroy node message", DESTROY_NODE), "toRadio");
 }
 
 

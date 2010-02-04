@@ -16,5 +16,5 @@ moduleinterface VirtualMobilityModule
 
 {
     parameters:
-        bool printDebugInfo;
+        bool collectTraceInfo;
 }

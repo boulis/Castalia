@@ -1,20 +1,18 @@
 /****************************************************************************
- *  Copyright: National ICT Australia,  2007, 2008, 2009
- *  Developed at the ATP lab, Networked Systems theme
- *  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis
- *  This file is distributed under the terms in the attached LICENSE file.
- *  If you do not find this file, copies can be found by writing to:
- *
- *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia
- *      Attention:  License Inquiry.
+ *  Copyright: National ICT Australia,  2007 - 2010							*
+ *  Developed at the ATP lab, Networked Systems theme						*
+ *  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis					*
+ *  This file is distributed under the terms in the attached LICENSE file.	*
+ *  If you do not find this file, copies can be found by writing to:		*
+ *																			*
+ *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia				*
+ *      Attention:  License Inquiry.										*
  ****************************************************************************/
 
 
-
-#include "WCsupportFunctions.h"
+#include "RadioSupportFunctions.h"
 
 #define ERFINV_ERROR 100000.0
-
 
 
 /* Approximates the addition of 2 signals expressed in dBm.
@@ -205,4 +203,65 @@ float diffQPSK_SNR2BER( float SNR )
 	// return a linear combination of the 2 array elements that the SNR
 	return ( a * BER_array[index] + (1-a) * BER_array[index+1] );
 
+}
+
+/*
+ * Function to compute the probability of having EXACTLY k errors
+ * in total N bits when the Bit Error Rate/Probability is p.
+ * This is given by the formula (N choose k) * p^k * (1-p)^(N-k)
+ * (N choose k) = N!/((N-k)!*k!) = (N*(N-1)*...*(N-k)) / (1*2*...*k)
+ * We have optimized here to return for 0 errors quickly.
+ * Due to other optimizations there might be some rounding error
+ * in computing (N choose k) but this should be negligible
+ */
+double probabilityOfExactly_N_Errors(double BER, int errors, int numOfBits)
+{
+	if (errors == 0) return pow(1.0 - BER, numOfBits);
+
+	if (errors >= numOfBits) return pow(BER, numOfBits);
+
+	if (errors > numOfBits/2.0) errors = numOfBits - errors;
+	double combinations = 1.0;
+	for (int i=1; i<= errors; i++)
+	{
+		combinations /= i;
+		combinations *= (numOfBits + 1 - i);
+	}
+	return combinations * pow(BER, errors) * pow(1.0 - BER, numOfBits - errors);
+}
+
+
+RadioControlCommand *createRadioCommand(RadioControlCommand_type kind, double value) {
+    if (kind != SET_TX_OUTPUT && kind != SET_CARRIER_FREQ && kind != SET_CCA_THRESHOLD) 
+	opp_error("incorrect usage of createRadioCommand, double argument is only compatible with SET_TX_OUTPUT, SET_CCA_THRESHOLD or SET_CARRIER_FREQ");
+    RadioControlCommand *cmd = new RadioControlCommand("Radio control command", RADIO_CONTROL_COMMAND);
+    cmd->setRadioControlCommandKind(kind);
+    cmd->setParameter(value);
+    return cmd;
+}
+
+RadioControlCommand *createRadioCommand(RadioControlCommand_type kind, const char * name) {
+    if (kind != SET_MODE && kind != SET_SLEEP_LEVEL) 
+	opp_error("incorrect usage of createRadioCommand, string argument is only compatible with SET_MODE or SET_SLEEP_LEVEL");
+    RadioControlCommand *cmd = new RadioControlCommand("Radio control command", RADIO_CONTROL_COMMAND);
+    cmd->setRadioControlCommandKind(kind);
+    cmd->setName(name);
+    return cmd;
+}
+
+RadioControlCommand *createRadioCommand(RadioControlCommand_type kind, BasicState_type state) {
+    if (kind != SET_STATE) 
+	opp_error("incorrect usage of createRadioCommand, double argument is only compatible with SET_TX_OUTPUT or SET_CARRIER_FREQ");
+    RadioControlCommand *cmd = new RadioControlCommand("Radio control command", RADIO_CONTROL_COMMAND);
+    cmd->setRadioControlCommandKind(kind);
+    cmd->setState(state);
+    return cmd;
+}
+
+RadioControlCommand *createRadioCommand(RadioControlCommand_type kind) {
+    if (kind != SET_CS_INTERRUPT_ON && kind != SET_CS_INTERRUPT_OFF) 
+	opp_error("incorrect usage of createRadioCommand, no argument is only compatible with SET_CS_INTERRUPT_OFF or SET_CS_INTERRUPT_ON");
+    RadioControlCommand *cmd = new RadioControlCommand("Radio control command", RADIO_CONTROL_COMMAND);
+    cmd->setRadioControlCommandKind(kind);
+    return cmd;
 }

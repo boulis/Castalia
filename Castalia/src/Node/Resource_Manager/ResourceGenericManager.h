@@ -16,36 +16,43 @@
 #ifndef _RESOURCEGENERICMANAGER_H_
 #define _RESOURCEGENERICMANAGER_H_
 
-#include "ResourceGenericManager_Message_m.h"
+#include <map>
 #include "VirtualCastaliaModule.h"
+#include "ResourceManagerMessage_m.h"
 
 using namespace std;
 
+enum Timer {
+    PERIODIC_ENERGY_CALCULATION = 1,
+};
 
-class ResourceGenericManager : public VirtualCastaliaModule 
+class ResourceGenericManager : public VirtualCastaliaModule
 {
 	private:
 	// parameters and variables
-	
 	/*--- The .ned file's parameters ---*/
-		bool printDebugInfo;
 		double sigmaCPUClockDrift;
 		double cpuClockDrift;
 		double initialEnergy;
 		double ramSize;
 		double baselineNodePower;
+		double currentNodePower;
+		simtime_t timeOfLastCalculation;
 		double periodicEnergyCalculationInterval;
 		
 	/*--- Custom class parameters ---*/
 		double remainingEnergy;
 		double totalRamData;
-		int self;
 		
+		map <int,double> storedPowerConsumptions;
+		
+		cMessage *energyMsg;
 		
 	protected:
 		virtual void initialize();
 		virtual void handleMessage(cMessage *msg);
 		virtual void finishSpecific();
+		void calculateEnergySpent();
 	
 	
 	public:

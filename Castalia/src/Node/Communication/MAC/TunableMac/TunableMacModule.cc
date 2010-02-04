@@ -1,7 +1,7 @@
 //***************************************************************************************
-//*  Copyright: National ICT Australia,  2007, 2008, 2009				*
+//*  Copyright: National ICT Australia,  2007 - 2010				*
 //*  Developed at the Networks and Pervasive Computing program				*
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis				*
+//*  Author(s): Athanassios Boulis, Yuriy Tselishchev						*
 //*  This file is distributed under the terms in the attached LICENSE file.		*
 //*  If you do not find this file, copies can be found by writing to:			*
 //*											*
@@ -14,1413 +14,443 @@
 
 #include "TunableMacModule.h"
 
-#define CARRIER_SENSE_INTERVAL 0.0001
-#define DRIFTED_TIME(time) ((time) * cpuClockDrift)
-//#define EV   ev.isDisabled() ? (ostream&)ev : ev ==> EV is now part of <omnetpp.h>
-#define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
-
 Define_Module(TunableMacModule);
 
-void TunableMacModule::initialize()
-{
-	readIniFileParameters();
+void TunableMacModule::startup() {
+    dutyCycle = par("dutyCycle");
+    listenInterval = ((double)par("listenInterval"))/1000.0;		// convert msecs to secs
+    beaconIntervalFraction = par("beaconIntervalFraction");
+    probTx = par("probTx");
+    numTx = par("numTx");
+    randomTxOffset = ((double)par("randomTxOffset"))/1000.0;		// convert msecs to secs
+    reTxInterval = ((double)par("reTxInterval"))/1000.0;		// convert msecs to secs
+    beaconFrameSize = par("beaconFrameSize");
+    backoffType = par("backoffType");
 
-	//--------------------------------------------------------------------------------
-	//------- Follows code for the initialization of the class member variables ------
+    phyDataRate = par("phyDataRate");
+//    phyoDelayForSleep2Listen = ((double) radioModule->par("delaySleep2Listen"))/1000.0;
+    phyDelayForValidCS = (double)par("phyDelayForValidCS")/1000.0; //parameter given in ms in the omnetpp.ini
+    phyLayerOverhead = par("phyFrameOverhead");
 
-	self = getParentModule()->getParentModule()->getIndex();
-
-	//get a valid reference to the object of the Radio module so that we can make direct calls to its public methods
-	//instead of using extra messages & message types for tighlty couplped operations.
-	radioModule = check_and_cast<RadioModule*>(gate("toRadioModule")->getNextGate()->getOwnerModule());
-	radioDataRate = (double) radioModule->par("dataRate");
-	radioDelayForValidCS = ((double) radioModule->par("delayCSValid"))/1000.0; //parameter given in ms in the omnetpp.ini
-
-	phyLayerOverhead = radioModule->par("phyFrameOverhead");
-
-	//get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
-	//instead of using extra messages & message types for tighlty couplped operations.
-	cModule *parentParent = getParentModule()->getParentModule();
-	if(parentParent->findSubmodule("nodeResourceMgr") != -1)
-	{
-		resMgrModule = check_and_cast<ResourceGenericManager*>(parentParent->getSubmodule("nodeResourceMgr"));
+    switch(backoffType) {
+	case 0: {
+	    if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
+		backoffType = BACKOFF_SLEEP_INT;
+	    else
+		trace() << "Illegal value of parameter \"backoffType\" in omnetpp.ini.\n    Backoff timer = sleeping interval, but sleeping interval is not defined because duty cycle is zero, one, or invalid. Will use backOffBaseValue instead";
+	    backoffType = BACKOFF_CONSTANT;
+	    break;
 	}
-	else
-		opp_error("\n[Mac]:\n Error in geting a valid reference to  nodeResourceMgr for direct method calls.");
-	cpuClockDrift = resMgrModule->getCPUClockDrift();
+	case 1: { backoffType = BACKOFF_CONSTANT; break; }
+	case 2: { backoffType = BACKOFF_MULTIPLYING; break; }
+	case 3: { backoffType = BACKOFF_EXPONENTIAL; break; }
+	default: {
+	    opp_error("\n[Mac]:\n Illegal value of parameter \"backoffType\" in omnetpp.ini.");
+	    break;
+	}
+    }
+    backoffBaseValue = ((double)par("backoffBaseValue"))/1000.0;	// just convert msecs to secs
 
 
-	// If a valid duty cycle is defined, calculate sleepInterval and
-	// start the periodic sleep/listen cycle using a self message
-	// In order not to have synchronized nodes we indroduce a random delay
-	if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
-	{
-		setRadioState(MAC_2_RADIO_ENTER_SLEEP);
+    if ((dutyCycle > 0.0) && (dutyCycle < 1.0)) {
+	sleepInterval = listenInterval * ((1.0-dutyCycle)/dutyCycle);
+	setTimer(START_SLEEPING,listenInterval);
+    } else {
+	sleepInterval = -1.0;
+    }
+
+    macState = MAC_STATE_DEFAULT;
+    numTxTries = 0;
+    remainingBeaconsToTx = 0;
+    backoffTimes = 0;
+}
+
+void TunableMacModule::timerFiredCallback(int timer) {
+    switch (timer) {
+
+	case START_SLEEPING: {
+	    toRadioLayer(createRadioCommand(SET_STATE,SLEEP));
+	    setTimer(START_LISTENING,sleepInterval);
+	    break;
+	}
+
+	case START_LISTENING: {
+	    toRadioLayer(createRadioCommand(SET_STATE,RX));
+	    setTimer(START_SLEEPING,listenInterval);
+	    break;
+	}
+
+	case START_CARRIER_SENSING: {
+	    toRadioLayer(createRadioCommand(SET_STATE,RX));
+	    carrierSenseCallback(radioModule->isChannelClear());
+	    break;
+	}
+
+	case ATTEMPT_TX: {
+	    attemptTx();
+	    break;
+	}
+
+	case SEND_BEACONS_OR_DATA: {
+	    sendBeaconsOrData();
+	    break;
+	}
+
+	default: {
+	    trace() << "WARNING: unknown timer callback " << timer;
+	}
+    }
+}
+
+void TunableMacModule::carrierSenseCallback(int returnCode) {
+
+    switch(returnCode) {
+
+	case CLEAR: {
+	    /* We reset the backoff counter due to busy channel
+	     * Then we proceed to calculate the number of beacons required to be sent
+	     * based on sleep interval and beacon interval fraction
+	     */
+	    backoffTimes = 0;
+	    if ((dutyCycle > 0.0) && (dutyCycle < 1.0)) {
+	        double beaconTxTime = ((double)(beaconFrameSize+phyLayerOverhead)) * 8.0 / (1000.0 * phyDataRate);
+		double step = beaconTxTime + listenInterval/2.0;
+		remainingBeaconsToTx = (int)ceil(sleepInterval*beaconIntervalFraction/step);
+	    } else {
+		remainingBeaconsToTx = 0;
+	    }
+	    macState = MAC_STATE_TX;
+	    sendBeaconsOrData();
+	    break;
+	}
+
+	case BUSY: {
+	    double backoffTimer = 0;
+	    backoffTimes++;
+
+	    switch(backoffType) {
+		case BACKOFF_SLEEP_INT: {
+		    backoffTimer = sleepInterval;
+		    break;
+		}
+
+		case BACKOFF_CONSTANT: {
+		    backoffTimer = backoffBaseValue;
+		    break;
+		}
+
+		case BACKOFF_MULTIPLYING: {
+		    backoffTimer = (double) (backoffBaseValue * backoffTimes);
+		    break;
+		}
+
+		case BACKOFF_EXPONENTIAL: {
+		    backoffTimer = backoffBaseValue * pow(2.0, (double)(((backoffTimes-1) < 0)?0:backoffTimes-1));
+		    break;
+		}
+	    }
+
+	    backoffTimer = genk_dblrand(1)*backoffTimer;
+	    setTimer(START_CARRIER_SENSING,backoffTimer);
+
+	    /*
+	     * Go directly to sleep. One could say "wait for listenInterval in the case we receive something". This is highly
+	     * improbable though as most of the cases we start the process of carrier sensing from a sleep state (so most
+	     * likely we have missed the start of the packet). In the case we are in listen mode, if someone else
+	     * is transmitting then we would have entered EXPECTING_RX mode and the carrier sense (and TX) would be postponed.
+	     */
+	    toRadioLayer(createRadioCommand(SET_STATE,SLEEP));
+	    break;
+	}
+
+	case CS_NOT_VALID:   // this case never happens since in TunableMAC we always change to RX before we try CS
+	case CS_NOT_VALID_YET: {
+	    setTimer(START_CARRIER_SENSING,phyDelayForValidCS);
+	    break;
+	}
+    }
+}
+
+void TunableMacModule::fromNetworkLayer(cPacket *netPkt, int destination) {
+    TunableMacSimpleFrame *macPkt = new TunableMacSimpleFrame("TunableMac data frame", MAC_LAYER_PACKET);
+    macPkt->setSource(SELF_MAC_ADDRESS);
+    macPkt->setDestination(destination);
+    macPkt->setFrameType(DATA_FRAME);
+    encapsulatePacket(macPkt,netPkt);
+
+    /* We always try to buffer the packet first */
+    if (bufferPacket(macPkt)) {
+	/* If the new packet is the only packet and we are in default state
+	 * then we need to initiate transmission process for this packet.
+	 * If there are more packets in the buffer, then transmission is already
+	 * being handled
+	 */
+	if (macState == MAC_STATE_DEFAULT && TXBuffer.size() == 1) {
+	    /* First action to initiate new transmission is to deal with all
+	     * scheduled timers. In particular we need to suspend duty cycle
+	     * timers (if present) and attempt to transmit the new packet
+	     * with a maximum number of retries left
+	     */
+	    if ((dutyCycle > 0.0) && (dutyCycle < 1.0)) {
+		cancelTimer(START_LISTENING);
+		cancelTimer(START_SLEEPING);
+	    }
+	    numTxTries = numTx;
+	    attemptTx();
+	}
+    } else {
+	cancelAndDelete(macPkt);
+	// we could send buffer full control message to upper layer
+    }
+}
+
+void TunableMacModule::attemptTx() {
+    if (numTxTries <= 0) {
+	/* We can enter attemptTx from many places, in some cases the buffer may be empty
+	 * If its not empty but we have 0 tries left, then the front message is deleted
+	 */
+	if (TXBuffer.size() > 0) {
+	    cancelAndDelete(TXBuffer.front());
+	    TXBuffer.pop();
+	}
+
+	/* Check the buffer again to see if a new packet has to be transmitted, otherwise
+	 * change to default state and reestablish the sleeping schedule
+	 */
+	if (TXBuffer.size() > 0) {
+	    numTxTries = numTx;
+	    attemptTx();
+	} else {
+	    macState = MAC_STATE_DEFAULT;
+	    /* We have nothing left to transmit, need to resume sleep/listen pattern
+	     * Starting by going to sleep immediately (timer with 0 delay)
+	     */
+	    if ((dutyCycle > 0.0) && (dutyCycle < 1.0)) setTimer(START_SLEEPING,0);
+	}
+	return;
+    }
+
+    macState = MAC_STATE_CONTENDING;
+    numTxTries--;
+
+    if (genk_dblrand(0) < probTx) {
+	/* This transmission attempt will happen after random offset  */
+	setTimer(START_CARRIER_SENSING,genk_dblrand(1) * randomTxOffset);
+    } else {
+	/* Move on to the next attempt after reTxInterval */
+	setTimer(ATTEMPT_TX,reTxInterval);
+    }
+}
+
+void TunableMacModule::sendBeaconsOrData() {
+
+    if (remainingBeaconsToTx > 0) {
+	remainingBeaconsToTx--;
+
+	TunableMacSimpleFrame *beaconFrame = new TunableMacSimpleFrame("TunableMac beacon frame", MAC_LAYER_PACKET);
+	beaconFrame->setSource(SELF_MAC_ADDRESS);
+	beaconFrame->setDestination(BROADCAST_MAC_ADDRESS);
+	beaconFrame->setFrameType(BEACON_FRAME);
+	beaconFrame->setByteLength(beaconFrameSize);
+	toRadioLayer(beaconFrame);
+	toRadioLayer(createRadioCommand(SET_STATE,TX));
+
+	/* Set timer to send next beacon (or data packet)
+	 * We send beacons with half of the listen interval between them
+	 */
+	double beaconTxTime = ((double)(beaconFrameSize+phyLayerOverhead)) * 8.0 / (1000.0 * phyDataRate);
+	setTimer(SEND_BEACONS_OR_DATA,beaconTxTime + listenInterval/2.0);
+
+    } else {
+
+	toRadioLayer(TXBuffer.front()->dup());
+	toRadioLayer(createRadioCommand(SET_STATE,TX));
+	double packetTxTime = ((double)(TXBuffer.front()->getByteLength()+phyLayerOverhead)) * 8.0 / (1000.0 * phyDataRate);
+
+
+	/* We are done sending a _copy_ of the packet from the front of
+	 * the buffer. We now move on to either A) the next copy or B) the next
+	 * packet if the current packet has no TX attempts remaining.
+	 * In case A, we need to delay the attempt by reTxInterval.
+	 * Otherwise, in case B, attempt to transmit the next packet right away
+	 */
+	if (numTxTries > 0) {
+	    setTimer(ATTEMPT_TX,packetTxTime + reTxInterval);
+	} else {
+	    setTimer(ATTEMPT_TX,packetTxTime);
+	}
+    }
+}
+
+void TunableMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
+    TunableMacSimpleFrame *macFrame = dynamic_cast<TunableMacSimpleFrame *>(pkt);
+    if (macFrame == NULL) return;
+
+    int destination = macFrame->getDestination();
+    if (destination != SELF_MAC_ADDRESS && destination != BROADCAST_MAC_ADDRESS) return;
+
+    switch (macFrame->getFrameType()) {
+
+	case BEACON_FRAME: {
+	    /* If this is the first beacon we should enter state MAC_STATE_EXPECTING_RX.
+	     * In this state we cannot go to sleep or Tx.
+	     * Also schedule a self event to get out of it after sleepInterval.
+	     * We might get out of MAC_STATE_EXPECTING_RX earlier if we receive a data packet.
+	     */
+	    if (macState == MAC_STATE_DEFAULT) {
+		if ((dutyCycle > 0.0) && (dutyCycle < 1.0)) cancelTimer(START_SLEEPING);
+	    } else if (macState == MAC_STATE_CONTENDING) {
+		cancelTimer(START_CARRIER_SENSING);
+		cancelTimer(ATTEMPT_TX);
+	    } else if (macState == MAC_STATE_TX) {
+		/* We ignore the received beacon frame because we are in the
+		 * process of sending our own data
+		 */
+		 break;
+	    }
+	    macState = MAC_STATE_RX;
+	    setTimer(ATTEMPT_TX,sleepInterval);
+	    break;
+	}
+
+	case DATA_FRAME: {
+	    toNetworkLayer(macFrame->decapsulate());
+	    attemptTx();
+	    break;
+	}
+    }
+
+    delete macFrame;
+}
+
+int TunableMacModule::handleControlCommand(cMessage *msg) {
+    TunableMacControlCommand *cmd = check_and_cast<TunableMacControlCommand*>(msg);
+
+    switch(cmd->getTunableMacCommandKind()) {
+
+	case SET_DUTY_CYCLE: {
+
+	    bool hadDutyCycle = false;
+	    // check if there was already a non zero valid duty cycle
+	    if ((dutyCycle > 0.0) && (dutyCycle < 1.0)) hadDutyCycle = true;
+
+	    dutyCycle = cmd->getParameter();
+
+	    /* If a valid duty cycle is defined, calculate sleepInterval and
+	     * start the periodic sleep/listen cycle using a timer
+	     */
+	    if ((dutyCycle > 0.0) && (dutyCycle < 1.0)) {
 		sleepInterval = listenInterval * ((1.0-dutyCycle)/dutyCycle);
-	}
-	else
+		if(!hadDutyCycle) setTimer(START_SLEEPING,listenInterval);
+
+	    } else {
 		sleepInterval = -1.0;
-
-	macState = MAC_STATE_DEFAULT;
-	if(printStateTransitions)
-		CASTALIA_DEBUG << "\n[Mac_" << self <<"] t= " << simTime() << ": State changed to MAC_STATE_DEFAULT (initializing)";
-
-
-	epsilon = 0.000001;
-	disabled = 1;
-	beaconSN = 0;
-	backoffTimes = 0;
-
-	//duty cycle references
-	dutyCycleSleepMsg = NULL;
-	dutyCycleWakeupMsg = NULL;
-	
-	selfCheckTXBufferMsg = NULL;
-	selfExitCSMsg = NULL;
-	rxOutMessage = NULL;
-
-	potentiallyDroppedBeacons = 0;
-	potentiallyDroppedDataFrames = 0;
-}
-
-
-void TunableMacModule::handleMessage(cMessage *msg)
-{
-	int msgKind = msg->getKind();
-
-
-	if((disabled) && (msgKind != APP_NODE_STARTUP))
-	{
-		delete msg;
-		msg = NULL;		// safeguard
-		return;
+		/* We now have no duty cycle, but we had it prior to this command
+		 * Therefore we cancel all duty cycle related messages
+		 * and ensure that radio is not stuck in sleeping state
+		 * Since radio can sleep only when mac is in default state,
+		 * we only wake up the radio in default state also
+		 */
+		if (hadDutyCycle) {
+		    cancelTimer(START_SLEEPING);
+		    cancelTimer(START_LISTENING);
+		    if (macState == MAC_STATE_DEFAULT) toRadioLayer(createRadioCommand(SET_STATE,RX));
+		}
+	    }
+	    break;
 	}
 
-
-	switch (msgKind)
-	{
-
-		/*--------------------------------------------------------------------------------------------------------------
-		 * Sent by the Network getSubmodule(which received that from Application) in order to start/switch-on the MAC submodule.
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case APP_NODE_STARTUP:
-		{
-			disabled = 0;
-
-			setRadioState(MAC_2_RADIO_ENTER_LISTEN);
-
-			if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
-			{
-				if ( (dutyCycleSleepMsg != NULL) && (dutyCycleSleepMsg->isScheduled())  )
-						cancelAndDelete(dutyCycleSleepMsg);
-	
-				dutyCycleSleepMsg = new MAC_ControlMessage("put_radio_to_sleep", MAC_SELF_SET_RADIO_SLEEP);
-	
-				scheduleAt(simTime() + DRIFTED_TIME(listenInterval), dutyCycleSleepMsg);
-			}
-
-			break;
-		}
-
-
-		/*--------------------------------------------------------------------------------------------------------------
-		 * Sent by the Network module. We need to push it into the buffer and schedule its forwarding to the Radio buffer for TX.
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case NETWORK_FRAME:
-		{
-			if((int)TXBuffer.size() < macBufferSize)
-			{
-				Network_GenericFrame *rcvNetDataFrame = check_and_cast<Network_GenericFrame*>(msg);
-				//create the MACFrame from the Network Data Packet (encapsulation)
-				MAC_GenericFrame *dataFrame;
-
-				for( int i = 0; i< numTx; i++ )	// place at the TX buffer as many copies of the message as allowed by the parameter numTx
-				{
-
-					if (genk_dblrand(0) < probTx )  // for each try check with probTx, notice that we are using generator 1 not 0
-					{
-							// get the random offset for this try
-							double random_offset = genk_dblrand(1) * randomTxOffset;
-							
-							// create a new copy of the dataFrame
-							char buff[50];
-							sprintf(buff, "MAC Data frame (%f)", SIMTIME_DBL(simTime()));
-							dataFrame = new MAC_GenericFrame(buff, MAC_FRAME);
-							if(encapsulateNetworkFrame(rcvNetDataFrame, dataFrame))
-							{
-								dataFrame->setKind(MAC_FRAME_SELF_PUSH_TX_BUFFER); //the dataFrame is a pointer of type MAC_GenericFrame*
-								scheduleAt(simTime() + DRIFTED_TIME(random_offset + i*reTxInterval), dataFrame);
-
-								// schedule a new TX
-								scheduleAt(simTime() + DRIFTED_TIME(random_offset + i*reTxInterval) + epsilon, new MAC_ControlMessage("initiate a TX after receiving a NETWORK_FRAME", MAC_SELF_INITIATE_TX));
-							}
-							else
-							{
-								cancelAndDelete(dataFrame);
-								dataFrame = NULL;
-								CASTALIA_DEBUG << "\n[Mac_" << self <<"] t= " << simTime() << ": WARNING: Network module sent to MAC an oversized packet...packet dropped!!\n";
-							}
-
-					}
-				}
-
-				rcvNetDataFrame = NULL;
-				dataFrame = NULL;
-			}
-			else
-			{
-				MAC_ControlMessage *fullBuffMsg = new MAC_ControlMessage("MAC buffer is full Radio->Mac", MAC_2_NETWORK_FULL_BUFFER);
-
-				send(fullBuffMsg, "toNetworkModule");
-				
-				CASTALIA_DEBUG << "\n[Mac_" << self <<"] t= " << simTime() << ": WARNING: SchedTxBuffer FULL!!! Network frame is discarded";
-			}
-
-			break;
-		}//END_OF_CASE(NETWORK_FRAME)
-		
-		
-		
-		
-		/*--------------------------------------------------------------------------------------------------------------
-		 * Control message sent by the MAC (ourself) to initiate a TX either by first requesting Carrier Sense (if it is
-		 * enabled from the omnet.ini parameter "carrierSense") or directly by sending a MAC_SELF_CHECK_TX_BUFFER self message
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case MAC_SELF_INITIATE_TX:
-		{
-			if(macState == MAC_STATE_DEFAULT) // there is no point to do the following things when the Mac is already in TX mode
-			{								  // and moreover if it is in MAC_STATE_EXPECTING_RX or MAC_STATE_CARRIER_SENSING then we should't start a new TX
-				if(!TXBuffer.empty())
-				{
-					if(carrierSense)  //with MAC-triggered carrier sense
-					{
-						//delayed carrier sense request (delay = random_offset + i * reTxInterval + epsilon)
-						scheduleAt(simTime(), new MAC_ControlMessage("Enter carrier sense state MAC->MAC", MAC_SELF_PERFORM_CARRIER_SENSE));
-
-						/*
-						 * TODO: it is not mandatory to check our state as both message types :
-						 * MAC_SELF_CHECK_TX_BUFFER  and  MAC_SELF_PERFORM_CARRIER_SENSE
-						 * when are processed they take into consideration the current state of the MAC module.
-						 *
-						 * if(macState == MAC_STATE_TX)
-						 * 		scheduleAt(simTime(), new MAC_ControlMessage("check schedTXBuffer buffer", MAC_SELF_CHECK_TX_BUFFER)); //we m9ight not need to call MAC_SELF_CHECK_TX_BUFFER again because MAC will TX everything until it the Buffer get empty
-						 * else
-						 * if(macState == MAC_STATE_DEFAULT)
-						 *      scheduleAt(simTime() + epsilon, new MAC_ControlMessage("Enter carrier sense state MAC->MAC", MAC_SELF_PERFORM_CARRIER_SENSE));
-						 */
-					}
-					else  //without MAC-triggered carrier sense
-					{
-						/*
-						 * TODO: OR BETTER
-						 *
-						 * if(macState != MAC_STATE_CARRIER_SENSING  && MAC_STATE_EXPECTING_RX)
-						 *    scheduleAt(simTime() + epsilon, new MAC_ControlMessage("check schedTXBuffer buffer", MAC_SELF_CHECK_TX_BUFFER));
-						 */
-
-						// schedule a message that will check the Tx buffer for transmission
-						if( (selfCheckTXBufferMsg == NULL) || (!selfCheckTXBufferMsg->isScheduled()) )
-						{
-							selfCheckTXBufferMsg = new MAC_ControlMessage("check schedTXBuffer buffer", MAC_SELF_CHECK_TX_BUFFER);
-							scheduleAt(simTime(), selfCheckTXBufferMsg);
-						}
-					}
-				 }
-				 else // the Mac buffer is empty
-				 {
-					CASTALIA_DEBUG << "\n[Mac_" << self << "] t= " << simTime() << ": WARNING: MAC_SELF_INITIATE_TX received but Mac Buffer is empty, message description: " << msg->getName() << "\n";
-
-
-				 	macState = MAC_STATE_DEFAULT;
-				 	if(printStateTransitions)
-						CASTALIA_DEBUG << "\n[Mac_" << self <<"] t= " << simTime() << ": State changed to MAC_STATE_DEFAULT (MAC_SELF_INITIATE_TX received and buffer is empty)";
-
-
-					if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
-					{
-						if ( (dutyCycleSleepMsg != NULL) && (dutyCycleSleepMsg->isScheduled())  )
-								cancelAndDelete(dutyCycleSleepMsg);
-			
-						dutyCycleSleepMsg = new MAC_ControlMessage("put_radio_to_sleep", MAC_SELF_SET_RADIO_SLEEP);
-			
-						scheduleAt(simTime() + DRIFTED_TIME(listenInterval), dutyCycleSleepMsg);
-					}
-				 }
-			}
-			
-			break;
-		}
-		
-		
-
-
-
-		/*--------------------------------------------------------------------------------------------------------------
-		 * Sent by the MAC submodule itself to send the next Frame to Radio
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case MAC_SELF_CHECK_TX_BUFFER:
-		{
-			 if(!TXBuffer.empty())
-			 {
-			 	 // if there is something to Tx AND we are not expecting Rx AND we are not in MAC_STATE_CARRIER_SENSING
-			 	 if ( (macState == MAC_STATE_DEFAULT) || (macState == MAC_STATE_TX) )
-			 	 {
-			 	 	/*
-			 	 	 * **Commented out because we only use only the default power level & TxMode**
-			 	 	 *
-			 	 	 * setRadioTxMode(CARRIER_SENSE_NONE); //only MAC is performing Carrier Sense if carrierSense==TRUE else no CS at all
-			 	 	 * setRadioPowerLevel(0);
-			 	 	 */
-
-
-					// SEND THE BEACON FRAMES TO RADIO BUFFER
-					double beacon_offset = 0.0;
-					/* First, (if there is a duty cycle) we must "wake up" potential receivers
-					 * by sending a train of beacons. The packet we have now is fixed so we will
-					 * send so many packets to cover the (sleeping interval) * beaconIntervalFraction
-					 * double beacon_offset = 0;
-					 */
-					if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
-					{
-						// we do not send the beacons back to back, we leave listenInterval/2 between them
-						double beaconTxTime = ((double)(beaconFrameSize+phyLayerOverhead)) * 8.0 / (1000.0 * radioDataRate);
-
-						double step = beaconTxTime + listenInterval/2.0;
-
-						int i;
-
-						char beaconDescr[30];
-						for( i = 1; (i-1)*step < sleepInterval * beaconIntervalFraction; i++)
-						{
-							sprintf(beaconDescr, "Mac_beacon_Frame_%d", beaconSN);
-							MAC_GenericFrame *beaconFrame = new MAC_GenericFrame(beaconDescr, MAC_FRAME);
-							createBeaconDataFrame(beaconFrame);
-
-							// send one beacon delayed by the proper amount of time
-							sendDelayed(beaconFrame, DRIFTED_TIME((i-1)*step), "toRadioModule");//send beaconFrame to the buffer of the Radio with delay (i-1)*step
-
-							setRadioState(MAC_2_RADIO_ENTER_TX, DRIFTED_TIME((i-1)*step)+epsilon);
-							beacon_offset = DRIFTED_TIME((i)*step);
-							beaconSN++;
-						}
-
-					}
-
-
-
-					// SEND THE DATA FRAME TO RADIO BUFFER
-					MAC_GenericFrame *dataFrame = TXBuffer.front();
-					TXBuffer.pop();
-
-					sendDelayed(dataFrame, beacon_offset, "toRadioModule");
-					setRadioState(MAC_2_RADIO_ENTER_TX, beacon_offset+epsilon);
-					
-					double dataTXtime = ((double)(dataFrame->getByteLength()+phyLayerOverhead) * 8.0 / (1000.0 * radioDataRate));
-					
-					//schedule the selfCheckTXBufferMsg but firstly cancel any previous scheduling
-					selfCheckTXBufferMsg = new MAC_ControlMessage("check schedTXBuffer buffer", MAC_SELF_CHECK_TX_BUFFER);
-					scheduleAt(simTime()+ beacon_offset + dataTXtime + epsilon, selfCheckTXBufferMsg);
-
-					dataFrame = NULL;
-					
-					if(macState == MAC_STATE_DEFAULT)
-						macState = MAC_STATE_TX;
-			 	 }
-			 }
-			 else //MAC buffer is empty
-			 {
-			 	if(macState == MAC_STATE_CARRIER_SENSING)
-			 	{
-			 		if (( selfExitCSMsg != NULL ) && (  selfExitCSMsg->isScheduled() ))
-			 		{
-				 		cancelAndDelete(selfExitCSMsg);
-						selfExitCSMsg = NULL;
-			 		}
-			 	}
-			 	else
-			 	if(macState == MAC_STATE_EXPECTING_RX)
-			 	{
-			 		if (( rxOutMessage != NULL ) && (  rxOutMessage->isScheduled() ))
-			 		{
-				 		cancelAndDelete(rxOutMessage);
-						rxOutMessage = NULL;
-			 		}
-			 	}
-			 		 
-			 	macState = MAC_STATE_DEFAULT;
-			 	
-			 	if(printStateTransitions)
-					CASTALIA_DEBUG << "\n[Mac_" << self <<"] t= " << simTime() << ": State changed to MAC_STATE_DEFAULT (MAC_SELF_CHECK_TX_BUFFER received and buffer is empty)";
-
-							
-				if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
-				{
-					if ( (dutyCycleSleepMsg != NULL) && (dutyCycleSleepMsg->isScheduled())  )
-							cancelAndDelete(dutyCycleSleepMsg);
-		
-					dutyCycleSleepMsg = new MAC_ControlMessage("put_radio_to_sleep", MAC_SELF_SET_RADIO_SLEEP);
-		
-					scheduleAt(simTime() + DRIFTED_TIME(listenInterval), dutyCycleSleepMsg);
-				}
-				
-				selfCheckTXBufferMsg = NULL;
-			 }
-
-			break;
-		}
-
-
-		case MAC_SELF_SET_RADIO_SLEEP:
-		{
-			if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
-			{
-				if(macState == MAC_STATE_DEFAULT) //not in MAC_STATE_TX   OR   MAC_STATE_CARRIER_SENSING    OR    MAC_STATE_EXPECTING_RX
-				{
-					setRadioState(MAC_2_RADIO_ENTER_SLEEP);
-
-					if ( (dutyCycleWakeupMsg != NULL) && (dutyCycleWakeupMsg->isScheduled()) )
-						cancelAndDelete(dutyCycleWakeupMsg);
-	
-					dutyCycleWakeupMsg = new MAC_ControlMessage("wake_up_radio", MAC_SELF_WAKEUP_RADIO);
-	
-					scheduleAt(simTime() + DRIFTED_TIME(sleepInterval), dutyCycleWakeupMsg);
-				}
-				
-			}
-			else
-			{
-				if ( (dutyCycleWakeupMsg != NULL) && (dutyCycleWakeupMsg->isScheduled()) )
-						cancelAndDelete(dutyCycleWakeupMsg);
-				dutyCycleWakeupMsg = NULL;
-					
-				if ( (dutyCycleSleepMsg != NULL) && (dutyCycleSleepMsg->isScheduled())  )
-					cancelAndDelete(dutyCycleSleepMsg);
-			}
-			
-			dutyCycleSleepMsg = NULL;
-			
-			break;
-		}
-
-
-		/*--------------------------------------------------------------------------------------------------------------
-		 * Control message sent by the MAC (ourself) to try to wake up the radio.
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case MAC_SELF_WAKEUP_RADIO:
-		{
-			if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
-			{
-				if(macState == MAC_STATE_DEFAULT) //not in MAC_STATE_TX   OR   MAC_STATE_CARRIER_SENSING    OR    MAC_STATE_EXPECTING_RX
-				{
-					setRadioState(MAC_2_RADIO_ENTER_LISTEN);
-	
-					if ( (dutyCycleSleepMsg != NULL) && (dutyCycleSleepMsg->isScheduled())  )
-						cancelAndDelete(dutyCycleSleepMsg);
-	
-					dutyCycleSleepMsg = new MAC_ControlMessage("put_radio_to_sleep", MAC_SELF_SET_RADIO_SLEEP);
-	
-					scheduleAt(simTime() + DRIFTED_TIME(listenInterval), dutyCycleSleepMsg);
-				}
-			}
-			else
-			{
-				setRadioState(MAC_2_RADIO_ENTER_LISTEN);
-				
-				if ( (dutyCycleWakeupMsg != NULL) && (dutyCycleWakeupMsg->isScheduled()) )
-						cancelAndDelete(dutyCycleWakeupMsg);
-					
-				if ( (dutyCycleSleepMsg != NULL) && (dutyCycleSleepMsg->isScheduled())  )
-					cancelAndDelete(dutyCycleSleepMsg);
-				dutyCycleSleepMsg = NULL;
-			}
-			
-			dutyCycleWakeupMsg = NULL;
-			
-			break;
-		}
-		
-
-
-		/*--------------------------------------------------------------------------------------------------------------
-		 * Data Frame sent by the MAC module itself in order to be pushed/inserted into the MAC TX buffer and to be forwarded afterwards to the Radio module for TX
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case MAC_FRAME_SELF_PUSH_TX_BUFFER:
-		{
-			if((int)TXBuffer.size() < macBufferSize)
-			{
-				MAC_GenericFrame *dataFrame = check_and_cast<MAC_GenericFrame*>(msg);
-
-				// create a new copy of the message because dataFrame will be deleted outside the switch statement
-				MAC_GenericFrame *duplMsg = (MAC_GenericFrame *)dataFrame->dup(); //because theFrame will be deleted after the main switch in the handleMessage()
-				duplMsg->setKind(MAC_FRAME);
-				TXBuffer.push(duplMsg);
-			}
-			else
-			{
-				MAC_ControlMessage *fullBuffMsg = new MAC_ControlMessage("MAC buffer is full Radio->Mac", MAC_2_NETWORK_FULL_BUFFER);
-				send(fullBuffMsg, "toNetworkModule");
-				CASTALIA_DEBUG  << "\n[Mac_"<< self <<"] t= " << simTime() << ": WARNING: SchedTxBuffer FULL!!! Network frame is discarded.\n";
-			}
-
-			break;
-		}
-
-
-
-		/*--------------------------------------------------------------------------------------------------------------
-		 * Data Frame Received from the Radio getSubmodule(the data frame can be a Data packet or a beacon packet)
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case MAC_FRAME:
-		{
-			MAC_GenericFrame *rcvFrame;
-			rcvFrame = check_and_cast<MAC_GenericFrame*>(msg);
-
-			if(macState != MAC_STATE_TX)
-			{
-				if(isBeacon(rcvFrame)) //the received message is a Beacon
-				{
-
-					/*
-					 * If this is the first beacon we should enter state MAC_STATE_EXPECTING_RX.
-					 * In this state we cannot go to sleep or Tx.
-					 * Also schedule a self event to get out of it after sleepInterval.
-					 * We might get out of MAC_STATE_EXPECTING_RX earlier if we receive a data packet.
-					 */
-					 
-					if (macState != MAC_STATE_EXPECTING_RX)
-					{
-						if ( (macState == MAC_STATE_CARRIER_SENSING) && (selfExitCSMsg != NULL) && (selfExitCSMsg->isScheduled()) )
-						{
-								cancelAndDelete(selfExitCSMsg);
-								selfExitCSMsg = NULL;
-						}
-
-						macState = MAC_STATE_EXPECTING_RX;
-						
-						if(printStateTransitions)
-							CASTALIA_DEBUG << "\n[Mac_" << self <<"] t= " << simTime() << ": State changed to MAC_STATE_EXPECTING_RX (MAC_FRAME [beacon] received from Radio)";
-						
-						if (( rxOutMessage != NULL ) && (  rxOutMessage->isScheduled() ))
-						{
-							cancelAndDelete(rxOutMessage);  //just in case
-						}
-						
-						rxOutMessage = new MAC_ControlMessage("get out of RADIO_RX, timer expired", MAC_SELF_EXIT_EXPECTING_RX);
-						scheduleAt(simTime() + DRIFTED_TIME(sleepInterval), rxOutMessage);						
-					}
-
-				}
-				else  //the received message is a Data Frame
-				{
-					if(macState != MAC_STATE_CARRIER_SENSING)
-					{
-						/*
-						 * If there was a preceding train of beacons get out of RADIO_RX now.
-						 * This means if there is a MAC_SELF_EXIT_EXPECTING_RX message in the queue (sign of a beacon) just cancel and reschedule that message.
-						 *
-						 */
-						 
-						 if (( rxOutMessage != NULL ) && (  rxOutMessage->isScheduled() ))
-						 {
-					 		cancelAndDelete(rxOutMessage);
-							rxOutMessage = NULL;
-						 }
-						 
-						 if(macState == MAC_STATE_EXPECTING_RX)
-						 {
-						 	rxOutMessage = new MAC_ControlMessage("get out of RADIO_RX, data received", MAC_SELF_EXIT_EXPECTING_RX);
-						 	scheduleAt(simTime(), rxOutMessage);
-						 }
-						 else
-						 {
-						 	setRadioState(MAC_2_RADIO_ENTER_LISTEN); //radio should be already in LISTEN mode.
-						 	
-						 	// if there is a duty cycle, make sure that the node will not go to sleep right after this reception of the data frame  
-						 	// because other frames may follow this frame.
-						 	if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
-							{
-								if ( (dutyCycleSleepMsg != NULL) && (dutyCycleSleepMsg->isScheduled())  )
-										cancelAndDelete(dutyCycleSleepMsg);
-					
-								dutyCycleSleepMsg = new MAC_ControlMessage("put_radio_to_sleep", MAC_SELF_SET_RADIO_SLEEP);
-					
-								scheduleAt(simTime() + DRIFTED_TIME(listenInterval), dutyCycleSleepMsg);
-							}
-						 }
-					}
-				
-
-					//control the destination of the message and drop packets accordingly
-					int destinationID = rcvFrame->getHeader().destID;
-					if( (destinationID == self) || (destinationID == MAC_BROADCAST_ADDR) )
-					{
-						//DELIVER THE DATA PACKET TO Network MODULE
-						Network_GenericFrame *netDataFrame;
-						//No need to create a new message because of the decapsulation: netDataFrame = new Network_GenericFrame("Network frame MAC->Network", NETWORK_FRAME);
-		
-						//decaspulate the received MAC frame and create a valid Network_GenericFrame
-						netDataFrame = check_and_cast<Network_GenericFrame *>(rcvFrame->decapsulate());
-	
-						netDataFrame->setRssi(rcvFrame->getRssi());
-		
-						//send the App_GenericDataPacket message to the Application module
-						send(netDataFrame, "toNetworkModule");
-					}
-				}
-
-			}
-			else //(macState == MAC_STATE_TX)
-			{
-				/*
-				 * What if MAC is in TX mode and receives a MAC frame from the radio module?
-				 * Currently we discard it.
-				 */
-				
-				if(printPotentiallyDropped)
-				{
-					if(isBeacon(rcvFrame))
-						potentiallyDroppedBeacons++;
-					else
-						potentiallyDroppedDataFrames++;
-				}
-			}
-
-			break;
-		}
-		
-		
-		
-		
-		/*--------------------------------------------------------------------------------------------------------------
-		 * Sent by the Radio module in order for the MAC module to update its state to MAC_STATE_TX
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case RADIO_2_MAC_STARTED_TX:
-		{
-			if(macState == MAC_STATE_CARRIER_SENSING)
-			{
-				//the carrier sense operation is canceled so the pending MAC_SELF_EXIT_CARRIER_SENSE message must be cancelled.
-		 		if (( selfExitCSMsg != NULL ) && (  selfExitCSMsg->isScheduled() ))
-		 		{
-			 		cancelAndDelete(selfExitCSMsg);
-					selfExitCSMsg = NULL;
-		 		}
-			 	
-				macState = MAC_STATE_DEFAULT;
-				
-				if(printStateTransitions)
-					CASTALIA_DEBUG << "\n[Mac_" << self <<"] t= " << simTime() << ": State changed to MAC_STATE_DEFAULT (RADIO_2_MAC_STARTED_TX received when MAC_STATE_CARRIER_SENSING)";
-
-				if( (selfCheckTXBufferMsg == NULL) || (!selfCheckTXBufferMsg->isScheduled()) )
-				{
-					selfCheckTXBufferMsg = new MAC_ControlMessage("check schedTXBuffer buffer", MAC_SELF_CHECK_TX_BUFFER);
-					scheduleAt(simTime(), selfCheckTXBufferMsg);
-				}
-			}
-			else
-			if(macState == MAC_STATE_DEFAULT)
-			{
-				if( (selfCheckTXBufferMsg == NULL) || (!selfCheckTXBufferMsg->isScheduled()) )
-				{
-					selfCheckTXBufferMsg = new MAC_ControlMessage("check schedTXBuffer buffer", MAC_SELF_CHECK_TX_BUFFER);
-					scheduleAt(simTime(), selfCheckTXBufferMsg);
-				}
-			}
-			else
-			{
-				// do nothing:
-				//  a) if (macState == MAC_STATE_EXPECTING_RX)  --->  keep waiting for the data packet    OR
-				//  b) if (macState == MAC_STATE_TX)  --->  just keep the current state in TX
-			}
-			
-			break;
-		}
-
-
-
-		/*--------------------------------------------------------------------------------------------------------------
-		 * Sent by the Radio module in order the MAC module to exit the MAC_STATE_TX state
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case RADIO_2_MAC_STOPPED_TX:
-		{
-			/*if( (macState == MAC_STATE_TX) || (macState = MAC_STATE_DEFAULT) )
-			{
-				if( (selfCheckTXBufferMsg == NULL) || (!selfCheckTXBufferMsg->isScheduled()) )
-				{
-					selfCheckTXBufferMsg = new MAC_ControlMessage("check schedTXBuffer buffer", MAC_SELF_CHECK_TX_BUFFER);
-					scheduleAt(simTime(), selfCheckTXBufferMsg);
-				}
-			}*/
-			
-			break;
-		}
-		
-
-
-
-		/*--------------------------------------------------------------------------------------------------------------
-		 * Received by ourselves. It was scheduled DRIFTED_TIME(sleepInterval) before, when we received the first beacon, so that we
-		 * won't stay trapped in the MAC_STATE_EXPECTING_RX waiting for the Data Frame to come.
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case MAC_SELF_EXIT_EXPECTING_RX:
-		{
-			if (macState != MAC_STATE_EXPECTING_RX)
-			{
-				CASTALIA_DEBUG << "\n[Mac_"<< self <<"] t= " << simTime() << ": WARNING: received MAC_SELF_EXIT_EXPECTING_RX message while not in MAC_STATE_EXPECTING_RX state. Node: " << self << "  at time: " << simTime() << ", message description: " << msg->getName() << "\n";
-			}
-			else
-			{
-				macState = MAC_STATE_DEFAULT;
-				
-				if(printStateTransitions)
-					CASTALIA_DEBUG  << "\n[Mac_" << self <<"] t= " << simTime() << ": State changed to MAC_STATE_DEFAULT (MAC_SELF_EXIT_EXPECTING_RX received)";
-				
-				setRadioState(MAC_2_RADIO_ENTER_LISTEN); //radio should be already in LISTEN mode. I use this line just in case
-
-				//check if empty buffer and do TX (with or without Carrier Sense )
-				scheduleAt(simTime(), new MAC_ControlMessage("initiate a TX after exiting MAC_STATE_EXPECTING_RX state", MAC_SELF_INITIATE_TX));
-
-			}
-
-			rxOutMessage = NULL;		// since we received the message, reset the pointer
-
-			break;
-		}
-
-
-
-		/*--------------------------------------------------------------------------------------------------------------
-		 * Sent by the MAC submodule itself to start carrier sensing
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case MAC_SELF_PERFORM_CARRIER_SENSE:
-		{
-			if(macState == MAC_STATE_DEFAULT)
-			{
-				int isCarrierSenseValid_ReturnCode; //during this procedure we check if the carrier sense indication of the Radio is valid.
-				isCarrierSenseValid_ReturnCode = radioModule->isCarrierSenseValid();
-
-				if(isCarrierSenseValid_ReturnCode == 1) //carrier sense indication of Radio is Valid
-				{
-					// send the delayed message with the command to perform Carrier Sense to the radio
-					MAC_ControlMessage *csMsg = new MAC_ControlMessage("carrier sense strobe MAC->radio", MAC_2_RADIO_SENSE_CARRIER);
-					csMsg->setSense_carrier_interval(CARRIER_SENSE_INTERVAL);
-					send(csMsg, "toRadioModule");
-
-					if( (selfExitCSMsg != NULL) && (selfExitCSMsg->isScheduled()) )
-						cancelAndDelete(selfExitCSMsg);
-					selfExitCSMsg = new MAC_ControlMessage("Exit carrier sense state MAC->MAC", MAC_SELF_EXIT_CARRIER_SENSE);
-					scheduleAt(simTime() + CARRIER_SENSE_INTERVAL + epsilon, selfExitCSMsg);
-
-					macState = MAC_STATE_CARRIER_SENSING;
-					if(printStateTransitions)
-						CASTALIA_DEBUG << "\n[Mac_" << self <<"] t= " << simTime() << ": State changed to MAC_STATE_CARRIER_SENSING (MAC_SELF_PERFORM_CARRIER_SENSE received)";
-				}
-				else //carrier sense indication of Radio is NOT Valid and isCarrierSenseValid_ReturnCode holds the cause for the non valid carrier sense indication
-				{
-					switch(isCarrierSenseValid_ReturnCode)
-					{
-						case RADIO_IN_TX_MODE:
-						{
-							//send the packet (+ the precending beacons) to the Radio Buffer  by sending a message to ourselves
-							if( (selfCheckTXBufferMsg == NULL) || (!selfCheckTXBufferMsg->isScheduled()) )
-							{
-								selfCheckTXBufferMsg = new MAC_ControlMessage("check schedTXBuffer buffer", MAC_SELF_CHECK_TX_BUFFER);
-								scheduleAt(simTime(), selfCheckTXBufferMsg);
-							}
-							
-							break;
-						}
-
-						case RADIO_SLEEPING:
-						{
-							//wake up the radio
-							setRadioState(MAC_2_RADIO_ENTER_LISTEN);
-							//send to ourselves a MAC_SELF_PERFORM_CARRIER_SENSE with delay equal to the time needed by the radio to have a valid CS indication after switching to LISTENING state
-							scheduleAt(simTime() + DRIFTED_TIME(radioDelayForValidCS) + epsilon, new MAC_ControlMessage("Enter carrier sense state MAC->MAC", MAC_SELF_PERFORM_CARRIER_SENSE));
-							break;
-						}
-
-						case RADIO_NON_READY:
-						{
-							//send to ourselves a MAC_SELF_PERFORM_CARRIER_SENSE with delay equal to the time needed by the radio to have a valid CS indication after switching to LISTENING state
-							scheduleAt(simTime() + DRIFTED_TIME(radioDelayForValidCS), new MAC_ControlMessage("Enter carrier sense state MAC->MAC", MAC_SELF_PERFORM_CARRIER_SENSE));
-
-							break;
-						}
-
-						default:
-						{
-							CASTALIA_DEBUG << "\n[Mac_"<< self <<"] t= " << simTime() << ": WARNING: In MAC module, radioModule->isCarrierSenseValid(reasonNonValid) return invalid reasonNonValid.\n";
-							break;
-						}
-					}//end_switch
-				}
-			}
-			
-			break;
-		}
-
-
-
-		/*--------------------------------------------------------------------------------------------------------------
-		 * Sent by the MAC getSubmodule(ourself) to exit the MAC_STATE_CARRIER_SENSING (carrier is free)
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case MAC_SELF_EXIT_CARRIER_SENSE:
-		{			
-			if(macState == MAC_STATE_CARRIER_SENSING)
-			{
-				macState = MAC_STATE_DEFAULT;
-				if(printStateTransitions)
-						CASTALIA_DEBUG << "\n[Mac_" << self <<"] t= " << simTime() << ": State changed to MAC_STATE_DEFAULT (MAC_SELF_EXIT_CARRIER_SENSE received when MAC_STATE_CARRIER_SENSING)";
-				
-				// schedule a message that will check the Tx buffer for transmission
-				if( (selfCheckTXBufferMsg == NULL) || (!selfCheckTXBufferMsg->isScheduled()) )
-				{
-					selfCheckTXBufferMsg = new MAC_ControlMessage("check schedTXBuffer buffer", MAC_SELF_CHECK_TX_BUFFER);
-					scheduleAt(simTime(), selfCheckTXBufferMsg);
-				}
-				
-			}
-
-			backoffTimes = 0;	// the channel is clear, so we reset the backoffTimes counter.
-
-			selfExitCSMsg = NULL;
-
-			break;
-		}
-
-
-		/*--------------------------------------------------------------------------------------------------------------
-		 * Sent by the Radio submodule as a response for our (MAC's) previously sent directive to perform CS (carrier is not clear)
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case RADIO_2_MAC_SENSED_CARRIER:
-		{
-			if(macState == MAC_STATE_CARRIER_SENSING)
-			{
-				macState = MAC_STATE_DEFAULT;
-				if(printStateTransitions)
-					CASTALIA_DEBUG << "\n[Mac_" << self <<"] t= " << simTime() << ": State changed to MAC_STATE_DEFAULT (RADIO_2_MAC_SENSED_CARRIER received when MAC_STATE_CARRIER_SENSING)";
-
-				double backoffTimer = 0;
-				backoffTimes++;
-
-				switch(backoffType)
-				{
-					case BACKOFF_SLEEP_INT:{
-							backoffTimer = sleepInterval;
-							break;
-							}
-
-					case BACKOFF_CONSTANT:{
-							backoffTimer = backoffBaseValue;
-							break;
-							}
-
-					case BACKOFF_MULTIPLYING:{
-							backoffTimer = (double) (backoffBaseValue * backoffTimes);
-							break;
-							}
-
-					case BACKOFF_EXPONENTIAL:{
-							backoffTimer = backoffBaseValue * pow(2.0, (double)(((backoffTimes-1) < 0)?0:backoffTimes-1));
-							break;
-							}
-				}
-
-				/***
-				 * Go directly to sleep. One could say "wait for listenInterval in the case we receive something". This is highly
-				 * improbable though as most of the cases we start the process of carrier sensing from a sleep state (so most
-				 * likely we have missed the start of the packet). In the case we are in listen mode, if someone else
-				 * is transmitting then we would have entered EXPECTING_RX mode and the carrier sense (and TX) would be postponed.
-				 ***/
-
-				if(randomBackoff)
-					backoffTimer = genk_dblrand(1)*backoffTimer;
-
-				if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
-				 {
-					if(backoffTimer != 0.0)
-					{
-						if ( (dutyCycleSleepMsg != NULL) && (dutyCycleSleepMsg->isScheduled())  )
-							cancelAndDelete(dutyCycleSleepMsg);
-						dutyCycleSleepMsg = new MAC_ControlMessage("put_radio_to_sleep", MAC_SELF_SET_RADIO_SLEEP);
-						scheduleAt(simTime() + DRIFTED_TIME(listenInterval), dutyCycleSleepMsg);
-						
-						scheduleAt(simTime() + DRIFTED_TIME(backoffTimer+listenInterval), new MAC_ControlMessage("try transmitting after backing off", MAC_SELF_INITIATE_TX));
-					}
-					else
-						scheduleAt(simTime() + DRIFTED_TIME(epsilon), new MAC_ControlMessage("try transmitting after backing off", MAC_SELF_INITIATE_TX));
-				 }
-				 else
-				 {					 
-				 	if(backoffTimer != 0.0)
-				 		scheduleAt(simTime() + DRIFTED_TIME(backoffTimer), new MAC_ControlMessage("try transmitting after backing off", MAC_SELF_INITIATE_TX));
-				 	else
-				 		scheduleAt(simTime() + DRIFTED_TIME(epsilon), new MAC_ControlMessage("try transmitting after backing off", MAC_SELF_INITIATE_TX));
-				 }
-
-			}
-			
-			//the carrier is sensed so the pending MAC_SELF_EXIT_CARRIER_SENSE message must be cancelled (so as not to give the
-			//false impression that the channel is clear).
-			if (( selfExitCSMsg != NULL ) && (  selfExitCSMsg->isScheduled() ))
-			{
-				cancelAndDelete(selfExitCSMsg);
-				selfExitCSMsg = NULL;
-			}
-			
-			break;
-		}
-
-
-
-		case RADIO_2_MAC_FULL_BUFFER:
-		{
-			/*
-			 * TODO:
-			 * add your code here to manage the situation of a full Radio buffer.
-			 * Apparently we 'll have to stop sending messages and enter into listen or sleep mode (depending on the MAC protocol that we implement).
-			 */
-			 CASTALIA_DEBUG << "\n[Mac_"<< self <<"] t= " << simTime() << ": WARNING: RADIO_2_MAC_FULL_BUFFER received because the Radio buffer is full.\n";
-			 
-			 break;
-		}
-
-
-
-		/*--------------------------------------------------------------------------------------------------------------
-		 * Message sent by the Resource Manager when battery is out of energy.
-		 * Node has to shut down.
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case RESOURCE_MGR_OUT_OF_ENERGY:
-		{
-			disabled = 1;
-			
-			break;
-		}
-		
-		
-		
-		/*--------------------------------------------------------------------------------------------------------------
-		 * Message received by the ResourceManager module. It commands the module to stop its operation.
-		 *--------------------------------------------------------------------------------------------------------------*/
-		case RESOURCE_MGR_DESTROY_NODE:
-		{
-			disabled = 1;
-			
-			break;
-		}
-		
-
-		
-		case APPLICATION_2_MAC_SETRADIOTXPOWER:
-		{
-			App_ControlMessage *ctrlFrame;
-			ctrlFrame = check_and_cast<App_ControlMessage*>(msg);
-			
-			int msgTXPowerLevel = ctrlFrame->getRadioTXPowerLevel();
-			setRadioPowerLevel(msgTXPowerLevel);
-			
-			ctrlFrame = NULL;
-			
-			break;
-		}
-		
-		case APPLICATION_2_MAC_SETRADIOTXMODE:
-		{
-			App_ControlMessage *ctrlFrame;
-			ctrlFrame = check_and_cast<App_ControlMessage*>(msg);
-			
-			int msgTXMode = ctrlFrame->getRadioTXMode();
-
-   			switch (msgTXMode)
-   			{
-   				case 0:{
-   						 setRadioTxMode(CARRIER_SENSE_NONE);
-   						 break;
-   						}
-   						
-   				case 1:{
-   						 setRadioTxMode(CARRIER_SENSE_ONCE_CHECK);
-   						 break;
-   						}
-   						
-   				case 2:{
-   						 setRadioTxMode(CARRIER_SENSE_PERSISTENT);
-   						 break;
-   						}
-   						
-   				default:{
-   						CASTALIA_DEBUG << "\n[Mac_" << self <<"]: Application module sent an invalid SETRADIOTXMODE command strobe.";
-   						break;
-   						}
-   			}
-			
-			ctrlFrame = NULL;
-			
-			break;
-		}
-		
-		case APPLICATION_2_MAC_SETRADIOSLEEP:
-		{
-			setRadioState(MAC_2_RADIO_ENTER_SLEEP);
-
-			break;
-		}
-		
-		
-		case APPLICATION_2_MAC_SETRADIOLISTEN:
-		{
-			setRadioState(MAC_2_RADIO_ENTER_LISTEN);
-			
-			break;
-		}
-		
-		
-		case APPLICATION_2_MAC_SETDUTYCYCLE:
-		{
-			App_ControlMessage *ctrlFrame;
-			ctrlFrame = check_and_cast<App_ControlMessage*>(msg);
-			
-			bool hadDutyCycle = false;
-			// check if there was already a non zero valid duty cycle
-			if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
-				hadDutyCycle = true;
-			
-			dutyCycle = ctrlFrame->getMacDutyCycle();
-			
-			// If a valid duty cycle is defined, calculate sleepInterval and
-			// start the periodic sleep/listen cycle using a self message
-			// In order not to have synchronized nodes we indroduce a random delay
-			if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
-			{
-				sleepInterval = listenInterval * ((1.0-dutyCycle)/dutyCycle);
-				
-				if(!hadDutyCycle)
-				{
-					// cancel and delete any possibly scheduled Sleep/Wakeup message
-					// however it is not likely to be scheduled if there was no duty cycle enabled before
-					// cancel and delete them just in case..
-					if ( (dutyCycleSleepMsg != NULL) && (dutyCycleSleepMsg->isScheduled())  )
-						cancelAndDelete(dutyCycleSleepMsg);
-					if ( (dutyCycleWakeupMsg != NULL) && (dutyCycleWakeupMsg->isScheduled()) )
-						cancelAndDelete(dutyCycleWakeupMsg);
-					
-					
-					if ( (dutyCycleSleepMsg != NULL) && (dutyCycleSleepMsg->isScheduled())  )
-							cancelAndDelete(dutyCycleSleepMsg);
-					dutyCycleSleepMsg = new MAC_ControlMessage("put_radio_to_sleep", MAC_SELF_SET_RADIO_SLEEP);
-					scheduleAt(simTime() + DRIFTED_TIME(listenInterval), dutyCycleSleepMsg);
-				}	
-			}
-			else // no duty cycle
-			{		
-				sleepInterval = -1.0;
-			}
-								
-			ctrlFrame = NULL;
-			
-			break;
-		}
-		
-		
-		
-		case APPLICATION_2_MAC_SETLISTENINTERVAL:
-		{
-			App_ControlMessage *ctrlFrame;
-			ctrlFrame = check_and_cast<App_ControlMessage*>(msg);
-			
-			double tmpValue = ctrlFrame->getMacListenInterval()/1000.0;
-			if(tmpValue < 0.0)
-			{
-				CASTALIA_DEBUG << "\n[Mac__" << self <<"]:\nWarning! Application module tried to set an invalid ListenInterval to the MAC module\n";
-			}
-			else
-			{
-				listenInterval = tmpValue;
-				
-				if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
-				{
-					sleepInterval = listenInterval * ((1.0-dutyCycle)/dutyCycle);
-				}
-				else
-					sleepInterval = -1.0;
-			}
-			
-			ctrlFrame = NULL;
-			
-			break;
-		}
-		
-		case APPLICATION_2_MAC_SETBEACONINTERVALFRACTION:
-		{
-			App_ControlMessage *ctrlFrame;
-			ctrlFrame = check_and_cast<App_ControlMessage*>(msg);
-			
-			double tmpValue = ctrlFrame->getMacBeaconIntervalFraction();
-			
-			if( (tmpValue < 0.0) || (tmpValue > 1.0) )
-			{
-				CASTALIA_DEBUG << "\n[Mac_" << self <<"]:\nWarning! Application module tried to set an invalid BeaconIntervalFraction to the MAC module\n";
-			}
-			else
-				beaconIntervalFraction = tmpValue;
-			
-			ctrlFrame = NULL;
-		
-			break;
-		}
-		
-		
-		
-		case APPLICATION_2_MAC_SETPROBTX:
-		{
-			App_ControlMessage *ctrlFrame;
-			ctrlFrame = check_and_cast<App_ControlMessage*>(msg);
-			
-			double tmpValue = ctrlFrame->getMacProbTX();
-			
-			if( (tmpValue < 0.0) || (tmpValue > 1.0) )
-			{
-				CASTALIA_DEBUG << "\n[Mac_" << self <<"]:\nWarning! Application module tried to set an invalid ProbTX to the MAC module\n";
-			}
-			else
-			{
-				probTx = tmpValue;
-			}
-			
-			ctrlFrame = NULL;
-			
-			break;
-		}
-		
-		case APPLICATION_2_MAC_SETNUMTX:
-		{
-			App_ControlMessage *ctrlFrame;
-			ctrlFrame = check_and_cast<App_ControlMessage*>(msg);
-			
-			int tmpValue = ctrlFrame->getMacNumTX();
-			
-			if(tmpValue < 0)
-			{
-				CASTALIA_DEBUG << "\n[Mac_" << self <<"]:\nWarning! Application module tried to set an invalid NumTX to the MAC module\n";
-			}
-			else
-			{
-				numTx = tmpValue;
-			}
-			
-			ctrlFrame = NULL;
-			
-			break;
-		}
-		
-		case APPLICATION_2_MAC_SETRNDTXOFFSET:
-		{
-			App_ControlMessage *ctrlFrame;
-			ctrlFrame = check_and_cast<App_ControlMessage*>(msg);
-			
-			double tmpValue = ctrlFrame->getMacRndTXOffset()/1000.0;
-			
-			if(tmpValue <= 0.0)
-			{
-				CASTALIA_DEBUG << "\n[Mac_" << self <<"]:\nWarning! Application module tried to set an invalid randomTxOffset to the MAC module\n";
-			}
-			else
-			{
-				randomTxOffset = tmpValue;
-			}
-			
-			ctrlFrame = NULL;
-			
-			break;
-		}
-		
-		case APPLICATION_2_MAC_SETRETXINTERVAL:
-		{
-			App_ControlMessage *ctrlFrame;
-			ctrlFrame = check_and_cast<App_ControlMessage*>(msg);
-			
-			double tmpValue = ctrlFrame->getMacReTXInterval()/1000.0;
-			
-			if(tmpValue <= 0.0)
-			{
-				CASTALIA_DEBUG << "\n[Mac_" << self <<"]:\nWarning! Application module tried to set an invalid reTxInterval to the MAC module\n";
-			}
-			else
-			{
-				reTxInterval = tmpValue;
-			}
-			
-			ctrlFrame = NULL;
-			
-			break;
-		}
-		
-		case APPLICATION_2_MAC_SETBACKOFFTYPE:
-		{
-			App_ControlMessage *ctrlFrame;
-			ctrlFrame = check_and_cast<App_ControlMessage*>(msg);
-			
-			int tmpValue = ctrlFrame->getMacBackoffType();
-			
-			switch(tmpValue)
-			{
-				case 0:
-						{
-							if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
-								backoffType = BACKOFF_SLEEP_INT;
-							else
-								CASTALIA_DEBUG << "\n[Mac_" << self <<"]:\nWarning! Application module tried to set an invalid backoffType to the MAC module.\n Backoff timer = sleeping interval, but sleeping interval is not defined because duty cycle is zero, one, or invalid.\n";
-
-							break;
-						}
-				
-				case 1:
-						{
-							backoffType = BACKOFF_CONSTANT;
-							if(backoffBaseValue <= 0.0)
-								CASTALIA_DEBUG << "\n[Mac_" << self <<"]:\nWarning! Application sent a SETBACKOFFTYPE strobe to Mac module but Mac module is set with an invalid backoffBaseValue.\n";
-							break;
-						}
-						
-				case 2:
-						{
-							backoffType = BACKOFF_MULTIPLYING;
-							if(backoffBaseValue <= 0.0)
-								CASTALIA_DEBUG << "\n[Mac_" << self <<"]:\nWarning! Application sent a SETBACKOFFTYPE strobe to Mac module but Mac module is set with an invalid backoffBaseValue.\n";
-							break;
-						}
-						
-				case 3:
-						{
-							backoffType = BACKOFF_EXPONENTIAL;
-							if(backoffBaseValue <= 0.0)
-								CASTALIA_DEBUG << "\n[Mac_" << self <<"]:\nWarning! Application sent a SETBACKOFFTYPE strobe to Mac module but Mac module is set with an invalid backoffBaseValue.\n";
-							break;
-						}
-						
-				default:
-				        {
-				        	CASTALIA_DEBUG << "\n[Mac_" << self <<"]:\nWarning! Application module tried to set an invalid backoffType to the MAC module\n";
-				        	break;
-				        }
-			}
-			
-			ctrlFrame = NULL;
-			
-			break;
-		}
-		
-		
-		case APPLICATION_2_MAC_SETBACKOFFBASEVALUE:
-		{
-			App_ControlMessage *ctrlFrame;
-			ctrlFrame = check_and_cast<App_ControlMessage*>(msg);
-			
-			double tmpValue = ctrlFrame->getMacBackoffBaseValue();
-			
-			if(tmpValue > 0)
-			{
-				backoffBaseValue = tmpValue/1000.0; //convertion to sec
-			}
-			else
-				CASTALIA_DEBUG << "\n[Mac_" << self <<"]:\nWarning! Application module tried to set an invalid backoffBaseValue to the MAC module\n";
-				
-			ctrlFrame = NULL;
-			
-			break;
-		}
-		
-		
-		case APPLICATION_2_MAC_SETCARRIERSENSE:
-		{
-			App_ControlMessage *ctrlFrame;
-			ctrlFrame = check_and_cast<App_ControlMessage*>(msg);
-			
-			bool tmpValue = ctrlFrame->getMacUsingCarrierSense();
-			
-			// if carrier sense is not enabled and application turns it on
-			// OR
-			// if carrier sense is enabled and application turns it off
-			if( (carrierSense && !tmpValue) || (!carrierSense && tmpValue) )
-			{
-				// Reset the backoff counter
-				backoffTimes = 0;
-			}
-			
-			carrierSense = tmpValue;
-			
-			
-			ctrlFrame = NULL;
-			
-			break;
-		}
-
-
-		default:
-		{
-			CASTALIA_DEBUG << "\n[Mac_"<< self <<"] t= " << simTime() << ": WARNING: received packet of unknown type\n";
-			
-			break;
-		}
-
-	}//end_of_switch
-
-	delete msg;
-	msg = NULL;		// safeguard
-}
-
-void TunableMacModule::finish()
-{
-	MAC_GenericFrame *macMsg;
-
-	while(!TXBuffer.empty())
-	{
-		macMsg = TXBuffer.front();
-		TXBuffer.pop();
-		cancelAndDelete(macMsg);
-	  	macMsg = NULL;
+	case SET_LISTEN_INTERVAL: {
+
+	    double tmpValue = cmd->getParameter()/1000.0;
+	    if(tmpValue < 0.0) trace() << "WARNING: invalid listen interval value sent to TunableMac";
+	    else {
+		listenInterval = tmpValue;
+		if ((dutyCycle > 0.0) && (dutyCycle < 1.0)) sleepInterval = listenInterval * ((1.0-dutyCycle)/dutyCycle);
+		else sleepInterval = -1.0;
+	    }
+	    break;
 	}
 
-	if(printPotentiallyDropped)
-		CASTALIA_DEBUG << "\n[Mac" << self << "]  Dropped Packets at MAC module while receiving:\t (" << potentiallyDroppedBeacons << ") beacons   and   (" << potentiallyDroppedDataFrames << ") data frames";
-}
+	case SET_BEACON_INTERVAL_FRACTION: {
 
-
-void TunableMacModule::readIniFileParameters(void)
-{
-	printPotentiallyDropped = par("printPotentiallyDroppedPacketsStatistics");
-	printDebugInfo = par("printDebugInfo");
-	printStateTransitions = par("printStateTransitions");
-	dutyCycle = par("dutyCycle");
-	listenInterval = ((double)par("listenInterval"))/1000.0;				// just convert msecs to secs
-	beaconIntervalFraction = par("beaconIntervalFraction");
-	probTx = par("probTx");
-	numTx = par("numTx");
-	randomTxOffset = ((double)par("randomTxOffset"))/1000.0;		// just convert msecs to secs
-	reTxInterval = ((double)par("reTxInterval"))/1000.0;			// just convert msecs to secs
-	maxMACFrameSize = par("maxMACFrameSize");
-	macFrameOverhead = par("macFrameOverhead");
-	beaconFrameSize = par("beaconFrameSize");
-	ACKFrameSize = par("ACKFrameSize");
-	macBufferSize = par("macBufferSize");
-	carrierSense = par("carrierSense");
-	backoffType = par("backoffType");
-	switch(backoffType)
-	{
-		case 0:{
-			if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
-				backoffType = BACKOFF_SLEEP_INT;
-			else
-				CASTALIA_DEBUG << "\n[Mac]: Illegal value of parameter \"backoffType\" in omnetpp.ini.\n    Backoff timer = sleeping interval, but sleeping interval is not defined because duty cycle is zero, one, or invalid. Will use backOffBaseValue instead";
-				backoffType = BACKOFF_CONSTANT;
-			break;
-			}
-		case 1:{backoffType = BACKOFF_CONSTANT; break;}
-		case 2:{backoffType = BACKOFF_MULTIPLYING; break;}
-		case 3:{backoffType = BACKOFF_EXPONENTIAL; break;}
-		default:{
-			opp_error("\n[Mac]:\n Illegal value of parameter \"backoffType\" in omnetpp.ini.");
-			break;}
+	    double tmpValue = cmd->getParameter();
+	    if( (tmpValue < 0.0) || (tmpValue > 1.0) ) trace() << "WARNING: invalid Beacon Interval Fraction value sent to TunableMac";
+	    else beaconIntervalFraction = tmpValue;
+	    break;
 	}
-	backoffBaseValue = ((double)par("backoffBaseValue"))/1000.0;			// just convert msecs to secs
-	randomBackoff = par("randomBackoff");
-}
 
-void TunableMacModule::setRadioState(MAC_ControlMessageType typeID, double delay)
-{
-	if( (typeID != MAC_2_RADIO_ENTER_SLEEP) && (typeID != MAC_2_RADIO_ENTER_LISTEN) && (typeID != MAC_2_RADIO_ENTER_TX) )
-		opp_error("MAC attempt to set Radio into an unknown state. ERROR commandID");
+	case SET_PROB_TX: {
 
-	MAC_ControlMessage * ctrlMsg = new MAC_ControlMessage("state command strobe MAC->radio", typeID);
-
-	sendDelayed(ctrlMsg, delay, "toRadioModule");
-}
-
-
-
-
-void TunableMacModule::setRadioTxMode(Radio_TxMode txTypeID, double delay)
-{
-	if( (txTypeID != CARRIER_SENSE_NONE)&&(txTypeID != CARRIER_SENSE_ONCE_CHECK)&&(txTypeID != CARRIER_SENSE_PERSISTENT) )
-		opp_error("MAC attempt to set Radio CarrierSense into an unknown type. ERROR commandID");
-
-	MAC_ControlMessage * ctrlMsg = new MAC_ControlMessage("Change Radio TX mode command strobe MAC->radio", MAC_2_RADIO_CHANGE_TX_MODE);
-	ctrlMsg->setRadioTxMode(txTypeID);
-
-	sendDelayed(ctrlMsg, delay, "toRadioModule");
-}
-
-
-
-
-void TunableMacModule::setRadioPowerLevel(int powLevel, double delay)
-{
-	if( (powLevel >= 0) && (powLevel < radioModule->getTotalTxPowerLevels()) )
-	{
-		MAC_ControlMessage * ctrlMsg = new MAC_ControlMessage("Set power level command strobe MAC->radio", MAC_2_RADIO_CHANGE_POWER_LEVEL);
-		ctrlMsg->setPowerLevel(powLevel);
-		sendDelayed(ctrlMsg, delay, "toRadioModule");
+	    double tmpValue = cmd->getParameter();
+	    if( (tmpValue < 0.0) || (tmpValue > 1.0) ) trace() << "WARNING: invalid ProbTX value sent to TunableMac";
+	    else probTx = tmpValue;
+	    break;
 	}
-	else
-		CASTALIA_DEBUG << "\n[Mac_" << self << "] t= " << simTime() << ": WARNING: in function setRadioPowerLevel() of Mac module, parameter powLevel has invalid value.\n";
-}
 
+	case SET_NUM_TX: {
 
-void TunableMacModule::createBeaconDataFrame(MAC_GenericFrame *retFrame)
-{
-	retFrame->getHeader().srcID = self;
-	retFrame->getHeader().destID = MAC_BROADCAST_ADDR;
-	retFrame->getHeader().frameType = (unsigned short)MAC_PROTO_BEACON_FRAME;
-
-	//TODO: Add code here to fill the macHeaderInfo of the MAC data frame
-	//inside it we can set the dest address to be unicast or broadcast
-	  //retFrame->getHeader().srcMacAddr = {'0', '0', '0', '0'};
-	  //retFrame->getHeader().destMacAddr = {'0', '0', '0', '0'};
-
-	retFrame->setByteLength(beaconFrameSize);
-}
-
-
-int TunableMacModule::isBeacon(MAC_GenericFrame *theFrame)
-{
-	return(((int)theFrame->getHeader().frameType) == MAC_PROTO_BEACON_FRAME);
-}
-
-
-int TunableMacModule::encapsulateNetworkFrame(Network_GenericFrame *networkFrame, MAC_GenericFrame *retFrame)
-{
-	int totalMsgLen = networkFrame->getByteLength() + macFrameOverhead;
-	if(totalMsgLen > maxMACFrameSize)
-		return 0;
-	retFrame->setByteLength(macFrameOverhead); //networkFrame->getByteLength() extra bytes will be added after the encapsulation
-
-	retFrame->getHeader().srcID = self;
-	
-	retFrame->getHeader().destID = deliver2NextHop(networkFrame->getHeader().nextHop.c_str());
-	
-	retFrame->getHeader().frameType = (unsigned short)MAC_PROTO_DATA_FRAME;
-
-	Network_GenericFrame *dupNetworkFrame = check_and_cast<Network_GenericFrame *>(networkFrame->dup());
-	retFrame->encapsulate(dupNetworkFrame);
-
-	return 1;
-}
-
-int TunableMacModule::deliver2NextHop(const char *nextHop)
-{
-	string strNextHop(nextHop);
-	
-	// Resolv Network-layer IDs to MAC-layer IDs
-	if(strNextHop.compare(BROADCAST) == 0)
-	{
-		return MAC_BROADCAST_ADDR;
+	    double tmpValue = cmd->getParameter();
+	    if (tmpValue < 0 || tmpValue - ceil(tmpValue) != 0) trace() << "WARNING: invalid NumTX value sent to TunableMac";
+	    else numTx = (int)tmpValue;
+	    break;
 	}
-	else
-	{
-		return atoi(strNextHop.c_str());
+
+	case SET_RANDOM_TX_OFFSET: {
+
+	    double tmpValue = cmd->getParameter()/1000.0;
+	    if(tmpValue <= 0.0) trace() << "WARNING: invalid randomTxOffset value sent to TunableMac";
+	    else randomTxOffset = tmpValue;
+	    break;
 	}
-	
-	// moreover if strNextHop is a list of delimited nodeIDs 
-	// then again BROADCAST
+
+	case SET_RETX_INTERVAL: {
+
+	    double tmpValue = cmd->getParameter()/1000.0;
+	    if(tmpValue <= 0.0) trace() << "WARNING: invalid reTxInterval value sent to TunableMac";
+	    else reTxInterval = tmpValue;
+	    break;
+	}
+
+	case SET_BACKOFF_TYPE: {
+
+	    double tmpValue = cmd->getParameter();
+
+	    if (tmpValue == 0.0) {
+		if ((dutyCycle > 0.0) && (dutyCycle < 1.0)) backoffType = BACKOFF_SLEEP_INT;
+		else trace() << "WARNING: invalid backoffType value sent to TunableMac. Backoff timer = sleeping interval, but sleeping interval is not defined because duty cycle is zero, one, or invalid.";
+	    }
+
+	    else if (tmpValue == 1.0) {
+		if(backoffBaseValue <= 0.0) trace() << "WARNING: unable to set backoffType. Parameter backoffBaseValue has conflicting value";
+		else backoffType = BACKOFF_CONSTANT;
+	    }
+
+	    else if (tmpValue == 2.0) {
+		if(backoffBaseValue <= 0.0) trace() << "WARNING: unable to set backoffType. Parameter backoffBaseValue has conflicting value";
+		else backoffType = BACKOFF_MULTIPLYING;
+	    }
+
+	    else if (tmpValue == 3.0) {
+		if(backoffBaseValue <= 0.0) trace() << "WARNING: unable to set backoffType. Parameter backoffBaseValue has conflicting value";
+		else backoffType = BACKOFF_EXPONENTIAL;
+	    }
+
+	    else trace() << "WARNING: invalid backoffType value sent to TunableMac";
+
+	    break;
+	}
+
+	case SET_BACKOFF_BASE_VALUE: {
+
+	    double tmpValue = cmd->getParameter()/1000.0;
+	    if(tmpValue < 0) trace() << "WARNING: invalid backoffBaseValue sent to TunableMac";
+	    else backoffBaseValue = tmpValue;
+	    break;
+	}
+    }
+
+    delete cmd;
+    return 1;
 }
+

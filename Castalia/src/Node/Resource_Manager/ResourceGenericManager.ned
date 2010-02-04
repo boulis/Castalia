@@ -16,7 +16,7 @@ simple ResourceGenericManager
 
 {
     parameters:
-        bool printDebugInfo = default(false);
+        bool collectTraceInfo = default(false);
         double ramSize = default(0.0); 		//in kB
         double flashSize = default(0.0);	//in kB
         double flashWriteCost = default(0.0); 	//per kB
@@ -33,7 +33,7 @@ simple ResourceGenericManager
     		// energy of the node in Joules, default value corresponds to two AA batteries
     		// source http://www.allaboutbatteries.com/Energy-tables.html
     		
-        double baselineNodePower = default(6); 				// periodic energy consumption of node, in watts
+        double baselineNodePower = default(6); 				// periodic energy consumption of node, in mWatts
         double periodicEnergyCalculationInterval = default(1000); 	// interval for energy calculation, in msec	
 
 
@@ -43,5 +43,6 @@ simple ResourceGenericManager
         output toNetwork;
         output toMac;
         output toRadio;
+        input powerConsumption @directIn;
 
 }

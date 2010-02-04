@@ -17,12 +17,10 @@ moduleinterface MacGenericModule
 
 {
     parameters:
-        bool printDebugInfo;
         bool collectTraceInfo;
-        
-        int macMaxFrameSize;		// in bytes
-        int macFrameOverhead;		// in 802.15.4 = 5 + (4-->20) bytes
-        int macBufferSize;		//in number of messages
+        int macMaxPacketSize;		// in bytes
+        int macBufferSize;		// in number of messages
+        int macPacketOverhead;
 
     gates:
         output toNetworkModule;

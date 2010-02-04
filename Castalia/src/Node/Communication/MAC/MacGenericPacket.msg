@@ -1,7 +1,7 @@
 //***************************************************************************************
-//*  Copyright: National ICT Australia,  2007, 2008, 2009				*
+//*  Copyright: National ICT Australia,  2010						*
 //*  Developed at the Networks and Pervasive Computing program				*
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis				*
+//*  Author(s): Yuriy Tselishchev							*
 //*  This file is distributed under the terms in the attached LICENSE file.		*
 //*  If you do not find this file, copies can be found by writing to:			*
 //*											*
@@ -11,18 +11,11 @@
 //***************************************************************************************
 
 
-
-enum SensorDevMgr_GenericMessageType
-{
-
-    SDM_2_APP_SENSOR_READING = 6000;
-    APP_2_SDM_SAMPLE_REQUEST = 6001;
-    SDM_2_APP_KILL_NODE = 6002;
+struct MacInteractionControl_type {
+    double RSSI;
+    double LQI;
 }
 
-message SensorDevMgr_GenericMessage
-{
-    double sensedValue;
-    string sensorType;
-    int sensorIndex;
+packet MacGenericPacket {
+    MacInteractionControl_type MacInteractionControl;
 }

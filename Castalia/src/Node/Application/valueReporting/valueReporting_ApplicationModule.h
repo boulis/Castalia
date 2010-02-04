@@ -13,93 +13,40 @@
 //*      Attention:  License Inquiry.							*
 //**************************************************************************************/
  
- 
 
 #ifndef _VALUEREPORTING_APPLICATIONMODULE_H_
 #define _VALUEREPORTING_APPLICATIONMODULE_H_
 
-#include <omnetpp.h>
-#include <string>
-#include "SensorDevMgr_GenericMessage_m.h"
-
-/*** 
-     You have to MODIFY the following "#define" statement by placing the
-     header file (*_m.h) that is produced from you custom *.msg message definition file
- ***/
+#include "VirtualApplicationModule.h"
 #include "valueReporting_DataPacket_m.h"
 
-#include "App_GenericDataPacket_m.h"
-#include "App_ControlMessage_m.h"
-#include "NetworkControlMessage_m.h"
-#include "ResourceGenericManager.h"
-#include "DebugInfoWriter.h"
+#define NO_ROUTING_LEVEL -1
+
 using namespace std;
 
+enum Timers {
+    REQUEST_SAMPLE = 1,
+    SEND_DATA = 2,
+};
 
-class valueReporting_ApplicationModule : public cSimpleModule 
-{
-	private:
-	// parameters and variables
+class valueReporting_ApplicationModule : public VirtualApplicationModule {
+    private:
+	double maxSampleInterval;
+	double minSampleInterval;
 	
-	/*--- The .ned file's parameters ---*/
-		string applicationID;
-		bool printDebugInfo;
-		int priority;
-		int maxAppPacketSize;
-		int packetHeaderOverhead;
-		int constantDataPayload;
-		bool isSink;
-		double maxSampleInterval;
-		double minSampleInterval;
+	int routingLevel;
+	double lastSensedValue;
+	int currSentSampleSN;
 		
-	/*--- Custom class parameters ---*/
-		int self;	// the node's ID
-		double self_xCoo;
-		double self_yCoo;
-		ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
-		int disabled;
-		double cpuClockDrift;
+	double randomBackoffIntervalFraction;
+	bool sentOnce;
 		
-		cOutVector appVector;	// the vector object to write the statistics
-		
-		/**
-		   ADD HERE YOUR CUSTOM private MEMBER VARIABLES AND FUNCTIONS
-		 **/
-		 
-		App_ControlMessage *app_timer_A;
-
-		int routingLevel;
-		double lastSensedValue;
-		int currSentSampleSN;
-		
-		double randomBackoffIntervalFraction;
-		bool sentOnce;
-		
-	protected:
-		virtual void initialize();
-		virtual void handleMessage(cMessage *msg);
-		virtual void finish();
-		
-		void send2NetworkDataPacket(const char *destID, valueReportData data, int pckSeqNumber);
-		void requestSampleFromSensorManager();
-		
-		
-		/************ Header file for Declaration of Functions of TunableMAC set functions  ******************************/
-		// If you are not going to use the TunableMAC module, then you can comment the following line and build Castalia
-		// the following includes are located at ../commonIncludeFiles
-		#include "radioControl.h"
-		#include "tunableMacControl.h"
-		/************ Connectivity Map Definitions  ************************************************/
-		
-
-		/**
-		   ADD HERE YOUR CUSTOM protected MEMBER VARIABLES AND FUNCTIONS
-		 **/
-
-	public:
-		/**
-		   ADD HERE YOUR CUSTOM public MEMBER VARIABLES AND FUNCTIONS
-		 **/
+    protected:
+	void startup();
+	
+	void fromNetworkLayer(ApplicationGenericDataPacket*, const char*, const char*, double, double);
+	void handleSensorReading(SensorReadingGenericMessage *);
+	void timerFiredCallback(int);
 };
 
 #endif // _VALUEREPORTING_APPLICATIONMODULE_H_

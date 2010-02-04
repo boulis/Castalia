@@ -21,7 +21,7 @@ package Physical_Process;
 moduleinterface PhysicalProcessGenericModule
 {
     parameters:
-        bool printDebugInfo;
+        bool collectTraceInfo;
         string description;
 
     gates:

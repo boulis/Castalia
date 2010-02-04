@@ -16,7 +16,7 @@ moduleinterface NetworkGenericModule
 
 {
     parameters:
-        bool printDebugInfo;
+        bool collectTraceInfo;
         int maxNetFrameSize;		// in bytes
         int netDataFrameOverhead;	// in bytes
         int netBufferSize;		// in number of messages

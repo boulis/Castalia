@@ -21,7 +21,7 @@ simple CarsPhysicalProcess like Physical_Process.PhysicalProcessGenericModule
 
 {
     parameters:
-        bool printDebugInfo = default(false);
+        bool collectTraceInfo = default(false);
 
         int max_num_cars = default(5);	 	// how many cars can be present at once
         double car_speed = default(16.0);	// in meters per second

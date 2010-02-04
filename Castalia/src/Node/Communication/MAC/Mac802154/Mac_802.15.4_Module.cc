@@ -118,7 +118,7 @@ void Mac802154Module::initialize() {
 
 void Mac802154Module::handleMessage(cMessage *msg) {
     int msgKind = msg->getKind();
-    if((disabled) && (msgKind != APP_NODE_STARTUP)) {
+    if((disabled) && (msgKind != NODE_STARTUP)) {
     	delete msg;
     	msg = NULL;		// safeguard
     	return;
@@ -129,16 +129,16 @@ void Mac802154Module::handleMessage(cMessage *msg) {
 	/* This message is sent by the Application submodule in order to start/switch-on
 	 * the MAC submodule.
 	 */
-	case APP_NODE_STARTUP: {
+	case NODE_STARTUP: {
 	    disabled = 0;
 	    setRadioState(MAC_2_RADIO_ENTER_LISTEN);
-	    MAC_ControlMessage *csMsg = new MAC_ControlMessage("carrier sense strobe MAC->radio", MAC_2_RADIO_SENSE_CARRIER);
+	    MacControlMessage *csMsg = new MacControlMessage("carrier sense strobe MAC->radio", MAC_2_RADIO_SENSE_CARRIER);
 	    csMsg->setSense_carrier_interval(totalSimTime);
 	    sendDelayed(csMsg,radioDelayForSleep2Listen+radioDelayForValidCS+epsilon ,"toRadioModule");
 
 	    if (isFFD && isPANCoordinator) {
 		associatedPAN = self;
-		scheduleAt(simTime(), new MAC_ControlMessage("Beacon broadcast message", MAC_SELF_FRAME_START));
+		scheduleAt(simTime(), new MacControlMessage("Beacon broadcast message", MAC_SELF_FRAME_START));
 	    }
 	    break;
 	}
@@ -152,7 +152,7 @@ void Mac802154Module::handleMessage(cMessage *msg) {
 	 */
 	case NETWORK_FRAME: {
 	    if ((int)TXBuffer.size() >= macBufferSize) {
-		send(new MAC_ControlMessage("MAC buffer is full Radio->Mac", MAC_2_NETWORK_FULL_BUFFER), "toNetworkModule");
+		send(new MacControlMessage("MAC buffer is full Radio->Mac", MAC_2_NETWORK_FULL_BUFFER), "toNetworkModule");
 		CASTALIA_DEBUG << "WARNING: buffer FULL! Packet from network layer is dropped";
 		break;
 	    }
@@ -171,17 +171,11 @@ void Mac802154Module::handleMessage(cMessage *msg) {
 	}
 
 
-	// These messages from the radio are currently unused
-	case RADIO_2_MAC_STARTED_TX: { break; }
-	case RADIO_2_MAC_STOPPED_TX: { break; }
-
-
 	/* This is the core self message of the MAC, it indicates that the new frame has started
 	 */
 	case MAC_SELF_FRAME_START: {
 	    if (isPANCoordinator) {	// as a PAN coordinator, create and broadcast beacon packet
-		beaconPacket = new MAC_GenericFrame("PAN beacon message", MAC_FRAME);
-		beaconPacket->setKind(MAC_FRAME) ;
+		beaconPacket = new MAC_GenericFrame("PAN beacon message", MAC_DATA_FRAME);
 		beaconPacket->getHeader().PANid = self;
 		beaconPacket->getHeader().frameType = MAC_802154_BEACON_FRAME;
 		beaconPacket->getHeader().beaconOrder = beaconOrder;
@@ -214,12 +208,12 @@ void Mac802154Module::handleMessage(cMessage *msg) {
 		beaconPacket = NULL;
 
 		scheduleAt(simTime() + DRIFTED_TIME(beaconInterval*symbolLen),
-		    new MAC_ControlMessage("Beacon broadcast message", MAC_SELF_FRAME_START));
+		    new MacControlMessage("Beacon broadcast message", MAC_SELF_FRAME_START));
 		currentFrameStart = simTime() + radioDelayForListen2Tx;
 	    } else {		// if not a PAN coordinator, then wait for beacon
 		setRadioState(MAC_2_RADIO_ENTER_LISTEN);
 		setMacState(MAC_STATE_WAIT_FOR_BEACON);
-		beaconTimeoutMsg = new MAC_ControlMessage("Beacon timeout message", MAC_SELF_BEACON_TIMEOUT);
+		beaconTimeoutMsg = new MacControlMessage("Beacon timeout message", MAC_SELF_BEACON_TIMEOUT);
 		scheduleAt(simTime() + DRIFTED_TIME(TX_GUARD*3), beaconTimeoutMsg);
 		currentFrameStart = simTime() + TX_GUARD;
 	    }
@@ -267,7 +261,7 @@ void Mac802154Module::handleMessage(cMessage *msg) {
 	 * A separate function had been created to handle the task of processing
 	 * these packets to allow for better and cleaner code structure
 	 */
-	case MAC_FRAME: {
+	case MAC_DATA_FRAME: {
 	    processMacFrame(check_and_cast<MAC_GenericFrame*>(msg));
 	    break;
 	}
@@ -316,13 +310,13 @@ void Mac802154Module::handleMessage(cMessage *msg) {
 	 * A separate function had been created to handle the task of processing
 	 * this event to allow for better and cleaner code structure
 	 */
-	case RADIO_2_MAC_NO_SENSED_CARRIER: {
+	case CARRIER_CLEAR: {
 	    carrierIsClear();
 	    break;
 	}
 
 	// carrier sense message received from the radio
-	case RADIO_2_MAC_SENSED_CARRIER: {
+	case CARRIER_BUSY: {
 	    lastCarrierSense = simTime();
 	    if (macState != MAC_STATE_CCA) break;
 
@@ -343,17 +337,17 @@ void Mac802154Module::handleMessage(cMessage *msg) {
 	    break;
 	}
 
-	case RADIO_2_MAC_FULL_BUFFER: {
-	    CASTALIA_DEBUG << "Mac module received RADIO_2_MAC_FULL_BUFFER because the Radio buffer is full.";
-	    break;
-	}
+//	case RADIO_BUFFER_FULL: {
+//	    CASTALIA_DEBUG << "Mac module received RADIO_2_MAC_FULL_BUFFER because the Radio buffer is full.";
+//	    break;
+//	}
 
 
 	// Energy is depleted, MAC can no longer operate
-	case RESOURCE_MGR_OUT_OF_ENERGY: {
-	    disabled = 1;
-	    break;
-	}
+//	case OUT_OF_ENERGY: {
+//	    disabled = 1;
+//	    break;
+//	}
 
 
 	default: {
@@ -438,7 +432,7 @@ void Mac802154Module::readIniFileParameters(void) {
 void Mac802154Module::setRadioState(MAC_ControlMessageType typeID, double delay) {
     if( (typeID != MAC_2_RADIO_ENTER_SLEEP) && (typeID != MAC_2_RADIO_ENTER_LISTEN) && (typeID != MAC_2_RADIO_ENTER_TX) )
 	opp_error("MAC attempt to set Radio into an unknown state. ERROR commandID");
-    MAC_ControlMessage * ctrlMsg = new MAC_ControlMessage("state command strobe MAC->radio", typeID);
+    MacControlMessage * ctrlMsg = new MacControlMessage("state command strobe MAC->radio", typeID);
     sendDelayed(ctrlMsg, delay, "toRadioModule");
 }
 
@@ -447,14 +441,14 @@ void Mac802154Module::setRadioTxMode(Radio_TxMode txTypeID, double delay) {
     if( (txTypeID != CARRIER_SENSE_NONE)&&(txTypeID != CARRIER_SENSE_ONCE_CHECK)&&(txTypeID != CARRIER_SENSE_PERSISTENT) )
 	opp_error("MAC attempt to set Radio CarrierSense into an unknown type. ERROR commandID");
 
-    MAC_ControlMessage * ctrlMsg = new MAC_ControlMessage("Change Radio TX mode command strobe MAC->radio", MAC_2_RADIO_CHANGE_TX_MODE);
+    MacControlMessage * ctrlMsg = new MacControlMessage("Change Radio TX mode command strobe MAC->radio", MAC_2_RADIO_CHANGE_TX_MODE);
     ctrlMsg->setRadioTxMode(txTypeID);
     sendDelayed(ctrlMsg, delay, "toRadioModule");
 }
 
 void Mac802154Module::setRadioPowerLevel(int powLevel, double delay) {
     if( (powLevel >= 0) && (powLevel < radioModule->getTotalTxPowerLevels()) ) {
-	MAC_ControlMessage * ctrlMsg = new MAC_ControlMessage("Set power level command strobe MAC->radio", MAC_2_RADIO_CHANGE_POWER_LEVEL);
+	MacControlMessage * ctrlMsg = new MacControlMessage("Set power level command strobe MAC->radio", MAC_2_RADIO_CHANGE_POWER_LEVEL);
 	ctrlMsg->setPowerLevel(powLevel);
 	sendDelayed(ctrlMsg, delay, "toRadioModule");
     } else
@@ -492,8 +486,7 @@ void Mac802154Module::processMacFrame(MAC_GenericFrame *rcvFrame) {
 		    }
 		    cancelAndDelete(nextPacket); 
 		}
-		nextPacket = new MAC_GenericFrame("PAN associate request", MAC_FRAME);
-		nextPacket->setKind(MAC_FRAME);
+		nextPacket = new MAC_GenericFrame("PAN associate request", MAC_DATA_FRAME);
 		nextPacket->getHeader().PANid = PANaddr;
 		nextPacket->getHeader().frameType = MAC_802154_ASSOCIATE_FRAME;
 		nextPacket->getHeader().srcID = self;
@@ -543,22 +536,22 @@ void Mac802154Module::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	    
 	    if (enableCAP && GTSstart != CAPend) {
 		scheduleAt(simTime() + DRIFTED_TIME(CAPend),
-		    new MAC_ControlMessage("CAP end message", MAC_SELF_SET_RADIO_SLEEP));
+		    new MacControlMessage("CAP end message", MAC_SELF_SET_RADIO_SLEEP));
 	    }
 	    
 	    if (GTSstart != 0) {
 		if (GTSstart != CAPend && enableCAP) {
 		    scheduleAt(simTime() + DRIFTED_TIME(GTSstart-radioDelayForSleep2Listen),
-		        new MAC_ControlMessage("GTS start message", MAC_SELF_GTS_START));
+		        new MacControlMessage("GTS start message", MAC_SELF_GTS_START));
 		} else {
 	    	    scheduleAt(simTime() + DRIFTED_TIME(GTSstart),
-        	        new MAC_ControlMessage("GTS start message", MAC_SELF_GTS_START));
+        	        new MacControlMessage("GTS start message", MAC_SELF_GTS_START));
         	}
             }
 		
 	    if (GTSend != 0) {
 	    	scheduleAt(simTime() + DRIFTED_TIME(GTSend),
-		    new MAC_ControlMessage("GTS end message", MAC_SELF_SET_RADIO_SLEEP));
+		    new MacControlMessage("GTS end message", MAC_SELF_SET_RADIO_SLEEP));
 	    }
 		
 	    if (associatedPAN == PANaddr) {
@@ -571,7 +564,7 @@ void Mac802154Module::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	    }
 	    
 	    scheduleAt(simTime() + DRIFTED_TIME(baseSuperframeDuration * ( 1 << beaconOrder) * symbolLen - TX_GUARD),
-	        new MAC_ControlMessage("Beacon broadcast message", MAC_SELF_FRAME_START));
+	        new MacControlMessage("Beacon broadcast message", MAC_SELF_FRAME_START));
 
             break;
 	}
@@ -590,8 +583,7 @@ void Mac802154Module::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	    // update associatedDevices and reply with an ACK (i.e. association is always allowed)
 	    CASTALIA_DEBUG << "Received association request from " << rcvFrame->getHeader().srcID;
 	    associatedDevices[rcvFrame->getHeader().srcID] = true;
-	    MAC_GenericFrame *ackFrame = new MAC_GenericFrame("PAN associate response", MAC_FRAME);
-	    ackFrame->setKind(MAC_FRAME);
+	    MAC_GenericFrame *ackFrame = new MAC_GenericFrame("PAN associate response", MAC_DATA_FRAME);
 	    ackFrame->getHeader().PANid = self;
 	    ackFrame->getHeader().frameType = MAC_802154_ACK_FRAME;
 	    ackFrame->getHeader().destID = rcvFrame->getHeader().srcID;
@@ -609,8 +601,7 @@ void Mac802154Module::processMacFrame(MAC_GenericFrame *rcvFrame) {
 	    if (rcvFrame->getHeader().PANid != self) break;
 	    CASTALIA_DEBUG << "Received GTS request from " << rcvFrame->getHeader().srcID;
 
-	    MAC_GenericFrame *ackFrame = new MAC_GenericFrame("PAN GTS response", MAC_FRAME);
-	    ackFrame->setKind(MAC_FRAME);
+	    MAC_GenericFrame *ackFrame = new MAC_GenericFrame("PAN GTS response", MAC_DATA_FRAME);
 	    ackFrame->getHeader().PANid = self;
 	    ackFrame->getHeader().frameType = MAC_802154_ACK_FRAME;
 	    ackFrame->getHeader().destID = rcvFrame->getHeader().srcID;
@@ -672,8 +663,7 @@ void Mac802154Module::processMacFrame(MAC_GenericFrame *rcvFrame) {
             // If the frame was sent to broadcast address, nothing else needs to be done
             if (dstAddr == BROADCAST_ADDR) break;
 
-	    MAC_GenericFrame *ackFrame = new MAC_GenericFrame("PAN associate response", MAC_FRAME);
-	    ackFrame->setKind(MAC_FRAME);
+	    MAC_GenericFrame *ackFrame = new MAC_GenericFrame("PAN associate response", MAC_DATA_FRAME);
 	    ackFrame->getHeader().srcID = self;
 	    ackFrame->getHeader().frameType = MAC_802154_ACK_FRAME;
 	    ackFrame->getHeader().destID = rcvFrame->getHeader().srcID;
@@ -756,7 +746,7 @@ void Mac802154Module::attemptTransmission(simtime_t delay) {
     
     // if delay is positive, schedule a self message
     if (delay > 0) {
-	txResetMsg = new MAC_ControlMessage("Transmission reset message", MAC_SELF_RESET_TX);
+	txResetMsg = new MacControlMessage("Transmission reset message", MAC_SELF_RESET_TX);
 	scheduleAt(simTime() + DRIFTED_TIME(delay), txResetMsg);
     	return;
     }
@@ -799,7 +789,7 @@ void Mac802154Module::attemptTransmission(simtime_t delay) {
 	string strNextHop(tmpFrame->getHeader().nextHop.c_str());
 	int txAddr = strNextHop.compare(BROADCAST) == 0 ? BROADCAST_ADDR :
 		(isPANCoordinator ? atoi(strNextHop.c_str()) : associatedPAN);
-	nextPacket = new MAC_GenericFrame("MAC data frame", MAC_FRAME);
+	nextPacket = new MAC_GenericFrame("MAC data frame", MAC_DATA_FRAME);
 	nextPacket->setByteLength(macFrameOverhead); //extra bytes will be added after the encapsulation
 	nextPacket->getHeader().srcID = self;
 	nextPacket->getHeader().destID = txAddr;
@@ -870,7 +860,7 @@ void Mac802154Module::continueCSMACA() {
 
     //create a self message to preform carrier sense after calculated time
     scheduleAt(simTime() + DRIFTED_TIME(CCAtime),
-        new MAC_ControlMessage("CSMA-CA trigger message", MAC_SELF_PERFORM_CCA));
+        new MacControlMessage("CSMA-CA trigger message", MAC_SELF_PERFORM_CCA));
 }
 
 // carrier is clear (for CSMA-CA algorithm)
@@ -882,7 +872,7 @@ void Mac802154Module::carrierIsClear() {
 	// since carrier is clear, no need to generate another random delay
     	setMacState(MAC_STATE_CSMA_CA);
 	scheduleAt(simTime() + DRIFTED_TIME(unitBackoffPeriod*symbolLen),
-	    new MAC_ControlMessage("CSMA-CA trigger message", MAC_SELF_PERFORM_CCA));
+	    new MacControlMessage("CSMA-CA trigger message", MAC_SELF_PERFORM_CCA));
 	return;
     }
 
@@ -947,7 +937,7 @@ int Mac802154Module::performCarrierSense() {
 	 * send a command to perform Carrier Sense to the radio (i.e. check the
 	 * actual carrier sense pin)
 	 */
-	send(new MAC_ControlMessage("carrier sense strobe MAC->radio", MAC_2_RADIO_SENSE_CARRIER_INSTANTANEOUS), "toRadioModule");
+	send(new MacControlMessage("carrier sense strobe MAC->radio", MAC_2_RADIO_SENSE_CARRIER_INSTANTANEOUS), "toRadioModule");
 	return 0;
     } else {
         // carrier sense indication of Radio is NOT Valid and isCarrierSenseValid_ReturnCode
@@ -968,8 +958,7 @@ void Mac802154Module::issueGTSrequest() {
 	cancelAndDelete(nextPacket); 
     }
     
-    nextPacket = new MAC_GenericFrame("GTS request", MAC_FRAME);
-    nextPacket->setKind(MAC_FRAME);
+    nextPacket = new MAC_GenericFrame("GTS request", MAC_DATA_FRAME);
     nextPacket->getHeader().PANid = associatedPAN;
     nextPacket->getHeader().frameType = MAC_802154_GTS_REQUEST_FRAME;
     nextPacket->getHeader().srcID = self;

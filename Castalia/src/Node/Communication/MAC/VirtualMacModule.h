@@ -14,63 +14,56 @@
 #ifndef VIRTUALMACMODULE
 #define VIRTUALMACMODULE
 
+#define SELF_MAC_ADDRESS self
+
 #include <queue>
 #include <map>
 #include <omnetpp.h>
 
-#include "App_ControlMessage_m.h"
-#include "NetworkGenericFrame_m.h"
-#include "NetworkControlMessage_m.h"
-#include "MacGenericFrame_m.h"
-#include "MacControlMessage_m.h"
-#include "RadioControlMessage_m.h"
+#include "NetworkGenericPacket_m.h"
+#include "MacGenericPacket_m.h"
 #include "ResourceGenericManager.h"
+#include "RadioControlMessage_m.h"
 #include "RadioModule.h"
+#include "TimerModule.h"
 
 #include "VirtualCastaliaModule.h"
 
 using namespace std;
 
-class VirtualMacModule : public VirtualCastaliaModule
+class VirtualMacModule : public VirtualCastaliaModule, public TimerModule
 {
     private:
-	double cpuClockDrift;
 	int disabled;
-	MAC_ControlMessage *selfCarrierSenseMsg;
+	int macBufferSize;
+	int macMaxFrameSize;
+	int macFrameOverhead;
+	
+	void createAndSendRadioControlCommand(RadioControlCommand_type, double, const char *, BasicState_type);
 
     protected:
 	int self;				// the node's ID
-    	RadioModule *radioModule;		//a pointer to the object of the Radio Module (used for direct method calls)
+	RadioModule *radioModule;		//a pointer to the object of the Radio Module (used for direct method calls)
 	ResourceGenericManager *resMgrModule;	//a pointer to the object of the Resource Manager Module (used for direct method calls)
-	queue <MAC_GenericFrame *> TXBuffer;
-	map <int, MAC_ControlMessage *> timerMessages;
+	queue <cPacket *> TXBuffer;
 		
 	void initialize();
 	void handleMessage(cMessage *msg);
 	void finish();
-	virtual void startup();
+	virtual void finishSpecific() {}
+	virtual void startup() {}
 	
-	void toNetworkLayer(MAC_GenericFrame*);
-	void toRadioLayer(MAC_GenericFrame*);
-	virtual void fromNetworkLayer(MAC_GenericFrame*) = 0;
-	virtual void fromRadioLayer(MAC_GenericFrame*) = 0;
-	int bufferFrame(MAC_GenericFrame*);
+	void toNetworkLayer(cMessage *);
+	void toRadioLayer(cMessage *);
+	virtual void fromNetworkLayer(cPacket*, int) = 0;
+	virtual void fromRadioLayer(cPacket*,double,double) = 0;
+	int bufferPacket(cPacket*);
 	
-	void setTimer(int index, simtime_t time);
-	void cancelTimer(int index);
-	virtual void timerFiredCallback(int index);
+	virtual int handleControlCommand(cMessage *msg);
+	virtual int handleRadioControlMessage(cMessage *msg);
 	
-	void carrierSense(simtime_t time = 0.0);
-	virtual void carrierSenseCallback(int returnCode);
-	
-	virtual void processOverheardFrame(MAC_GenericFrame*); // ???
-	virtual void radioBufferFullCallback();
-	void setRadioState(MAC_ControlMessageType typeID, simtime_t delay=0.0); 
-	void setRadioTxMode(Radio_TxMode txTypeID, simtime_t delay=0.0);
-	void setRadioPowerLevel(int powLevel, simtime_t delay=0.0);
-	
-	void encapsulateNetworkFrame(Network_GenericFrame *networkFrame, MAC_GenericFrame *retFrame);
-	int resolveNextHop(const char *nextHop);
+	void encapsulatePacket(cPacket *, cPacket *);
+	cPacket *decapsulatePacket(cPacket *);
 };
 
 #endif 

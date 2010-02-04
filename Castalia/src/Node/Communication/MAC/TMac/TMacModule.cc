@@ -14,22 +14,17 @@
 
 #define BROADCAST_ADDR -1
 #define NAV_EXTENSION 		0.0001
-#define TX_TIME(x)		(phyLayerOverhead + x)*1/(1000*radioDataRate/8.0)		//x are in BYTES
+#define TX_TIME(x)		(phyLayerOverhead + x)*1/(1000*phyDataRate/8.0)		//x are in BYTES
 
 Define_Module(TMacModule);
 
 void TMacModule::startup() {
-    printDebugInfo = par("printDebugInfo");
-    printDroppedPackets = par("printDroppedPackets");
     printStateTransitions = par("printStateTransitions");
-    maxMACFrameSize = par("maxMACFrameSize");
-    macFrameOverhead = par("macFrameOverhead");
-    ackFrameSize = par("ackFrameSize");
-    macBufferSize = par("macBufferSize");
+    ackPacketSize = par("ackPacketSize");
     frameTime = ((double)par("frameTime"))/1000.0;		// just convert msecs to secs
-    syncFrameSize = par("syncFrameSize");
-    rtsFrameSize = par("rtsFrameSize");
-    ctsFrameSize = par("ctsFrameSize");
+    syncPacketSize = par("syncPacketSize");
+    rtsPacketSize = par("rtsPacketSize");
+    ctsPacketSize = par("ctsPacketSize");
     resyncTime =  par("resyncTime");
     allowSinkSync = par("allowSinkSync");
     contentionPeriod = ((double)par("contentionPeriod"))/1000.0;		// just convert msecs to secs
@@ -41,17 +36,13 @@ void TMacModule::startup() {
     
     disableTAextension = par("disableTAextension");
     conservativeTA = par("conservativeTA");
-    if (conservativeTA != 1 && conservativeTA != 0) {
-	trace() << "Unknown value for parameter 'ConservativeTA', will default to 0";
-	conservativeTA = 0;
-    }
     collisionResolution = par("collisionResolution");
     if (collisionResolution != 2 && collisionResolution != 1 && collisionResolution != 0) {
-	trace() << "Unknown value for parameter 'collisionResolution', will default to 0";
-	collisionResolution = 0;
+	trace() << "Unknown value for parameter 'collisionResolution', will default to 1";
+	collisionResolution = 1;
     }
 
-    //Initialise state descriptions	used in debug output
+    //Initialise state descriptions used in debug output
     if (printStateTransitions) {
         stateDescr[100] = "MAC_STATE_SETUP";
         stateDescr[101] = "MAC_STATE_SLEEP";
@@ -69,10 +60,10 @@ void TMacModule::startup() {
         stateDescr[122] = "MAC_STATE_WAIT_FOR_ACK";
     }
 
-    radioDataRate = (double)radioModule->par("dataRate");
-    radioDelayForSleep2Listen = ((double) radioModule->par("delaySleep2Listen"))/1000.0;
-    radioDelayForValidCS = ((double) radioModule->par("delayCSValid"))/1000.0; //parameter given in ms in the omnetpp.ini
-    phyLayerOverhead = radioModule->par("phyFrameOverhead");
+    phyDataRate = par("phyDataRate");
+//    phyDelayForSleep2Listen = ((double) radioModule->par("delaySleep2Listen"))/1000.0;
+    phyDelayForValidCS = (double)par("phyDelayForValidCS")/1000.0; //parameter given in ms in the omnetpp.ini
+    phyLayerOverhead = par("phyFrameOverhead");
 
     //try to obtain the value of isSink parameter from application module
     if(getParentModule()->getParentModule()->findSubmodule("nodeApplication") != -1) {
@@ -82,15 +73,10 @@ void TMacModule::startup() {
         isSink = false;
     }
 
-    syncTxTime = ((double)(syncFrameSize + macFrameOverhead + phyLayerOverhead)) * 8.0 / (1000.0 * radioDataRate);
-    rtsTxTime = ((double)(rtsFrameSize + macFrameOverhead + phyLayerOverhead)) * 8.0 / (1000.0 * radioDataRate);
-    ackTxTime = ((double)(ackFrameSize + macFrameOverhead + phyLayerOverhead)) * 8.0 / (1000.0 * radioDataRate);
-    ctsTxTime = ((double)(ctsFrameSize + macFrameOverhead + phyLayerOverhead)) * 8.0 / (1000.0 * radioDataRate);
-
-    syncFrame = NULL;
-    rtsFrame = NULL;
-    ackFrame= NULL;
-    ctsFrame = NULL;
+    syncPacket = NULL;
+    rtsPacket = NULL;
+    ackPacket = NULL;
+    ctsPacket = NULL;
 
     macState = MAC_STATE_SETUP;
     scheduleTable.clear();
@@ -101,11 +87,8 @@ void TMacModule::startup() {
 
     declareOutput("Sent packets breakdown");
 
-    if (isSink && allowSinkSync) {
-	createPrimarySchedule();
-    } else {
-	setTimer(SYNC_SETUP,allowSinkSync ? 2*frameTime : 0);
-    }
+    if (isSink && allowSinkSync) createPrimarySchedule();
+    else setTimer(SYNC_SETUP,allowSinkSync ? 2*frameTime : 0);
 }
 
 void TMacModule::timerFiredCallback(int timer) {
@@ -172,7 +155,7 @@ void TMacModule::timerFiredCallback(int timer) {
 
 	    // finally, if we were sleeping, need to wake up the radio. And reset the internal MAC
 	    // state (to start contending for transmissions if needed)
-	    if (macState == MAC_STATE_SLEEP) setRadioState(MAC_2_RADIO_ENTER_LISTEN);
+	    if (macState == MAC_STATE_SLEEP) toRadioLayer(createRadioCommand(SET_STATE,RX));
 	    if (macState == MAC_STATE_SLEEP || macState == MAC_STATE_ACTIVE ||
 		    macState == MAC_STATE_ACTIVE_SILENT) {
 		resetDefaultState();
@@ -191,7 +174,7 @@ void TMacModule::timerFiredCallback(int timer) {
 		if (disableTAextension) {
 		    primaryWakeup = false;
 		    // update MAC and RADIO states
-		    setRadioState(MAC_2_RADIO_ENTER_SLEEP);
+		    toRadioLayer(createRadioCommand(SET_STATE,SLEEP));
 		    setMacState(MAC_STATE_SLEEP);
 		}
 		
@@ -207,7 +190,7 @@ void TMacModule::timerFiredCallback(int timer) {
 		else {
 		    primaryWakeup = false;
 		    // update MAC and RADIO states
-		    setRadioState(MAC_2_RADIO_ENTER_SLEEP);
+		    toRadioLayer(createRadioCommand(SET_STATE,SLEEP));
 		    setMacState(MAC_STATE_SLEEP);
 		} 
 	    }
@@ -229,7 +212,7 @@ void TMacModule::timerFiredCallback(int timer) {
 		trace() << "WARNING: bad MAC state for MAC_SELF_PERFORM_CARRIER_SENSE";
 		break;
 	    }
-	    carrierSense();
+	    carrierSenseCallback(radioModule->isChannelClear());
 	    break;
 	}
 	
@@ -247,7 +230,7 @@ void TMacModule::timerFiredCallback(int timer) {
 	    activationTimeout = simTime();
 	    extendActivePeriod();
 	    if(macState == MAC_STATE_SLEEP) {
-		setRadioState(MAC_2_RADIO_ENTER_LISTEN);
+		toRadioLayer(createRadioCommand(SET_STATE,RX));
 		resetDefaultState();
 	    }
 	    break;
@@ -260,7 +243,7 @@ void TMacModule::timerFiredCallback(int timer) {
 	        activationTimeout = simTime();
 		extendActivePeriod();
 		if(macState == MAC_STATE_SLEEP) {
-		    setRadioState(MAC_2_RADIO_ENTER_LISTEN);
+		    toRadioLayer(createRadioCommand(SET_STATE,RX));
 		    resetDefaultState();
 		}
 	    } else {
@@ -273,12 +256,12 @@ void TMacModule::timerFiredCallback(int timer) {
 void TMacModule::carrierSenseCallback(int returnCode) {
     switch (returnCode) {
 	
-	case CARRIER_CLEAR: {
+	case CLEAR: {
 	    carrierIsClear();
 	    break;
 	}
 	
-	case CARRIER_BUSY: {
+	case BUSY: {
 	    /* Since we are hearing some communication on the radio we need to do two things:
 	     * 1 - extend our active period
 	     * 2 - set MAC state to MAC_STATE_ACTIVE_SILENT unless we are actually expecting to receive
@@ -300,44 +283,34 @@ void TMacModule::carrierSenseCallback(int returnCode) {
 	    break;
 	}
 	
-	case RADIO_IN_TX_MODE: {
-	    /* This can happen if we did not allow sufficient time to the radio
-	     * to finish the previous transmission. So we try to resend the
-	     * carrier sense message with a delay
-	     */
-	    trace() << "WARNING: carrier sense while radio is in TX mode";
-	    setTimer(CARRIER_SENSE,radioDelayForValidCS);
+	case CS_NOT_VALID_YET: {
+	    setTimer(CARRIER_SENSE,phyDelayForValidCS);
 	    break;
 	}
 	
-	case RADIO_SLEEPING: {
-	    // This should not happen unless MAC and radio states get out of sync for an
-	    // unknown reason. We will try to wake up the radio to synchronise the states
-	    trace() << "Radio is not ready to carrier sense yet ... will retry shortly";
+	case CS_NOT_VALID: {
 	    if (macState != MAC_STATE_SLEEP) {
-		setRadioState(MAC_2_RADIO_ENTER_LISTEN);
-		setTimer(CARRIER_SENSE,radioDelayForValidCS);
+		toRadioLayer(createRadioCommand(SET_STATE,RX));
+		setTimer(CARRIER_SENSE,phyDelayForValidCS);
 	    }
 	    break;
-	}
-	
-	case RADIO_NON_READY: {
-	    // Radio is not ready yet, resend the message to retry carrier sense after delay
-	    setTimer(CARRIER_SENSE,radioDelayForValidCS);
-	    break;
-	}
-	
-	default: {
-	    //Unknown reason for carrier sense fail
-	    trace() << "Unknown carrier sense indication of Radio: "<<returnCode;
-	    resetDefaultState();
 	}
     }
 }
 
-void TMacModule::fromNetworkLayer(MAC_GenericFrame *macFrame) {
-    if (bufferFrame(macFrame)) {
+void TMacModule::fromNetworkLayer(cPacket* netPkt, int destination) {
+    // Create a new MAC frame from the received packet and buffer it (if possible)
+    TMacPacket *macPkt = new TMacPacket("TMAC data packet",MAC_LAYER_PACKET);
+    macPkt->setType(DATA_FRAME);
+    macPkt->setSource(SELF_MAC_ADDRESS);
+    macPkt->setDestination(destination);
+    macPkt->setSequenceNumber(txSequenceNum);
+    encapsulatePacket(macPkt,netPkt);
+    if (bufferPacket(macPkt)) {
 	if (TXBuffer.size() == 1) checkTxBuffer();
+    } else {
+	cancelAndDelete(macPkt);
+	//We could send a control message to upper layer to inform of full buffer
     }
 }
 
@@ -366,19 +339,27 @@ void TMacModule::resetDefaultState()  {
     if (activationTimeout <= simTime()) {
 	performCarrierSense(MAC_CARRIER_SENSE_BEFORE_SLEEP);
     } else if (primaryWakeup) {
+	simtime_t randomContentionInterval = genk_dblrand(1)*contentionPeriod;
 	if (needResync) {
-	    scheduleSyncFrame(genk_dblrand(1)*contentionPeriod);
+	    if (syncPacket) cancelAndDelete(syncPacket);
+	    syncPacket = new TMacPacket("TMAC SYNC packet", MAC_LAYER_PACKET);
+	    syncPacket->setSyncId(SELF_MAC_ADDRESS);
+	    syncPacket->setSequenceNumber(scheduleTable[0].SN);
+	    syncPacket->setSync(currentFrameStart + frameTime - simTime() - TX_TIME(syncPacketSize) - randomContentionInterval);
+	    syncPacket->setByteLength(syncPacketSize);
+	    performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_SYNC,randomContentionInterval);
 	    return;
 	}
+	
 	while (!TXBuffer.empty()) {
 	    if (txRetries <= 0) {
 		trace() << "Transmission failed to " << txAddr;
 		popTxBuffer();
 	    } else {
 		if (useRtsCts && txAddr != BROADCAST_ADDR) {
-		    performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_RTS,genk_dblrand(1)*contentionPeriod);
+		    performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_RTS,randomContentionInterval);
 		} else {
-		    performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_DATA,genk_dblrand(1)*contentionPeriod);
+		    performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_DATA,randomContentionInterval);
 		}
 		return;
 	    }
@@ -389,7 +370,7 @@ void TMacModule::resetDefaultState()  {
 	setMacState(MAC_STATE_ACTIVE_SILENT);
     }
 }
-
+    
 /* This function will create a new primary schedule for this node.
  * Most of the task is delegated to updateScheduleTable function
  * This function will only schedule a self message to resycnronise the newly created
@@ -407,28 +388,6 @@ void TMacModule::setMacState(int newState) {
 	trace() << "state changed from " << stateDescr[macState] << " to " << stateDescr[newState];
     }
     macState = newState;
-}
-
-/* This function will create a SYNC frame based on the current schedule table
- * Note that only SYNC frames of primary schedule can be created. Secondary schedule
- * SYNC frames are never created
- */
-void TMacModule::scheduleSyncFrame(simtime_t delay) {
-    if (scheduleTable.size() < 1) {
-	trace() << "WARNING: unable to schedule Sync frame without a schedule!";
-	return;
-    }
-    TMacSchedule sch = scheduleTable[0];
-    if (syncFrame) cancelAndDelete(syncFrame);
-    syncFrame = new MAC_GenericFrame("SYNC message", MAC_FRAME);
-    syncFrame->setKind(MAC_FRAME) ;
-    syncFrame->getHeader().srcID = self;
-    syncFrame->getHeader().destID = BROADCAST_ADDR;
-    syncFrame->getHeader().SYNC = currentFrameStart + frameTime - simTime() - delay - syncTxTime;
-    syncFrame->getHeader().SYNC_SN = sch.SN;
-    syncFrame->getHeader().frameType = MAC_PROTO_SYNC_FRAME;
-    syncFrame->setByteLength(syncFrameSize);
-    performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_SYNC,delay);
 }
 
 
@@ -514,119 +473,100 @@ void TMacModule::updateScheduleTable(simtime_t wakeup, int ID, int SN) {
 }
 
 /* This function will handle a MAC frame received from the lower layer (physical or radio)
+ * We try to see if the received packet is TMacPacket, otherwise we discard it
+ * TMAC ignores values of RSSI and LQI
  */
-void TMacModule::fromRadioLayer(MAC_GenericFrame *rcvFrame) {
+void TMacModule::fromRadioLayer(cPacket *pkt, double RSSI, double LQI) {
+    TMacPacket *macPkt = dynamic_cast<TMacPacket*>(pkt);
+    if (macPkt == NULL) return;
 
-    switch (rcvFrame->getHeader().frameType) {
+    int source = macPkt->getSource();
+    int destination = macPkt->getDestination();
+    simtime_t nav = macPkt->getNav();
+
+    if (destination != SELF_MAC_ADDRESS && destination != BROADCAST_MAC_ADDRESS) {
+	if (macState == MAC_CARRIER_SENSE_FOR_TX_RTS && useFRTS) {
+	    //FRTS would need to be implemented here, for now just keep silent
+	}
+	if (collisionResolution != 2 && nav > 0) setTimer(TRANSMISSION_TIMEOUT,nav);
+	extendActivePeriod(nav);
+	setMacState(MAC_STATE_ACTIVE_SILENT);
+	delete macPkt;
+	return;
+    }
+
+    switch (macPkt->getType()) {
 
 	/* received a RTS frame */
-	case MAC_PROTO_RTS_FRAME: {
+	case RTS_FRAME: {
 	    //If this node is the destination, reply with a CTS, otherwise
 	    //set a timeout and keep silent for the duration of communication
-	    simtime_t NAV = rcvFrame->getHeader().NAV - rtsTxTime;
-	    if (rcvFrame->getHeader().destID == self) {
-		if (ctsFrame) cancelAndDelete(ctsFrame);
-		ctsFrame = new MAC_GenericFrame("CTS message", MAC_FRAME);
-		ctsFrame->setKind(MAC_FRAME) ;
-		ctsFrame->getHeader().srcID = self;
-		ctsFrame->getHeader().destID = rcvFrame->getHeader().srcID;
-		ctsFrame->getHeader().NAV = NAV;
-		ctsFrame->getHeader().frameType = MAC_PROTO_CTS_FRAME;
-		ctsFrame->setByteLength(ctsFrameSize);
-		performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_CTS);
-	    } else {
-		if (collisionResolution != 2) setTimer(TRANSMISSION_TIMEOUT,NAV);
-		extendActivePeriod(NAV);
-		setMacState(MAC_STATE_ACTIVE_SILENT);
-	    }
+	    if (ctsPacket) cancelAndDelete(ctsPacket);
+	    ctsPacket = new TMacPacket("TMAC CTS packet", MAC_LAYER_PACKET);
+	    ctsPacket->setSource(SELF_MAC_ADDRESS);
+	    ctsPacket->setDestination(source);
+	    ctsPacket->setNav(nav - TX_TIME(ctsPacketSize));
+	    ctsPacket->setType(CTS_FRAME);
+	    ctsPacket->setByteLength(ctsPacketSize);
+	    performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_CTS);
 	    break;
 	}
 
 	/* received a CTS frame */
-	case MAC_PROTO_CTS_FRAME: {
-	    //If this CTS comes as a response to previously sent RTS, data transmission can be started
-	    simtime_t NAV = rcvFrame->getHeader().NAV - ctsTxTime;
-	    if(macState == MAC_STATE_WAIT_FOR_CTS && rcvFrame->getHeader().destID == self) {
+	case CTS_FRAME: {
+	    if(macState == MAC_STATE_WAIT_FOR_CTS) {
 		if(TXBuffer.empty()) {
 		    trace() << "WARNING: invalid MAC_STATE_WAIT_FOR_CTS while buffer is empty";
 		    resetDefaultState();
-		} else if(rcvFrame->getHeader().srcID == txAddr) {
+		} else if(source == txAddr) {
 		    cancelTimer(TRANSMISSION_TIMEOUT);
 		    performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_DATA);
 		} else {
-		    trace() << "WARNING: recieved unexpected CTS from "<<rcvFrame->getHeader().srcID;
+		    trace() << "WARNING: recieved unexpected CTS from " << source;
 		    resetDefaultState();
 		}
-
-	    //If CTS is overheared from other transmission, keep silent
-	    } else if (macState == MAC_CARRIER_SENSE_FOR_TX_RTS && useFRTS) {
-	        //FRTS would need to be implemented here, for now just keep silent
-	        if (collisionResolution != 2) setTimer(TRANSMISSION_TIMEOUT,NAV);
-	        extendActivePeriod(NAV);
-	        setMacState(MAC_STATE_ACTIVE_SILENT);
-	    } else {
-		if (collisionResolution != 2) setTimer(TRANSMISSION_TIMEOUT,NAV);
-		extendActivePeriod(NAV);
-		setMacState(MAC_STATE_ACTIVE_SILENT);
 	    }
-
 	    break;
 	}
 
 	/* received DATA frame */
-	case MAC_PROTO_DATA_FRAME: {
-	    int destAddr = rcvFrame->getHeader().destID;
-
-	    // If this is not broadcast frame and destination is not this node, do nothing
-	    if (destAddr != BROADCAST_ADDR && destAddr != self) break;
-
-	    // Otherwise forward the frame to upper layer
-	    toNetworkLayer(rcvFrame);
+	case DATA_FRAME: {
+	    // Forward the frame to upper layer first
+	    toNetworkLayer(macPkt->decapsulate());
 
 	    // If the frame was sent to broadcast address, nothing else needs to be done
-	    if (destAddr == BROADCAST_ADDR) break;
+	    if (destination == BROADCAST_MAC_ADDRESS) break;
 
 	    // If MAC was expecting this frame, clear the timeout
 	    if (macState == MAC_STATE_WAIT_FOR_DATA) cancelTimer(TRANSMISSION_TIMEOUT);
 
 	    // Create and send an ACK frame (since this node is the destination for DATA frame)
-	    if (ackFrame) cancelAndDelete(ackFrame);
-	    ackFrame = new MAC_GenericFrame("ACK message", MAC_FRAME);
-	    ackFrame->setKind(MAC_FRAME);
-	    ackFrame->getHeader().srcID = self;
-	    ackFrame->getHeader().destID = rcvFrame->getHeader().srcID;
-	    ackFrame->getHeader().frameType = MAC_PROTO_ACK_FRAME;
-	    ackFrame->setByteLength(ackFrameSize);
+	    if (ackPacket) cancelAndDelete(ackPacket);
+	    ackPacket = new TMacPacket("TMAC ACK packet", MAC_LAYER_PACKET);
+	    ackPacket->setSource(SELF_MAC_ADDRESS);
+	    ackPacket->setDestination(source);
+	    ackPacket->setType(ACK_FRAME);
+	    ackPacket->setByteLength(ackPacketSize);
+	    ackPacket->setSequenceNumber(macPkt->getSequenceNumber());
 	    performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_ACK);
 	    break;
 	}
 
 	/* received ACK frame */
-	case MAC_PROTO_ACK_FRAME: {
-	    // If MAC was expecting this ack, then it is a successful transmission
-	    // otherwise do nothing
-	    if (macState == MAC_STATE_WAIT_FOR_ACK && rcvFrame->getHeader().destID == self) {
-		if (rcvFrame->getHeader().srcID == txAddr) {
-		    trace() << "Transmission succesful to " << txAddr;
-		    cancelTimer(TRANSMISSION_TIMEOUT);
-		    popTxBuffer();
-		    resetDefaultState();
-		} else {
-		    trace() << "WARNING: recieved unexpected ACK from "<<rcvFrame->getHeader().srcID;
-		}
+	case ACK_FRAME: {
+	    if (macState == MAC_STATE_WAIT_FOR_ACK && source == txAddr) {
+		trace() << "Transmission succesful to " << txAddr;
+		cancelTimer(TRANSMISSION_TIMEOUT);
+		popTxBuffer();
+		resetDefaultState();
 	    }
 	    break;
 	}
 
 	/* received SYNC frame */
-	case MAC_PROTO_SYNC_FRAME: {
-	    int destAddr = rcvFrame->getHeader().destID;
-	    // In current implementation SYNC frames area always broadcast,
-	    // however the destination address is checked anyway
-	    if (destAddr != BROADCAST_ADDR && destAddr != self) break;
-
+	case SYNC_FRAME: {
 	    // Schedule table is updated with values from the SYNC frame
-	    updateScheduleTable(rcvFrame->getHeader().SYNC, rcvFrame->getHeader().SYNC_ID, rcvFrame->getHeader().SYNC_SN);
+	    updateScheduleTable(macPkt->getSync(), macPkt->getSyncId(), macPkt->getSequenceNumber());
 
 	    // The state is reset to default allowing further transmissions in this frame
 	    // (since SYNC frame does not intend to have an ACK or any other communications
@@ -634,11 +574,8 @@ void TMacModule::fromRadioLayer(MAC_GenericFrame *rcvFrame) {
 	    resetDefaultState();
 	    break;
 	}
-
-	default: {
-	    trace() << "WARNING: unknown frame type received " << rcvFrame->getHeader().frameType;
-	}
     }
+    delete macPkt;
 }
 
 /* This function handles carrier clear message, received from the radio module.
@@ -657,38 +594,37 @@ void TMacModule::carrierIsClear() {
 	    }
 
 	    // create and send RTS frame
-	    if (rtsFrame) cancelAndDelete(rtsFrame);
-	    rtsFrame = new MAC_GenericFrame("RTS message", MAC_FRAME);
-    	    rtsFrame->setKind(MAC_FRAME);
-	    rtsFrame->getHeader().srcID = self;
-	    rtsFrame->getHeader().destID = txAddr;
-	    rtsFrame->getHeader().NAV = ctsTxTime + ackTxTime + TX_TIME(TXBuffer.front()->getByteLength() + macFrameOverhead) + NAV_EXTENSION;
- 	    rtsFrame->getHeader().frameType = MAC_PROTO_RTS_FRAME;
-	    rtsFrame->setByteLength(rtsFrameSize);
-	    toRadioLayer(rtsFrame);
+	    if (rtsPacket) cancelAndDelete(rtsPacket);
+	    rtsPacket = new TMacPacket("RTS message", MAC_LAYER_PACKET);
+	    rtsPacket->setSource(SELF_MAC_ADDRESS);
+	    rtsPacket->setDestination(txAddr);
+	    rtsPacket->setNav(TX_TIME(rtsPacketSize) + TX_TIME(ackPacketSize) + TX_TIME(TXBuffer.front()->getByteLength()) + NAV_EXTENSION);
+ 	    rtsPacket->setType(RTS_FRAME);
+	    rtsPacket->setByteLength(rtsPacketSize);
+	    toRadioLayer(rtsPacket);
 	    if (useRtsCts) txRetries--;
 	    packetsSent["RTS"]++;
 	    collectOutput("Sent packets breakdown","RTS");
-	    rtsFrame = NULL;
+	    rtsPacket = NULL;
 
 	    // update MAC state
 	    setMacState(MAC_STATE_WAIT_FOR_CTS);
 
 	    // create a timeout for expecting a CTS reply
-	    setTimer(TRANSMISSION_TIMEOUT,rtsTxTime + waitTimeout);
+	    setTimer(TRANSMISSION_TIMEOUT, TX_TIME(rtsPacketSize) + waitTimeout);
 	    break;
 	}
 
 	/* MAC requested carrier sense to transmit a SYNC packet */
 	case MAC_CARRIER_SENSE_FOR_TX_SYNC: {
 	    // SYNC packet was created in scheduleSyncPacket function
-	    if (syncFrame != NULL) {
+	    if (syncPacket != NULL) {
 		// Send SYNC packet to radio
-		toRadioLayer(syncFrame);
+		toRadioLayer(syncPacket);
 
 		packetsSent["SYNC"]++;
 		collectOutput("Sent packets breakdown","SYNC");
-		syncFrame = NULL;
+		syncPacket = NULL;
 
 		// Clear the resync flag
 		needResync = 0;
@@ -698,10 +634,10 @@ void TMacModule::carrierIsClear() {
 
 		// create a timeout for this transmission - nothing is expected in reply
 		// so MAC is only waiting for the RADIO to finish the packet transmission
-		setTimer(TRANSMISSION_TIMEOUT,syncTxTime);
+		setTimer(TRANSMISSION_TIMEOUT,TX_TIME(syncPacketSize));
 
 	    } else {
-		trace() << "WARNING: Invalid MAC_CARRIER_SENSE_FOR_TX_SYNC while syncFrame undefined";
+		trace() << "WARNING: Invalid MAC_CARRIER_SENSE_FOR_TX_SYNC while syncPacket undefined";
 		resetDefaultState();
 	    }
 	    break;
@@ -710,21 +646,21 @@ void TMacModule::carrierIsClear() {
 	/* MAC requested carrier sense to transmit a CTS packet */
 	case MAC_CARRIER_SENSE_FOR_TX_CTS: {
 	    // CTS packet was created when RTS was received
-	    if (ctsFrame != NULL) {
+	    if (ctsPacket != NULL) {
 		// Send CTS packet to radio
-		toRadioLayer(ctsFrame);
+		toRadioLayer(ctsPacket);
 		packetsSent["CTS"]++;
 		collectOutput("Sent packets breakdown","CTS");
-		ctsFrame = NULL;
+		ctsPacket = NULL;
 
 		// update MAC state
 		setMacState(MAC_STATE_WAIT_FOR_DATA);
 
 		// create a timeout for expecting a DATA packet reply
-		setTimer(TRANSMISSION_TIMEOUT,ctsTxTime + waitTimeout);
+		setTimer(TRANSMISSION_TIMEOUT,TX_TIME(ctsPacketSize) + waitTimeout);
 
 	    } else {
-		trace() << "WARNING: Invalid MAC_CARRIER_SENSE_FOR_TX_CTS while ctsFrame undefined";
+		trace() << "WARNING: Invalid MAC_CARRIER_SENSE_FOR_TX_CTS while ctsPacket undefined";
 		resetDefaultState();
 	    }
 	    break;
@@ -738,8 +674,8 @@ void TMacModule::carrierIsClear() {
 		break;
 	    }
 
-	    // Create a new MAC frame, encapsulate the first network data packet from MAC
-	    // transmission buffer and send it to the radio
+
+	    // create a copy of first message in the TX buffer and send it to the radio
 	    toRadioLayer(TXBuffer.front()->dup());
 	    packetsSent["DATA"]++;
 	    collectOutput("Sent packets breakdown","DATA");
@@ -747,7 +683,7 @@ void TMacModule::carrierIsClear() {
 	    //update MAC state based on transmission time and destination address
 	    double txTime = TX_TIME(TXBuffer.front()->getByteLength());
 
-	    if (txAddr == BROADCAST_ADDR) {
+	    if (txAddr == BROADCAST_MAC_ADDRESS) {
 		// This packet is broadcast, so no reply will be received
 		// The packet can be cleared from transmission buffer
 		// and MAC timeout is only to allow RADIO to finish the transmission
@@ -757,6 +693,9 @@ void TMacModule::carrierIsClear() {
 	    } else {
 		// This packet is unicast, so MAC will be expecting an ACK
 		// packet in reply, so the timeout is longer
+		// If we are not using RTS/CTS exchange, then this attempt
+		// also decreases the txRetries counter 
+		// (NOTE: with RTS/CTS exchange sending RTS packet decrements counter)
 		if (!useRtsCts) txRetries--;
 	        setMacState(MAC_STATE_WAIT_FOR_ACK);
 	        setTimer(TRANSMISSION_TIMEOUT,txTime + waitTimeout);
@@ -765,30 +704,30 @@ void TMacModule::carrierIsClear() {
 	    extendActivePeriod(txTime);
 
 	    //update RADIO state
-	    setRadioState(MAC_2_RADIO_ENTER_TX);
+	    toRadioLayer(createRadioCommand(SET_STATE,TX));
 	    break;
 	}
 
 	/* MAC requested carrier sense to transmit ACK packet */
 	case MAC_CARRIER_SENSE_FOR_TX_ACK: {
 	    // ACK packet was created when MAC received a DATA packet.
-	    if(ackFrame != NULL) {
+	    if(ackPacket != NULL) {
 		// Send ACK packet to the radio
-		toRadioLayer(ackFrame);
+		toRadioLayer(ackPacket);
 		packetsSent["ACK"]++;
 		collectOutput("Sent packets breakdown","ACK");
-		ackFrame = NULL;
+		ackPacket = NULL;
 
 		// update MAC state
 		setMacState(MAC_STATE_IN_TX);
 
 		// create a timeout for this transmission - nothing is expected in reply
 		// so MAC is only waiting for the RADIO to finish the packet transmission
-		setTimer(TRANSMISSION_TIMEOUT,ackTxTime);
-		extendActivePeriod(ackTxTime);
+		setTimer(TRANSMISSION_TIMEOUT,TX_TIME(ackPacketSize));
+		extendActivePeriod(TX_TIME(ackPacketSize));
 	    } else {
-	    	trace() << "WARNING: Invalid MAC_STATE_WAIT_FOR_ACK while ackFrame undefined";
-	    	resetDefaultState();
+		trace() << "WARNING: Invalid MAC_STATE_WAIT_FOR_ACK while ackPacket undefined";
+		resetDefaultState();
 	    }
 	    break;
 	}
@@ -800,7 +739,7 @@ void TMacModule::carrierIsClear() {
 	    primaryWakeup = false;
 
 	    // update MAC and RADIO states
-	    setRadioState(MAC_2_RADIO_ENTER_SLEEP);
+	    toRadioLayer(createRadioCommand(SET_STATE,SLEEP));
 	    setMacState(MAC_STATE_SLEEP);
 	    break;
 	}
@@ -839,8 +778,10 @@ void TMacModule::extendActivePeriod(simtime_t extra) {
  */
 void TMacModule::checkTxBuffer() {
     if (TXBuffer.empty()) return;
-    txAddr = TXBuffer.front()->getHeader().destID;
+    TMacPacket *macPkt = check_and_cast<TMacPacket*>(TXBuffer.front());
+    txAddr = macPkt->getDestination();
     txRetries = maxTxRetries;
+    txSequenceNum = 0;
 }
 
 /* This function will remove the first packet from MAC transmission buffer

@@ -20,11 +20,12 @@ simple valuePropagation_ApplicationModule like Node.Application.ApplicationGener
 {
     parameters:
         string applicationID = default("ValProp");
-        bool printDebugInfo = default(true);
+        bool collectTraceInfo = default(true);
         int priority = default(1);
         int maxAppPacketSize = default(30); 	// in bytes
         int packetHeaderOverhead = default(8); 	// in bytes
         int constantDataPayload = default(2);	// in bytes
+        double tempTreshold = default(15.0);
 
     gates:
         output toCommunicationModule;

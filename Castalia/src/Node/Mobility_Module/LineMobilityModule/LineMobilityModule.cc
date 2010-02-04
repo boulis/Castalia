@@ -11,11 +11,6 @@
 
 #include "LineMobilityModule.h"
 
-#include <iostream>
-#include <iomanip>
-
-#define CASTALIA_DEBUG (!printDebugInfo)?(ostream&)DebugInfoWriter::getStream():DebugInfoWriter::getStream()
-
 Define_Module(LineMobilityModule);
 
 void LineMobilityModule::initialize() 
@@ -86,8 +81,8 @@ void LineMobilityModule::handleMessage(cMessage *msg)
 		notifyWirelessChannel();
 		scheduleAt(simTime() + updateInterval, new MobilityModule_Message("Periodic location update message", MOBILITY_PERIODIC));
 		
-		trace() << setiosflags(ios::fixed) << setprecision(1) << "changed location(x:y:z) to " << 
-			nodeLocation.x << ":" << nodeLocation.y << ":" << nodeLocation.z << "\n";
+		trace() << "changed location(x:y:z) to " << 
+			nodeLocation.x << ":" << nodeLocation.y << ":" << nodeLocation.z;
 		break;
 	    }
 	    

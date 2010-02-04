@@ -1,74 +1,34 @@
 //***************************************************************************************
-//*  Copyright: Athens Information Technology (AIT),  2007, 2008, 2009			*
-//*		http://www.ait.gr							*
-//*             Developed at the Broadband Wireless and Sensor Networks group (B-WiSe) 	*
-//*		http://www.ait.edu.gr/research/Wireless_and_Sensors/overview.asp	*
-//*											*
-//*  Author(s): Dimosthenis Pediaditakis						*
-//*											*
+//*  Copyright: National ICT Australia,  2007 - 2010					*
+//*  Developed at the Networks and Pervasive Computing program				*
+//*  Author(s): Dimosthenis Pediaditakis, Yuriy Tselishchev				*
 //*  This file is distributed under the terms in the attached LICENSE file.		*
 //*  If you do not find this file, copies can be found by writing to:			*
 //*											*
 //*      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia			*
 //*      Attention:  License Inquiry.							*
-//**************************************************************************************/
-
+//*											*
+//***************************************************************************************
 
 cplusplus {{
-#include "NetworkGenericFrame_m.h"
+#include "NetworkGenericPacket_m.h"
 }}
 
+class NetworkGenericPacket;
 
-
-class Network_GenericFrame;
-
-
-
-
-//Extra Network layer protocol types (used to give values to the frameType field of struct networkHeaderInfo)
-//A NET_FRAME can be of any of the following types:
-enum multipathRingsRouting_FrameType
-{
-
-    MPATH_RINGS_ROUTING_TOPOLOGY_SETUP_FRAME = 3102;
+enum multipathRingsRoutingPacketDef {
+    MPRINGS_DATA_PACKET = 1;
+    MPRINGS_TOPOLOGY_SETUP_PACKET = 2;
 }
 
-
-
-
-
-// In you code you should set the following message with
-// header.frameType = TREE_ROUTING_TOPOLOGY_SETUP_FRAME
-message multipathRingsRouting_DataFrame extends Network_GenericFrame
-{
-    fields:
-    // information related to the sink (tree root)		
-    unsigned short sinkID;  // value range: 0 to 65535
-
-
-		// information related to the sender
-		// the ID of the sender can be found in the "header" field,
-		// which is inherited from the Network_GenericFrame
-
-    short senderLevel; // value range: -32768 to 32767
+packet multipathRingsRoutingPacket extends NetworkGenericPacket {
+    int multipathRingsRoutingPacketKind enum(multipathRingsRoutingPacketDef);	// 1 byte
+    string source;		// 4 bytes
+    string destination;		// 4 bytes
+    int sinkID;			// 2 bytes
+    int sequenceNumber;		// 1 byte
+    int senderLevel;		// 1 byte
+    
+    //DATA packet overhead contains all fields, making its total size 13 bytes
+    //SETUP packet does not contain sequence number field, making its size 12 bytes
 }
-
-
-
-
-// In you code you should set the following message with
-// header.frameType = TREE_ROUTING_TOPOLOGY_SETUP_FRAME
-message multipathRingsRouting_TopoSetup_Frame extends Network_GenericFrame
-{
-    fields:
-    // information related to the sink (tree root)
-    unsigned short sinkID;
-
-		// information related to the sender
-		// the ID of the sender can be found in the "header" field,
-		// which is inherited from the Network_GenericFrame
-
-    short senderLevel;
-}
-
-

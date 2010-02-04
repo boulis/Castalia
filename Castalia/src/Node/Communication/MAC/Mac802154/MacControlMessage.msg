@@ -64,7 +64,7 @@ enum MAC_ControlMessageType
 
 
 
-message MAC_ControlMessage
+message MacControlMessage
 {
     simtime_t sense_carrier_interval;
     int radioTxMode;

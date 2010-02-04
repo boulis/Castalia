@@ -17,17 +17,15 @@
 #include <map>
 #include <omnetpp.h>
 
-#include "App_ControlMessage_m.h"
 #include "NetworkGenericFrame_m.h"
-#include "NetworkControlMessage_m.h"
-
-#include "MacGenericFrame_m.h"
+#include "MacGenericPacket_m.h"
 #include "MacControlMessage_m.h"
 #include "RadioControlMessage_m.h"
 #include "ResourceGenericManager.h"
 #include "RadioModule.h"
 #include "DebugInfoWriter.h"
 
+#include "CastaliaMessages.h"
 
 using namespace std;
 
@@ -44,7 +42,7 @@ enum MacStates {
     MAC_STATE_WAIT_FOR_GTS = 1009,
     MAC_STATE_IN_GTS = 1010,
     MAC_STATE_PROCESSING = 1011
-    
+
 };
 
 class Mac802154Module : public cSimpleModule 
@@ -140,8 +138,8 @@ class Mac802154Module : public cSimpleModule
 	map <int, bool> associatedDevices;	// map of assoicated devices (for PAN coordinator)
 
 	/*--- 802154Mac message pointers (to cancel it and reschedule if necessary) ---*/
-	MAC_ControlMessage *beaconTimeoutMsg;
-	MAC_ControlMessage *txResetMsg;
+	MacControlMessage *beaconTimeoutMsg;
+	MacControlMessage *txResetMsg;
 	
 	/*--- 802154Mac packet pointers (sometimes packet is created not immediately before sending) ---*/
 	MAC_GenericFrame *beaconPacket;
@@ -149,7 +147,7 @@ class Mac802154Module : public cSimpleModule
 	MAC_GenericFrame *nextPacket;
 
 	/*--- 802154Mac transmission buffer ---*/
-	queue <Network_GenericFrame *> TXBuffer;
+	queue <NetworkGenericPacket *> TXBuffer;
 	
 	/*--- 802154Mac GTS list --- */
 	vector <GTSspec> GTSlist;		// list of GTS specifications (for PAN coordinator, currently unused)

@@ -1,93 +1,58 @@
 //***************************************************************************************
-//*  Copyright: Athens Information Technology (AIT),  2007, 2008, 2009			*
-//*		http://www.ait.gr							*
-//*             Developed at the Broadband Wireless and Sensor Networks group (B-WiSe) 	*
-//*		http://www.ait.edu.gr/research/Wireless_and_Sensors/overview.asp	*
-//*											*
-//*  Author(s): Dimosthenis Pediaditakis						*
-//*											*
+//*  Copyright: National ICT Australia,  2007 - 2010					*
+//*  Developed at the Networks and Pervasive Computing program				*
+//*  Author(s): Dimosthenis Pediaditakis, Yuriy Tselishchev				*
 //*  This file is distributed under the terms in the attached LICENSE file.		*
 //*  If you do not find this file, copies can be found by writing to:			*
 //*											*
 //*      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia			*
 //*      Attention:  License Inquiry.							*
-//**************************************************************************************/
-
+//*											*
+//***************************************************************************************
 
 #ifndef MULTIPATHRINGSROUTINGMODULE
 #define MULTIPATHRINGSROUTINGMODULE
 
-#include <vector>
-#include <queue>
-#include <omnetpp.h>
-
-#include "App_GenericDataPacket_m.h"
-#include "App_ControlMessage_m.h"
-#include "multipathRingsRoutingControlMessage_m.h"
+#include <map>
+#include "VirtualNetworkModule.h"
 #include "multipathRingsRoutingFrame_m.h"
-#include "MacGenericFrame_m.h"
-#include "MacControlMessage_m.h"
-#include "ResourceGenericManager.h"
-#include "RadioModule.h"
-#include "DebugInfoWriter.h"
+#include "multipathRingsRoutingControl_m.h"
+
+#define NO_LEVEL  -110
+#define NO_SINK   -120
+
 using namespace std;
 
-enum RoutingDecisions
-{
-	DELIVER_MSG_2_APP = 3200,
-	FORWARD_MSG_2_MAC = 3201,
+enum Timers {
+    TOPOLOGY_SETUP_TIMEOUT = 1,
 };
 
+class multipathRingsRoutingModule : public VirtualNetworkModule {
+    private: 
+	int mpathRingsSetupFrameOverhead;	// in bytes
+	double netSetupTimeout;
+	
+	map<string,int> packetFilter;
+	
+	// multipathRingsRouting-related member variables
+	int currentSequenceNumber;
+	int currentSinkID;
+	int currentLevel;
+	int tmpSinkID;
+	int tmpLevel;
+	bool isSink; 				//is a .ned file parameter of the Application module 
+	bool isConnected; 			//attached under a parent node
+	bool isScheduledNetSetupTimeout;
 
-class multipathRingsRoutingModule : public cSimpleModule 
-{
-	private: 
-	// parameters and variables
-		
-		/*--- The .ned file's parameters ---*/
-		int maxNetFrameSize;	//in bytes
-		int netDataFrameOverhead;	//in bytes
-		int netBufferSize;	//in # of messages
-		int macFrameOverhead;
-		bool printDebugInfo;
-		
-		int mpathRingsSetupFrameOverhead;// in bytes
-		double netSetupTimeout;
-		
-		/*--- Custom class parameters ---*/
-		int self;					// the node's ID
-		RadioModule *radioModule;	//a pointer to the object of the Radio Module (used for direct method calls)
-		double radioDataRate;
-		ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
-
-		queue <Network_GenericFrame *> TXBuffer;
-
-		//used to keep/manage the order between two messages that are sent at the same simulation time
-		double epsilon;				
-		double cpuClockDrift;
-		int disabled;
-		string strSelfID;
-		
-		// multipathRingsRouting-related member variables
-		bool isSink; //is a .ned file parameter of the Application module 
-		int currentSinkID;
-		int currentLevel;
-		int tmpSinkID;
-		int tmpLevel;
-		bool isConnected; //attached under a parent node
-		bool isScheduledNetSetupTimeout;
-
-		
-	protected:
-		virtual void initialize();
-		virtual void handleMessage(cMessage *msg);
-		virtual void finish();
-		void readIniFileParameters(void);
-		int encapsulateAppPacket(App_GenericDataPacket *appPacket, multipathRingsRouting_DataFrame *retFrame);
-		void multipathRingsRoute_forwardPacket(multipathRingsRouting_DataFrame *theMsg);
-		void filterIncomingNetworkDataFrames(Network_GenericFrame *theFrame);
-		void decapsulateAndDeliverToApplication(multipathRingsRouting_DataFrame * parFrame2Deliver);
-		void sendTopoSetupMesage(int parSinkID, int parSenderLevel);
+    protected:
+	void startup();
+	void fromApplicationLayer(cPacket *, const char *);
+	void fromMacLayer(cPacket *,int,double,double);
+	void sendTopologySetupPacket();
+	void timerFiredCallback(int);
+	void createAndSendControlMessage(multipathRingsRoutingControlDef);
+	void processBufferedPacket();
+	bool filterIncomingPacket(string,int);
 };
 
 #endif //MULTIPATHRINGSROUTINGMODULE

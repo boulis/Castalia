@@ -74,7 +74,7 @@ void RadioModule::handleMessage(cMessage *msg) {
 		newSignal.power_dBm = wcMsg->getPower_dBm();
 		newSignal.bitErrors = ALL_ERRORS;
 		receivedSignals.push_front(newSignal);
-		collectOutput("RX pkt breakdown", "Fail, non RX state");
+		collectOutput("RX pkt breakdown", "Failed, non RX state");
 		break;  // exit case WC_SIGNAL_START
 	    }
 
@@ -88,7 +88,7 @@ void RadioModule::handleMessage(cMessage *msg) {
 		if (it1->bitErrors == ALL_ERRORS || it1->bitErrors > maxErrorsAllowed(it1->encoding)) continue;
 
 		// calculate bit errors for the last segment of unchanged signal conditions
-		int numOfBits = (int)ceil(SIMTIME_DBL(simTime() - timeOfLastSignalChange)/RXmode->datarate);
+		int numOfBits = (int)ceil(RXmode->datarate*SIMTIME_DBL(simTime() - timeOfLastSignalChange));
 		double BER = SNR2BER(it1->power_dBm - addPower_dBm(it1->currentInterference, RXmode->noiseFloor));
 		it1->bitErrors += bitErrors(BER, numOfBits, maxErrorsAllowed(it1->encoding) - it1->bitErrors);
 
@@ -111,9 +111,9 @@ void RadioModule::handleMessage(cMessage *msg) {
 		newSignal.bitErrors = ALL_ERRORS ;
 		// collect stats
 		if (newSignal.power_dBm < RXmode->sensitivity)
-		    collectOutput("RX pkt breakdown", "Fail, below sensitivity");
+		    collectOutput("RX pkt breakdown", "Failed, below sensitivity");
 		else
-		    collectOutput("RX pkt breakdown", "Fail, wrong modulation");
+		    collectOutput("RX pkt breakdown", "Failed, wrong modulation");
 	    }
 
 	    receivedSignals.push_front(newSignal);
@@ -123,7 +123,7 @@ void RadioModule::handleMessage(cMessage *msg) {
 	    	updatePossibleCSinterrupt();
 
 	    timeOfLastSignalChange = simTime();
-
+	    
 	    break;
 	}
 
@@ -131,7 +131,7 @@ void RadioModule::handleMessage(cMessage *msg) {
 	 * End signal message from wireless channel.
 	 *******************************************************/
 	case WC_SIGNAL_END: {
-
+	
 	    WirelessChannelSignalEnd *wcMsg = check_and_cast<WirelessChannelSignalEnd*>(msg);
 	    int signalID = wcMsg->getNodeID();
 
@@ -150,6 +150,7 @@ void RadioModule::handleMessage(cMessage *msg) {
 	     */
 	    if ((state != RX) || (changingToState != -1)) {
 	    	receivedSignals.erase(endingSignal);
+	    	if (endingSignal->bitErrors != ALL_ERRORS) collectOutput("RX pkt breakdown", "Failed, non RX state");
 		break; // exit case WC_SIGNAL_END
 	    }
 
@@ -162,7 +163,7 @@ void RadioModule::handleMessage(cMessage *msg) {
 		if (it1->bitErrors == ALL_ERRORS || it1->bitErrors > maxErrorsAllowed(it1->encoding)) continue;
 
 		//calculate bit errors for the last segment of unchanged signal conditions
-		int numOfBits = (int)ceil(SIMTIME_DBL(simTime()- timeOfLastSignalChange)/RXmode->datarate);
+		int numOfBits = (int)ceil(RXmode->datarate*SIMTIME_DBL(simTime()- timeOfLastSignalChange));
 		double BER = SNR2BER(it1->power_dBm - addPower_dBm(it1->currentInterference, RXmode->noiseFloor));
 		it1->bitErrors += bitErrors(BER, numOfBits, maxErrorsAllowed(it1->encoding) - it1->bitErrors);
 
@@ -186,19 +187,20 @@ void RadioModule::handleMessage(cMessage *msg) {
 		    send(macPkt,"toMacModule");
 		    // collect stats
 		    if (endingSignal->maxInterference == -200.0)
-			collectOutput("RX pkt breakdown", "Success with NO interference");
+			collectOutput("RX pkt breakdown", "Received with NO interference");
 		    else
-			collectOutput("RX pkt breakdown", "Success despite interference");
+			collectOutput("RX pkt breakdown", "Received despite interference");
 		} else {
 		    // collect stats
 		    if (endingSignal->maxInterference == -200.0)
-			collectOutput("RX pkt breakdown", "Fail with NO interference");
+			collectOutput("RX pkt breakdown", "Failed with NO interference");
 		    else
-			collectOutput("RX pkt breakdown", "Fail with interference");
+			collectOutput("RX pkt breakdown", "Failed with interference");
 		}
 	    }
 
 	    receivedSignals.erase(endingSignal);
+	    
 	    break;
 	}
 
@@ -261,16 +263,8 @@ void RadioModule::handleMessage(cMessage *msg) {
 		powerDrawn(avgDrawnTransitionPower);
 		trace() << "SET STATE command received, changing state to " << changingToState << " (" <<
 			(changingToState == TX ? "TX" : (changingToState == RX ? "RX" : "SLEEP" )) << ")";
-		trace() << "transition will take " << transitionDelay << "s and consume " << avgDrawnTransitionPower << " power";
 
 		scheduleAt(simTime()+ transitionDelay, new cMessage("Enter Radio state", RADIO_ENTER_STATE));
-
-		/* Update stats on failed packets. Note that we might count double a packet
-		 * that has been accounted as failed because is below sensitivity or has the
-		 * wrong modulation. This is no problem as we do count the total packets
-		 * separately, so we can know how many packets are counted double.
-		 */
-		//if (state == RX) collectOutput("RX pkt breakdown", "Fail, non RX state", receivedSignals.size());
 
 		break;
 	    }
@@ -507,7 +501,16 @@ void RadioModule::readIniFileParameters(void) {
     if (startingTxPower.compare("") == 0) {
 	TxLevel = TxLevelList.begin();
     } else {
-	//add parsing
+	double startingTxPower_dBm;
+	if (parseFloat(startingTxPower.c_str(),&startingTxPower_dBm)) opp_error("Unable to parse TxOutputPower %s", startingTxPower.c_str());
+	list <TxLevel_type>::iterator it1;
+	for (it1 = TxLevelList.begin(); it1 != TxLevelList.end(); it1++) {
+	    if (it1->txOutputPower == startingTxPower_dBm) {
+		TxLevel = it1;
+		break;
+	    }
+	}
+	if (it1 == TxLevelList.end()) opp_error("Unknown default Tx Output Power Level %f", startingTxPower_dBm);
     }
 
     carrierFreq = par("carrierFreq");
@@ -595,7 +598,7 @@ void RadioModule::updateTotalPowerReceived() {
     for (it1 = receivedSignals.begin(); it1 != receivedSignals.end(); it1++) {
 	newElement.power_dBm = addPower_dBm(it1->power_dBm, newElement.power_dBm);
 	if (it1->bitErrors != ALL_ERRORS) {
-	    collectOutput("RX pkt breakdown", "Fail, non RX state");
+	    collectOutput("RX pkt breakdown", "Failed, non RX state");
 	    it1->bitErrors = ALL_ERRORS;
 	}
     }
@@ -699,8 +702,6 @@ void RadioModule::updatePossibleCSinterrupt() {
 
     // initialize RSSI variable to the current rssi reading
     double RSSI = readRSSI();
-
-    trace() << "In updatePossibleCSinterrupt(), RSSI = " << RSSI << ", rssiIntegrationTime = " << rssiIntegrationTime;
 
     // if we are above the threshold, no point in scheduling an interrupt
     if (RSSI > CCAthreshold) return;
@@ -872,6 +873,8 @@ void RadioModule::parseRadioParameterFile(const char * fileName) {
 		if (parseFloat(ct,&rxmode.bandwidth)) opp_error("Bad syntax of radio parameters file, expecting bandwidth for rx mode %s:\n%s",rxmode.name.c_str(),ct);
 		ct = t.nextToken();
 		if (parseFloat(ct,&rxmode.noiseBandwidth)) opp_error("Bad syntax of radio parameters file, expecting noise bandwidth for rx mode %s:\n%s",rxmode.name.c_str(),ct);
+		//convert kHz to Hz
+		rxmode.noiseBandwidth = rxmode.noiseBandwidth*1000.0; 	
 		ct = t.nextToken();
 		if (parseFloat(ct,&rxmode.noiseFloor)) opp_error("Bad syntax of radio parameters file, expecting noise floor for rx mode %s:\n%s",rxmode.name.c_str(),ct);
 		ct = t.nextToken();
@@ -886,11 +889,6 @@ void RadioModule::parseRadioParameterFile(const char * fileName) {
 		    if (rxmode.name.compare(it1->name) == 0)
 			opp_error("Bad syntax of radio parameters file, duplicate RX mode %s",rxmode.name.c_str());
 		}
-		trace() << "New RX mode parsed successfully";
-		trace() << "Name:" << rxmode.name << ", datarate:" << rxmode.datarate << ", modulation:" << rxmode.modulation <<
-			", bitsPerSymbol:" << rxmode.bitsPerSymbol << ", bandwidth:" << rxmode.bandwidth << ", noiseBandwidth:" <<
-			rxmode.noiseBandwidth << ", noiseFloor:" << rxmode.noiseFloor << ", sensitivity:" << rxmode.sensitivity <<
-			", power:" << rxmode.power;
 		RXmodeList.push_front(rxmode);
 
 	    } else if (section == 2) {
@@ -1022,4 +1020,12 @@ int RadioModule::parseFloat(const char * c, double * dst) {
     *dst = strtof(c,&tmp);
     if (c == tmp) return 1;
     return 0;
+}
+
+void RadioModule::ReceivedSignalDebug(const char * description) {
+    list <ReceivedSignal_type>::iterator it1;
+    trace() << "*** RECEIVED SIGNALS LIST DEBUG AT " << description << " ***";
+    for (it1 = receivedSignals.begin(); it1 != receivedSignals.end(); it1++) {
+	trace() << "ID:" << it1->ID << ", power:" << it1->power_dBm << ", crIntrf:" << it1->currentInterference << ", bitErr:" << it1->bitErrors;
+    }
 }

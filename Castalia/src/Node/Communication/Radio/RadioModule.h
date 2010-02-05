@@ -196,6 +196,8 @@ class RadioModule : public VirtualCastaliaModule
 		int parseInt(const char*, int*);
 		int parseFloat(const char*, double*);
 		Modulation_type parseModulationType(const char*);
+		
+		void ReceivedSignalDebug(const char *);
 
 	public:
 		double readRSSI();

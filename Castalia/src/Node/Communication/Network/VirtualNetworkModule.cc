@@ -39,6 +39,7 @@ void VirtualNetworkModule::initialize() {
     stringstream out;
     out << self;
     selfAddress = out.str();
+    declareOutput("Buffer overflow");
 }
 
 void VirtualNetworkModule::toMacLayer(cMessage *msg) {
@@ -49,13 +50,6 @@ void VirtualNetworkModule::toMacLayer(cMessage *msg) {
 void VirtualNetworkModule::toMacLayer(cPacket *pkt, int destination) {
     NetworkGenericPacket *netPacket = check_and_cast<NetworkGenericPacket*>(pkt);
     netPacket->getNetworkInteractionControl().nextHop = destination;
-    if (netPacket->getNetworkInteractionControl().pathFromSource.empty()) {
-	netPacket->getNetworkInteractionControl().pathFromSource = selfAddress;
-    } else {
-	stringstream out;
-	out << netPacket->getNetworkInteractionControl().pathFromSource << ROUTE_DEST_DELIMITER << self;
-	netPacket->getNetworkInteractionControl().pathFromSource = out.str();
-    } 
     send(netPacket, "toMacModule");
 }
 
@@ -203,6 +197,7 @@ void VirtualNetworkModule::finish() {
 
 int VirtualNetworkModule::bufferPacket(cPacket* rcvFrame) {
     if ((int)TXBuffer.size() >= netBufferSize) {
+	collectOutput("Buffer overflow");
 	return 0;
     } else {
 	TXBuffer.push(rcvFrame);

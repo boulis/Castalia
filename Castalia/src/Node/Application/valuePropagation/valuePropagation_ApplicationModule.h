@@ -35,7 +35,7 @@ class valuePropagation_ApplicationModule : public VirtualApplicationModule {
 	void startup();
 	void finishSpecific();
 	
-	void fromNetworkLayer(ApplicationGenericDataPacket*, const char*, const char*, double, double);
+	void fromNetworkLayer(ApplicationGenericDataPacket*, const char*, double, double);
 	void handleSensorReading(SensorReadingGenericMessage *);
 	void timerFiredCallback(int);
 };

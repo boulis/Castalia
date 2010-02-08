@@ -55,7 +55,7 @@ class connectivityMap_ApplicationModule : public VirtualApplicationModule
 	void startup();
 	void finishSpecific();
 
-	void fromNetworkLayer(ApplicationGenericDataPacket*, const char*, const char*, double, double);
+	void fromNetworkLayer(ApplicationGenericDataPacket*, const char*, double, double);
 	void timerFiredCallback(int);
 
 	void updateNeighborTable(int nodeID, int theSN);

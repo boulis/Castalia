@@ -82,7 +82,7 @@ void BridgeTest_ApplicationModule::timerFiredCallback(int timer) {
     }
 }
 
-void BridgeTest_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket* rcvPacket, const char * source, const char * path, double rssi, double lqi) {
+void BridgeTest_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket* rcvPacket, const char * source, double rssi, double lqi) {
     string packetType(""); //rcvPacket->getHeader().applicationID.c_str());
     
     int versionData = rcvPacket->getData();

@@ -48,9 +48,9 @@ struct histogramOutputTypeDef {
     double min;
     double max;
     double cell;
-    vector <int> buckets;
     int numBuckets;
     bool active;
+    vector <int> buckets;
 };
 
 typedef map<outputKeyDef, simpleOutputTypeDef> simpleOutputMapType;
@@ -79,6 +79,7 @@ class VirtualCastaliaModule : public virtual cSimpleModule
 	void declareOutput(const char *);
 	void declareOutput(const char *, int);
 
+	void collectOutput(const char *, int);
 	void collectOutput(const char *, int, const char *);
 	void collectOutput(const char *, int, const char *, double);
 

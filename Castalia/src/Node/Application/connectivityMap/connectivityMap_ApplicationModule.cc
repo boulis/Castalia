@@ -16,8 +16,6 @@
 Define_Module(connectivityMap_ApplicationModule);
 
 void connectivityMap_ApplicationModule::startup() {
-
-    printConnMap = par("printConnectivityMap");
     packetSpacing = (double)par("packetSpacing")/1000.0;
     packetsPerNode = par("packetsPerNode");
     packetSize = par("packetSize");
@@ -38,21 +36,19 @@ void connectivityMap_ApplicationModule::startup() {
     setTimer(SEND_PACKET,startTxTime);
 }
 
-void connectivityMap_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket* rcvPacket, const char * source, const char * path, double rssi, double lqi) {
-    double theData = rcvPacket->getData(); // should always be 0, but we wont check
-    int sequenceNumber = rcvPacket->getSequenceNumber();
-
-    updateNeighborTable(atoi(source),sequenceNumber);
+void connectivityMap_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket* rcvPacket, const char * source, double rssi, double lqi) {
+    // double theData = rcvPacket->getData(); 
+    // data should always be 0, but we wont check
+    updateNeighborTable(atoi(source),rcvPacket->getSequenceNumber());
 }
 
 void connectivityMap_ApplicationModule::timerFiredCallback(int timerIndex) {
     switch (timerIndex) {
 	case SEND_PACKET: {
-	    if (packetsSent < packetsPerNode) {
-		toNetworkLayer(createGenericDataPacket(0.0,packetsSent,packetSize),BROADCAST_NETWORK_ADDRESS);
-		packetsSent++;
-		setTimer(SEND_PACKET,packetSpacing);
-	    }
+	    if (packetsSent >= packetsPerNode) break;
+	    toNetworkLayer(createGenericDataPacket(0.0,packetsSent,packetSize),BROADCAST_NETWORK_ADDRESS);
+	    packetsSent++;
+	    setTimer(SEND_PACKET,packetSpacing);
 	    break;
 	}
     }

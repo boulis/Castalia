@@ -32,6 +32,7 @@ void RadioModule::initialize() {
 
     declareOutput("RX pkt breakdown");
     declareOutput("TXed pkts");
+    declareOutput("Buffer overflow");
 }
 
 
@@ -57,7 +58,7 @@ void RadioModule::handleMessage(cMessage *msg) {
 	     */
 	    if (wcMsg->getCarrierFreq() != carrierFreq) break;
 
-	    collectOutput("RX pkt breakdown", "total");
+	    // collectOutput("RX pkt breakdown", "total");
 
 	    /* if we are not in RX state or we are changing state, then process the
 	     * signal minimally. We still need to keep a list of signals because when
@@ -239,6 +240,7 @@ void RadioModule::handleMessage(cMessage *msg) {
 		RadioControlMessage *fullBuffMsg = new RadioControlMessage("Radio buffer full", RADIO_CONTROL_MESSAGE);
 		fullBuffMsg->setRadioControlMessageKind(RADIO_BUFFER_FULL);
 		send(fullBuffMsg, "toMacModule");
+		collectOutput("Buffer overflow");
 	    }
 	    break;
 	}
@@ -802,145 +804,138 @@ void RadioModule::parseRadioParameterFile(const char * fileName) {
 	else if (s.compare("DELAY TRANSITION MATRIX") == 0) { visited[section] = 1; section = 4; }
 	else if (s.compare("POWER TRANSITION MATRIX") == 0) { visited[section] = 1; section = 5; }
 	else if (section == -1 || visited[section] == 1) opp_error("Bad syntax of radio parameters file, expecting label:\n%s",ct);
-	else {
-	    if (section == 1) {
-		// parsing lines in the following format:
-		// Name, dataRate(kbps), modulationType, bitsPerSymbol, bandwidth(MHz), noiseBandwidth(MHz), noiseFloor(dBm), sensitivity(dBm), powerConsumed(mW)
+	else if (section == 1) {
+	    // parsing lines in the following format:
+	    // Name, dataRate(kbps), modulationType, bitsPerSymbol, bandwidth(MHz), noiseBandwidth(MHz), noiseFloor(dBm), sensitivity(dBm), powerConsumed(mW)
 
-		RXmode_type rxmode;
-		cStringTokenizer t(s.c_str(),", \t"); ct = t.nextToken();	//break the string with ',' delimiter
-		if (ct == NULL) opp_error("Bad syntax of radio parameters file, expecting rx mode name:\n%s",ct);
-		rxmode.name = string(ct); ct = t.nextToken();
+	    RXmode_type rxmode;
+	    cStringTokenizer t(s.c_str(),", \t"); ct = t.nextToken();	//break the string with ',' delimiter
+	    if (ct == NULL) opp_error("Bad syntax of radio parameters file, expecting rx mode name:\n%s",ct);
+	    rxmode.name = string(ct); ct = t.nextToken();
 
-		if (parseFloat(ct,&rxmode.datarate)) opp_error("Bad syntax of radio parameters file, expecting data rate for rx mode %s:\n%s",rxmode.name.c_str(),ct);
-		//convert kbps to bps
-		rxmode.datarate = rxmode.datarate*1000.0;
-		ct = t.nextToken();
-		rxmode.modulation = parseModulationType(ct);
-		ct = t.nextToken();
-		if (parseInt(ct,&rxmode.bitsPerSymbol)) opp_error("Bad syntax of radio parameters file, expecting bits per symbol for rx mode %s:\n%s",rxmode.name.c_str(),ct);
-		ct = t.nextToken();
-		if (parseFloat(ct,&rxmode.bandwidth)) opp_error("Bad syntax of radio parameters file, expecting bandwidth for rx mode %s:\n%s",rxmode.name.c_str(),ct);
-		ct = t.nextToken();
-		if (parseFloat(ct,&rxmode.noiseBandwidth)) opp_error("Bad syntax of radio parameters file, expecting noise bandwidth for rx mode %s:\n%s",rxmode.name.c_str(),ct);
-		//convert kHz to Hz
-		rxmode.noiseBandwidth = rxmode.noiseBandwidth*1000.0; 	
-		ct = t.nextToken();
-		if (parseFloat(ct,&rxmode.noiseFloor)) opp_error("Bad syntax of radio parameters file, expecting noise floor for rx mode %s:\n%s",rxmode.name.c_str(),ct);
-		ct = t.nextToken();
-		if (parseFloat(ct,&rxmode.sensitivity)) opp_error("Bad syntax of radio parameters file, expecting sensitivity for rx mode %s:\n%s",rxmode.name.c_str(),ct);
-		ct = t.nextToken();
-		if (parseFloat(ct,&rxmode.power)) opp_error("Bad syntax of radio parameters file, expecting power for rx mode %s:\n%s",rxmode.name.c_str(),ct);
-		ct = t.nextToken();
-		if (ct != NULL) opp_error("Bad syntax of radio parameters file, unexpected input for rx mode %s:\n%s",rxmode.name.c_str(),ct);
+	    if (parseFloat(ct,&rxmode.datarate)) opp_error("Bad syntax of radio parameters file, expecting data rate for rx mode %s:\n%s",rxmode.name.c_str(),ct);
+	    rxmode.datarate = rxmode.datarate*1000.0; //convert kbps to bps
+	    ct = t.nextToken();
+	    rxmode.modulation = parseModulationType(ct);
+	    ct = t.nextToken();
+	    if (parseInt(ct,&rxmode.bitsPerSymbol)) opp_error("Bad syntax of radio parameters file, expecting bits per symbol for rx mode %s:\n%s",rxmode.name.c_str(),ct);
+	    ct = t.nextToken();
+	    if (parseFloat(ct,&rxmode.bandwidth)) opp_error("Bad syntax of radio parameters file, expecting bandwidth for rx mode %s:\n%s",rxmode.name.c_str(),ct);
+	    ct = t.nextToken();
+	    if (parseFloat(ct,&rxmode.noiseBandwidth)) opp_error("Bad syntax of radio parameters file, expecting noise bandwidth for rx mode %s:\n%s",rxmode.name.c_str(),ct);
+	    rxmode.noiseBandwidth = rxmode.noiseBandwidth*1000.0; //convert kHz to Hz
+	    ct = t.nextToken();
+	    if (parseFloat(ct,&rxmode.noiseFloor)) opp_error("Bad syntax of radio parameters file, expecting noise floor for rx mode %s:\n%s",rxmode.name.c_str(),ct);
+	    ct = t.nextToken();
+	    if (parseFloat(ct,&rxmode.sensitivity)) opp_error("Bad syntax of radio parameters file, expecting sensitivity for rx mode %s:\n%s",rxmode.name.c_str(),ct);
+	    ct = t.nextToken();
+	    if (parseFloat(ct,&rxmode.power)) opp_error("Bad syntax of radio parameters file, expecting power for rx mode %s:\n%s",rxmode.name.c_str(),ct);
+	    ct = t.nextToken();
+	    if (ct != NULL) opp_error("Bad syntax of radio parameters file, unexpected input for rx mode %s:\n%s",rxmode.name.c_str(),ct);
 
-		list <RXmode_type>::iterator it1;
-		for (it1 = RXmodeList.begin(); it1 != RXmodeList.end(); it1++) {
-		    if (rxmode.name.compare(it1->name) == 0)
-			opp_error("Bad syntax of radio parameters file, duplicate RX mode %s",rxmode.name.c_str());
-		}
-		RXmodeList.push_front(rxmode);
-
-	    } else if (section == 2) {
-		// parsing lines in the following format:
-		// Tx_dBm +1, 0, -2, -5, -10, -15
-		// Tx_mW 21, 17, 15, 12, 10, 7
-
-		cStringTokenizer t(s.c_str(),", \t"); ct = t.nextToken();
-		if (ct == NULL) opp_error("Bad syntax of radio parameters file, expecting Tx_dBm or Tx_mW label");
-		int type = 0; //1->dbM, 2->mW
-
-		if (strncmp(ct,"Tx_dBm",strlen("Tx_dBm")) == 0) type = 1;
-		else if (strncmp(ct,"Tx_mW",strlen("Tx_mW")) == 0) type = 2;
-		else opp_error("Bad syntax of radio parameters file, expecting Tx_dBm or Tx_mW label:\n%s",ct);
-
-		if (TxLevelList.empty()) { // will insert new elements
-		    while ((ct = t.nextToken())) {
-			TxLevel_type txlevel;
-			double tmp;
-			if (parseFloat(ct,&tmp)) opp_error("Bad syntax of radio parameters file, expecting power value for tx level:\n%s",ct);
-			if (type == 1) txlevel.txOutputPower = tmp; else txlevel.txPowerConsumed = tmp;
-			TxLevelList.push_back(txlevel);
-		    }
-		} else { // will modify existing elements
-		    list <TxLevel_type>::iterator it1;
-		    for (it1 = TxLevelList.begin(); it1 != TxLevelList.end(); it1++) {
-			ct = t.nextToken();
-			double tmp;
-			if (ct == NULL) opp_error("Bad syntax of radio parameters file, expecting number of elements in Tx_dBm list and tx_mW list must be equal");
-			if (parseFloat(ct,&tmp)) opp_error("Bad syntax of radio parameters file, expecting power value for tx level:\n%s",ct);
-			if (type == 1) it1->txOutputPower = tmp; else it1->txPowerConsumed = tmp;
-		    }
-		    if (t.nextToken() != NULL) opp_error("Bad syntax of radio parameters file, expecting number of elements in Tx_dBm list and tx_mW list must be equal");
-		}
-
-	    } else if (section == 3) {
-		// parsing lines in the following format:
-		// name, power(mW), delay to switch to mode above(ms), power to switch to mode above (mW), delay to switch to mode below(ms), power to switch to mode below (mW)
-
-		SleepLevel_type sleeplvl;
-		cStringTokenizer t(s.c_str(),", \t"); ct = t.nextToken();	//break the string with ',' delimiter
-		sleeplvl.name = string(ct); ct = t.nextToken();
-
-		if (parseFloat(ct,&sleeplvl.power)) opp_error("Bad syntax of radio parameters file, expecting power for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
-		ct = t.nextToken();
-
-		if (sleepLevelList.empty()) { //this is the first element, to txUp should be '-'
-		    if (ct[0] != '-' || ct[1]) opp_error("Bad syntax of radio parameters file, expecting '-' as transition up delay for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
-		    ct = t.nextToken();
-		    if (ct[0] != '-' || ct[1]) opp_error("Bad syntax of radio parameters file, expecting '-' as transition up power for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
-		    sleeplvl.transitionUp.delay = 0.0;
-		    sleeplvl.transitionUp.power = 0.0;
-		} else { //this is not the first element, so parse txUp
-		    if (parseFloat(ct,&sleeplvl.transitionUp.delay)) opp_error("Bad syntax of radio parameters file, expecting transition up delay for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
-		    ct = t.nextToken();
-		    if (parseFloat(ct,&sleeplvl.transitionUp.power)) opp_error("Bad syntax of radio parameters file, expecting transition up power for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
-		}
-
-		ct = t.nextToken();
-		if (ct[0] == '-' && !ct[1]) { // this is the last element
-		    visited[section] = 1;
-		    ct = t.nextToken();
-		    if (ct[0] != '-' || ct[1]) opp_error("Bad syntax of radio parameters file, expecting '-' as transition down power for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
-		    sleeplvl.transitionDown.delay = 0.0;
-		    sleeplvl.transitionDown.power = 0.0;
-		} else {
-		    if (parseFloat(ct,&sleeplvl.transitionDown.delay)) opp_error("Bad syntax of radio parameters file, expecting transition down delay for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
-		    ct = t.nextToken();
-		    if (parseFloat(ct,&sleeplvl.transitionDown.power)) opp_error("Bad syntax of radio parameters file, expecting transition down power for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
-		}
-
-		ct = t.nextToken();
-		if (ct != NULL) opp_error("Bad syntax of radio parameters file, unexpected input for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
-		sleepLevelList.push_back(sleeplvl);
-
-	    } else if (section == 4 || section == 5) {
-		// parsing lines in the following format:
-		// [RX|TX|SLEEP] [x|-] [x|-] [x|-]
-
-		cStringTokenizer t(s.c_str()," \t");
-		ct = t.nextToken();
-		int stateTo;
-		if (strncmp(ct,"RX",strlen("RX")) == 0) stateTo = 0;
-		else if (strncmp(ct,"TX",strlen("TX")) == 0) stateTo = 1;
-		else if (strncmp(ct,"SLEEP",strlen("SLEEP")) == 0) stateTo = 2;
-		ct = t.nextToken();
-		int stateFrom = 0;
-
-		while (stateFrom < 3) {
-		    if (stateTo == stateFrom) {
-			if (ct[0] != '-' || ct[1]) opp_error("Bad syntax of radio parameters file, expecting '-' as state transition value from %i to %i:\n%s",stateFrom,stateTo,ct);
-		    } else {
-			double tmp;
-			if (parseFloat(ct,&tmp)) opp_error("Bad syntax of radio parameters file, expecting state transition value from %i to %i:\n%s",stateFrom,stateTo,ct);
-			if (section == 4) transition[stateFrom][stateTo].delay = tmp;
-			else transition[stateFrom][stateTo].power = tmp;
-		    }
-		    stateFrom++;
-		    ct = t.nextToken();
-		}
-		if (ct != NULL) opp_error("Bad syntax of radio parameters file, unexpected input for transition matrix:\n%s",ct);
+	    list <RXmode_type>::iterator it1;
+	    for (it1 = RXmodeList.begin(); it1 != RXmodeList.end(); it1++) {
+	        if (rxmode.name.compare(it1->name) == 0) opp_error("Bad syntax of radio parameters file, duplicate RX mode %s",rxmode.name.c_str());
 	    }
+	    RXmodeList.push_front(rxmode);
+	} else if (section == 2) {
+	    // parsing lines in the following format:
+	    // Tx_dBm +1, 0, -2, -5, -10, -15
+	    // Tx_mW 21, 17, 15, 12, 10, 7
+
+	    cStringTokenizer t(s.c_str(),", \t"); ct = t.nextToken();
+	    if (ct == NULL) opp_error("Bad syntax of radio parameters file, expecting Tx_dBm or Tx_mW label");
+	    int type = 0; //1->dbM, 2->mW
+	    if (strncmp(ct,"Tx_dBm",strlen("Tx_dBm")) == 0) type = 1;
+	    else if (strncmp(ct,"Tx_mW",strlen("Tx_mW")) == 0) type = 2;
+	    else opp_error("Bad syntax of radio parameters file, expecting Tx_dBm or Tx_mW label:\n%s",ct);
+
+	    if (TxLevelList.empty()) { // will insert new elements
+		while ((ct = t.nextToken())) {
+		    TxLevel_type txlevel;
+		    double tmp;
+		    if (parseFloat(ct,&tmp)) opp_error("Bad syntax of radio parameters file, expecting power value for tx level:\n%s",ct);
+		    if (type == 1) txlevel.txOutputPower = tmp; else txlevel.txPowerConsumed = tmp;
+		    TxLevelList.push_back(txlevel);
+		}
+	    } else { // will modify existing elements
+		list <TxLevel_type>::iterator it1;
+		for (it1 = TxLevelList.begin(); it1 != TxLevelList.end(); it1++) {
+		    ct = t.nextToken();
+		    double tmp;
+		    if (ct == NULL) opp_error("Bad syntax of radio parameters file, expecting number of elements in Tx_dBm list and tx_mW list must be equal");
+		    if (parseFloat(ct,&tmp)) opp_error("Bad syntax of radio parameters file, expecting power value for tx level:\n%s",ct);
+		    if (type == 1) it1->txOutputPower = tmp; else it1->txPowerConsumed = tmp;
+		}
+		if (t.nextToken() != NULL) opp_error("Bad syntax of radio parameters file, expecting number of elements in Tx_dBm list and tx_mW list must be equal");
+	    }
+
+	} else if (section == 3) {
+	    // parsing lines in the following format:
+	    // name, power(mW), delay to switch to mode above(ms), power to switch to mode above (mW), delay to switch to mode below(ms), power to switch to mode below (mW)
+	
+	    SleepLevel_type sleeplvl;
+	    cStringTokenizer t(s.c_str(),", \t"); ct = t.nextToken();	//break the string with ',' delimiter
+	    sleeplvl.name = string(ct); ct = t.nextToken();
+	
+	    if (parseFloat(ct,&sleeplvl.power)) opp_error("Bad syntax of radio parameters file, expecting power for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
+	    ct = t.nextToken();
+	
+	    if (sleepLevelList.empty()) { //this is the first element, to txUp should be '-'
+		if (ct[0] != '-' || ct[1]) opp_error("Bad syntax of radio parameters file, expecting '-' as transition up delay for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
+		ct = t.nextToken();
+		if (ct[0] != '-' || ct[1]) opp_error("Bad syntax of radio parameters file, expecting '-' as transition up power for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
+		sleeplvl.transitionUp.delay = 0.0;
+		sleeplvl.transitionUp.power = 0.0;
+	    } else { //this is not the first element, so parse txUp
+		if (parseFloat(ct,&sleeplvl.transitionUp.delay)) opp_error("Bad syntax of radio parameters file, expecting transition up delay for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
+		ct = t.nextToken();
+		if (parseFloat(ct,&sleeplvl.transitionUp.power)) opp_error("Bad syntax of radio parameters file, expecting transition up power for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
+	    }
+	
+	    ct = t.nextToken();
+	    if (ct[0] == '-' && !ct[1]) { // this is the last element
+		visited[section] = 1;
+		ct = t.nextToken();
+		if (ct[0] != '-' || ct[1]) opp_error("Bad syntax of radio parameters file, expecting '-' as transition down power for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
+		sleeplvl.transitionDown.delay = 0.0;
+		sleeplvl.transitionDown.power = 0.0;
+	    } else {
+		if (parseFloat(ct,&sleeplvl.transitionDown.delay)) opp_error("Bad syntax of radio parameters file, expecting transition down delay for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
+		ct = t.nextToken();
+		if (parseFloat(ct,&sleeplvl.transitionDown.power)) opp_error("Bad syntax of radio parameters file, expecting transition down power for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
+	    }
+	
+	    ct = t.nextToken();
+	    if (ct != NULL) opp_error("Bad syntax of radio parameters file, unexpected input for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
+	    sleepLevelList.push_back(sleeplvl);
+
+	} else if (section == 4 || section == 5) {
+	    // parsing lines in the following format:
+	    // [RX|TX|SLEEP] [x|-] [x|-] [x|-]
+	
+	    cStringTokenizer t(s.c_str()," \t");
+	    ct = t.nextToken();
+	    int stateTo;
+	    if (strncmp(ct,"RX",strlen("RX")) == 0) stateTo = 0;
+	    else if (strncmp(ct,"TX",strlen("TX")) == 0) stateTo = 1;
+	    else if (strncmp(ct,"SLEEP",strlen("SLEEP")) == 0) stateTo = 2;
+	    ct = t.nextToken();
+	    int stateFrom = 0;
+	
+	    while (stateFrom < 3) {
+		if (stateTo == stateFrom) {
+		    if (ct[0] != '-' || ct[1]) opp_error("Bad syntax of radio parameters file, expecting '-' as state transition value from %i to %i:\n%s",stateFrom,stateTo,ct);
+		} else {
+		    double tmp;
+		    if (parseFloat(ct,&tmp)) opp_error("Bad syntax of radio parameters file, expecting state transition value from %i to %i:\n%s",stateFrom,stateTo,ct);
+		    if (section == 4) transition[stateFrom][stateTo].delay = tmp;
+		    else transition[stateFrom][stateTo].power = tmp;
+		}
+		stateFrom++;
+		ct = t.nextToken();
+	    }
+	    if (ct != NULL) opp_error("Bad syntax of radio parameters file, unexpected input for transition matrix:\n%s",ct);
 	}
     }
 }

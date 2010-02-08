@@ -17,8 +17,7 @@
 
 using namespace std;
 
-struct packet_info
-{
+struct packet_info {
     map <int, bool> packets_received;
 };
 
@@ -28,16 +27,9 @@ enum Timers {
 
 class throughputTest_ApplicationModule : public VirtualApplicationModule {
     private:
-	int latencyHistogramMin;
-	int latencyHistogramMax;
-	int latencyHistogramBuckets;
 	double packet_rate;
 	string recipientAddress;
 	
-	/*--- Latency calculation parameters ---*/
-	cLongHistogram latencyHistogram;
-	int latencyOverflow;
-		
 	float packet_spacing;
 	map <int, packet_info> packet_info_table; // this table records the number of packets received by node 0 from each other node
 	int total_packets_received;
@@ -47,9 +39,8 @@ class throughputTest_ApplicationModule : public VirtualApplicationModule {
 		
     protected:
 	void startup();
-	virtual void finishSpecific();
 	void update_packets_received(int srcID, int SN);
-	void fromNetworkLayer(ApplicationGenericDataPacket*, const char*, const char*, double, double);
+	void fromNetworkLayer(ApplicationGenericDataPacket*, const char*, double, double);
 	void timerFiredCallback(int);
 };
 

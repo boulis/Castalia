@@ -73,7 +73,7 @@ class BridgeTest_ApplicationModule : public VirtualApplicationModule
 	    int updateVersionTable(int version, int seq);
 	    int updateReportTable(int src, int seq);
 	
-	    void fromNetworkLayer(ApplicationGenericDataPacket*, const char*, const char *, double, double);
+	    void fromNetworkLayer(ApplicationGenericDataPacket*, const char *, double, double);
 	    void timerFiredCallback(int);
 	    void handleSensorReading(SensorReadingGenericMessage *);
 };

@@ -33,6 +33,7 @@ void VirtualMacModule::initialize() {
     }
     setTimerDrift(resMgrModule->getCPUClockDrift());
     disabled = 1;
+    declareOutput("Buffer overflow");
 }
 
 int VirtualMacModule::handleControlCommand(cMessage *msg) {
@@ -47,6 +48,7 @@ int VirtualMacModule::handleRadioControlMessage(cMessage *msg) {
 
 int VirtualMacModule::bufferPacket(cPacket* rcvFrame) {
     if ((int)TXBuffer.size() >= macBufferSize) {
+	collectOutput("Buffer overflow");
 	return 0;
     } else {
 	TXBuffer.push(rcvFrame);

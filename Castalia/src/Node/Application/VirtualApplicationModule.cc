@@ -14,44 +14,45 @@
 #include "VirtualApplicationModule.h"
 
 void VirtualApplicationModule::initialize() {
+    //get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
+    //instead of using extra messages & message types for tighlty couplped operations.
+    cModule *parent = getParentModule();
+    self = parent->getIndex();
+    if(parent->findSubmodule("nodeResourceMgr") != -1) {
+        resMgrModule = check_and_cast<ResourceGenericManager*>(parent->getSubmodule("nodeResourceMgr"));
+    } else {
+        opp_error("\n[Application]:\n Error in geting a valid reference to nodeResourceMgr for direct method calls.");
+    }
 
-	//get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
-	//instead of using extra messages & message types for tighlty couplped operations.
-	cModule *parent = getParentModule();
-	self = parent->getIndex();
-	if(parent->findSubmodule("nodeResourceMgr") != -1) {
-	    resMgrModule = check_and_cast<ResourceGenericManager*>(parent->getSubmodule("nodeResourceMgr"));
-	} else {
-	    opp_error("\n[Application]:\n Error in geting a valid reference to nodeResourceMgr for direct method calls.");
-	}
-	
-	if(parent->findSubmodule("nodeMobilityModule") != -1) {
-	    mobilityModule = check_and_cast<VirtualMobilityModule*>(parent->getSubmodule("nodeMobilityModule"));
-	} else {
-	    opp_error("\n[Application]:\n Error in geting a valid reference to nodeMobilityModule for direct method calls.");
-	}
-	
-	cpuClockDrift = resMgrModule->getCPUClockDrift();
-	setTimerDrift(cpuClockDrift);
-	disabled = 1;
+    if(parent->findSubmodule("nodeMobilityModule") != -1) {
+        mobilityModule = check_and_cast<VirtualMobilityModule*>(parent->getSubmodule("nodeMobilityModule"));
+    } else {
+        opp_error("\n[Application]:\n Error in geting a valid reference to nodeMobilityModule for direct method calls.");
+    }
 
-	stringstream out;
-	out << self;
-	selfAddress = out.str();
-	broadcastAddress = "-1";
-	sinkAddress = "0";
-	
-	applicationID = par("applicationID").stringValue();
-	priority = par("priority");
-	packetHeaderOverhead = par("packetHeaderOverhead");
-	constantDataPayload = par("constantDataPayload");
-	isSink = hasPar("isSink") ? par("isSink") : false;
+    cpuClockDrift = resMgrModule->getCPUClockDrift();
+    setTimerDrift(cpuClockDrift);
+    disabled = 1;
 
-	// Send the STARTUP message to MAC & to Sensor_Manager modules so that the node start to operate. (after a random delay, because we don't want the nodes to be synchronized)
-	double random_startup_delay = genk_dblrand(0) * 0.05;
-	sendDelayed(new cMessage("Application --> Sensor Dev Mgr [STARTUP]", NODE_STARTUP), simTime() + cpuClockDrift*random_startup_delay, "toSensorDeviceManager");
-	sendDelayed(new cMessage("Application --> Network [STARTUP]", NODE_STARTUP), simTime() + cpuClockDrift*random_startup_delay, "toCommunicationModule");
-	scheduleAt(simTime() + cpuClockDrift*random_startup_delay, new cMessage("Application --> Application (self)", NODE_STARTUP));
+    stringstream out;
+    out << self;
+    selfAddress = out.str();
+
+    applicationID = par("applicationID").stringValue();
+    priority = par("priority");
+    packetHeaderOverhead = par("packetHeaderOverhead");
+    constantDataPayload = par("constantDataPayload");
+    isSink = hasPar("isSink") ? par("isSink") : false;
+
+    // Send the STARTUP message to MAC & to Sensor_Manager modules so that the node start to operate. (after a random delay, because we don't want the nodes to be synchronized)
+    double random_startup_delay = genk_dblrand(0) * 0.05;
+    sendDelayed(new cMessage("Application --> Sensor Dev Mgr [STARTUP]", NODE_STARTUP), simTime() + cpuClockDrift*random_startup_delay, "toSensorDeviceManager");
+    sendDelayed(new cMessage("Application --> Network [STARTUP]", NODE_STARTUP), simTime() + cpuClockDrift*random_startup_delay, "toCommunicationModule");
+    scheduleAt(simTime() + cpuClockDrift*random_startup_delay, new cMessage("Application --> Application (self)", NODE_STARTUP));
+    
+    double latencyMax = hasPar("latencyHistogramMax") ? par("latencyHistogramMax") : 200;
+    int latencyBuckets = hasPar("latencyHistogramBuckets") ? par("latencyHistogramBuckets") : 10;
+    declareHistogram("Application level latency",0,latencyMax,latencyBuckets);
 }
 
 void VirtualApplicationModule::handleMessage(cMessage *msg) {
@@ -77,8 +78,10 @@ void VirtualApplicationModule::handleMessage(cMessage *msg) {
 	    ApplicationGenericDataPacket *rcvPacket;
 	    rcvPacket = check_and_cast<ApplicationGenericDataPacket *>(msg);
 	    ApplicationInteractionControl_type control = rcvPacket->getApplicationInteractionControl();
-	    if (applicationID.compare(control.applicationID.c_str()) == 0) 
-		fromNetworkLayer(rcvPacket,control.source.c_str(),control.pathFromSource.c_str(),control.RSSI,control.LQI);
+	    if (applicationID.compare(control.applicationID.c_str()) == 0) {
+		collectHistogram("Application level latency",SIMTIME_DBL(simTime() - control.timestamp));
+		fromNetworkLayer(rcvPacket,control.source.c_str(),control.RSSI,control.LQI);
+	    }
 	    break;
 	}
 
@@ -162,5 +165,6 @@ void VirtualApplicationModule::toNetworkLayer(cPacket *pkt, const char * dst) {
     ApplicationGenericDataPacket *appPkt = check_and_cast<ApplicationGenericDataPacket*>(pkt);
     appPkt->getApplicationInteractionControl().destination = string(dst);
     appPkt->getApplicationInteractionControl().applicationID = applicationID;
+    appPkt->getApplicationInteractionControl().timestamp = simTime();
     send(appPkt, "toCommunicationModule");
 }

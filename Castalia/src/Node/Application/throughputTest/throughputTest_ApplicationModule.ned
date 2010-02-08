@@ -20,20 +20,14 @@ simple throughputTest_ApplicationModule like Node.Application.ApplicationGeneric
 {
     parameters:
         string applicationID = default("throughputTest");
-
         bool collectTraceInfo = default(false);
-
-        int latencyHistogramMin = default(0);
-        int latencyHistogramMax = default(200);
-        int latencyHistogramBuckets = default(10);
-
-        string nextRecipient = default("0");			// destination for packets, this value can be used
-							// to create multihop throughput test involving many nodes
-
         int priority = default(1);
         int maxAppPacketSize = default(0);
         int packetHeaderOverhead = default(5);		// in bytes
         int constantDataPayload = default(1000);	// in bytes
+
+        string nextRecipient = default("0");		// destination for packets, this value can be used
+							// to create multihop throughput test involving many nodes
         double packet_rate = default(0);		// packets per second
 
     gates:

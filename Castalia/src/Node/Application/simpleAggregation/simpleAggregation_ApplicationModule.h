@@ -37,7 +37,7 @@ class simpleAggregation_ApplicationModule : public VirtualApplicationModule
 	    void timerFiredCallback(int);
 	    void handleSensorReading(SensorReadingGenericMessage*);
 	    void handleNeworkControlMessage(cMessage*);
-	    void fromNetworkLayer(ApplicationGenericDataPacket*, const char*, const char *, double, double);
+	    void fromNetworkLayer(ApplicationGenericDataPacket*, const char*, double, double);
 };
 
 #endif // _SIMPLEAGGREGATION_APPLICATIONMODULE_H_

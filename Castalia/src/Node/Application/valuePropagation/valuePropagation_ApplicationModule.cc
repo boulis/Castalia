@@ -34,9 +34,9 @@ void valuePropagation_ApplicationModule::timerFiredCallback(int index) {
     }
 }
 
-void valuePropagation_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket* rcvPacket, const char *source, const char *path, double rssi, double lqi) {
+void valuePropagation_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket* rcvPacket, const char *source, double rssi, double lqi) {
     double receivedData = rcvPacket->getData();
-    int sequenceNumber = rcvPacket->getSequenceNumber();
+    // int sequenceNumber = rcvPacket->getSequenceNumber();
 
     totalPackets++;
     if(receivedData > currMaxReceivedValue) currMaxReceivedValue = receivedData;
@@ -50,8 +50,8 @@ void valuePropagation_ApplicationModule::fromNetworkLayer(ApplicationGenericData
 }
 
 void valuePropagation_ApplicationModule::handleSensorReading(SensorReadingGenericMessage *rcvReading) {
-    int sensIndex =  rcvReading->getSensorIndex();
-    string sensType(rcvReading->getSensorType());
+    // int sensIndex =  rcvReading->getSensorIndex();
+    // string sensType(rcvReading->getSensorType());
     double sensedValue = rcvReading->getSensedValue();
     
     if(sensedValue > currMaxSensedValue) currMaxSensedValue = sensedValue;
@@ -67,9 +67,6 @@ void valuePropagation_ApplicationModule::handleSensorReading(SensorReadingGeneri
 void valuePropagation_ApplicationModule::finishSpecific() {
     // output the value that the node has when the simulation stopped
     EV <<  "Node [" << self << "] Value: " << theValue << "\n";
-
-    // output the spent energy of the node
-    EV <<  "Node [" << self << "] spent energy: " << resMgrModule->getSpentEnergy() << "\n";
 
     sensedValues.clear();
 }

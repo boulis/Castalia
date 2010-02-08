@@ -12,12 +12,12 @@
 
 
 struct ApplicationInteractionControl_type {
-    string pathFromSource;
     string applicationID;
     string source;
     string destination;
     double RSSI;
     double LQI;
+    simtime_t timestamp;
 }
 
 packet ApplicationGenericDataPacket

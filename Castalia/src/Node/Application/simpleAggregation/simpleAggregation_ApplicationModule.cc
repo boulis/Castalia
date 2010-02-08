@@ -40,13 +40,13 @@ void simpleAggregation_ApplicationModule::timerFiredCallback(int index) {
     }
 }
 
-void simpleAggregation_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket* rcvPacket, const char * source, const char * path, double rssi, double lqi) {
+void simpleAggregation_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket* rcvPacket, const char * source, double rssi, double lqi) {
     double theData = rcvPacket->getData();
 
     // do the aggregation bit. For this example aggregation function is a simple max.
     if (theData > aggregatedValue) aggregatedValue = theData;
 
-    if (isSink) trace() << "\treceived from:" << source << " \tvalue=" << theData;
+    if (isSink) trace() << "from " << source << "received value " << theData;
 }
 
 void simpleAggregation_ApplicationModule::handleSensorReading(SensorReadingGenericMessage * rcvReading) {

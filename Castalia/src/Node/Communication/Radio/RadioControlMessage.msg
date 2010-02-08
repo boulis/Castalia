@@ -36,12 +36,13 @@ enum RadioControlCommand_type {
     SET_CCA_THRESHOLD = 5;
     SET_CS_INTERRUPT_ON = 6;
     SET_CS_INTERRUPT_OFF = 7;
+    SET_ENCODING = 8;
 }
 
 message RadioControlCommand {
     int radioControlCommandKind enum(RadioControlCommand_type);
     int state enum(BasicState_type) = RX;	//to be used with SET_STATE
     double parameter = 0.0;			//to be used with SET_TX_OUTPUT, SET_CARRIER_FREQ, SET_CCA_THRESHOLD
-    string name = "";				//to be used with SET_MODE and SET_SLEEP_LEVEL
+    string name = "";				//to be used with SET_MODE, SET_SLEEP_LEVEL and SET_ENCODING
 }
 

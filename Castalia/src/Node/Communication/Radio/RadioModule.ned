@@ -29,7 +29,11 @@ simple RadioModule
 
 	string TxOutputPower = default("");		// we can choose a Txpower to begin with. Possible tx power values 
 							// are defined in the RadioParametersFile. Empty string means use 
-							// the first tx power defined (which is also the highest)                   
+							// the first tx power defined (which is also the highest)
+							
+	string sleepLevel = default("");		// we can choose a sleep level which will be used when a transition to SLEEP state
+							// is requested. Empty string means use first level defined (will usually be the fastest
+							// and most energy consuming sleep state)
 
 	double carrierFreq = default(2400.0);		// the carrier frequency (in MHz) to begin with.
 

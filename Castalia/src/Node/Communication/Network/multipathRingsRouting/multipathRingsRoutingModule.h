@@ -48,9 +48,11 @@ class multipathRingsRoutingModule : public VirtualNetworkModule {
 	void startup();
 	void fromApplicationLayer(cPacket *, const char *);
 	void fromMacLayer(cPacket *,int,double,double);
+
 	void sendTopologySetupPacket();
+	void sendControlMessage(multipathRingsRoutingControlDef);
+	
 	void timerFiredCallback(int);
-	void createAndSendControlMessage(multipathRingsRoutingControlDef);
 	void processBufferedPacket();
 	bool filterIncomingPacket(string,int);
 };

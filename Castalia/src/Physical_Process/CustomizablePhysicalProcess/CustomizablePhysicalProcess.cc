@@ -23,15 +23,13 @@ void CustomizablePhysicalProcess::initialize() {
     }
 }
 
-
-
 void CustomizablePhysicalProcess::handleMessage(cMessage *msg) {
     if (msg->getKind() != PHYSICAL_PROCESS_SAMPLING) 
 	opp_error("Physical Process received message other than PHYSICAL_PROCESS_SAMPLING");
 
     PhysicalProcessMessage *receivedMsg = check_and_cast<PhysicalProcessMessage*>(msg);
     int nodeIndex = receivedMsg->getSrcID();
-    int sensorIndex = receivedMsg->getSensorIndex();
+    // int sensorIndex = receivedMsg->getSensorIndex();
     double returnValue;
 
     switch(inputType) {
@@ -65,8 +63,8 @@ void CustomizablePhysicalProcess::finishSpecific() {
 	    delete[] sources_snapshots[i];
 	}
 	delete[] sources_snapshots;
-	delete [] curr_source_state;
-	delete [] source_index;
+	delete[] curr_source_state;
+	delete[] source_index;
     } else {
 	delete[] valuesTable;
     }

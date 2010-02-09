@@ -104,13 +104,17 @@ void VirtualNetworkModule::handleMessage(cMessage *msg) {
 	    ApplicationGenericDataPacket *appPacket = check_and_cast<ApplicationGenericDataPacket*>(msg);
 	    if (maxNetFrameSize > 0 && maxNetFrameSize < appPacket->getByteLength() + netDataFrameOverhead) {
 		trace() << "Oversized packet dropped. Size:" << appPacket->getByteLength() << 
-			    ", Network layer overhead:" << netDataFrameOverhead << 
-			    ", max Network packet size:" << maxNetFrameSize;
+			", Network layer overhead:" << netDataFrameOverhead << 
+			", max Network packet size:" << maxNetFrameSize;
 		break;
 	    }
 	    trace() << "Received [" << appPacket->getName() << "] from application layer";
 	    fromApplicationLayer(appPacket,appPacket->getApplicationInteractionControl().destination.c_str());
-	    return; 	//fromApplicationLayer() now has control of the message, we cannot delete it
+	    return;	//fromApplicationLayer() now has control of the packet, we use return here to avoid deleting
+			//it. This is done since the packet will most likely be encapsulated and forwarded to MAC layer.
+			//An alternative way would be to use dup() here, but this will not change things for
+			//fromApplicationLayer() function (i.e. it will need to delete the packet if its not forwarded)
+			//but will create an unneeded packet duplication call here
 	}
 
 	/*--------------------------------------------------------------------------------------------------------------
@@ -121,17 +125,19 @@ void VirtualNetworkModule::handleMessage(cMessage *msg) {
 	    trace() << "Received [" << netPacket->getName() << "] from MAC layer";
 	    NetworkInteractionControl_type control = netPacket->getNetworkInteractionControl();
 	    fromMacLayer(netPacket,control.lastHop,control.RSSI,control.LQI);
-	    break;
+	    break;	//although we passed the message control to function fromMacLayer(), we still use break here 
+			//instead of return. This is to allow fromMacLayer function to worry only about encapsulated
+			//packet, making sure that the network layer packet gets deleted anyway
 	}
 
 	case MAC_CONTROL_MESSAGE: {
 	    handleMacControlMessage(msg);
-	    return;
+	    break;
 	}
 	
 	case RADIO_CONTROL_MESSAGE: {
 	    handleRadioControlMessage(msg);
-	    return;
+	    break;
 	}
 	
 	case MAC_CONTROL_COMMAND: {
@@ -172,7 +178,6 @@ void VirtualNetworkModule::handleMessage(cMessage *msg) {
     }
 
     delete msg;
-    msg = NULL;		// safeguard
 }
 
 void VirtualNetworkModule::handleMacControlMessage(cMessage *msg) { 
@@ -202,12 +207,7 @@ int VirtualNetworkModule::bufferPacket(cPacket* rcvFrame) {
     } else {
 	TXBuffer.push(rcvFrame);
 	trace() << "Packet buffered from application layer, buffer state: " <<
-		    TXBuffer.size() << "/" << netBufferSize;
+		TXBuffer.size() << "/" << netBufferSize;
 	return 1; 
     }
-}
-
-const char * extractPacketDestination(cPacket *pkt) {
-    ApplicationGenericDataPacket *appPacket = check_and_cast<ApplicationGenericDataPacket*>(pkt);
-    return appPacket->getApplicationInteractionControl().destination.c_str();
 }

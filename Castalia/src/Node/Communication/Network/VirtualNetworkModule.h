@@ -35,7 +35,7 @@ class VirtualNetworkModule : public VirtualCastaliaModule, public TimerModule {
 		
 	/*--- Custom class parameters ---*/
 	double radioDataRate;
-	ResourceGenericManager *resMgrModule;	//a pointer to the object of the Radio Module (used for direct method calls)
+	ResourceGenericManager *resMgrModule;
 		
 	queue <cPacket *> TXBuffer;
 		
@@ -55,7 +55,6 @@ class VirtualNetworkModule : public VirtualCastaliaModule, public TimerModule {
 	virtual void fromMacLayer(cPacket *,int,double,double) = 0;
 	
 	int bufferPacket(cPacket*);
-	const char * extractPacketDestination(cPacket*);
 	
 	void toApplicationLayer(cMessage *);
 	void toMacLayer(cMessage *);

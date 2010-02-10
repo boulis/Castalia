@@ -111,6 +111,24 @@ enum CCA_result {
     CS_NOT_VALID_YET = 102,
 };
 
+// we define an internal stats collection structure to be more computationally efficient
+struct PktBreakdown {
+    int transmissions;
+    int RxReachedNoInterference;	// packets reached
+    int RxReachedInterference;  	// packets reached despite interference
+    int RxFailedNoInterference;		// packets failed even without interference
+    int RxFailedInterference;		// packets failed with interference
+    int RxFailedSensitivity;		// packets failed, below sensitivity
+    int RxFailedModulation; 		// packets failed, wrong modulation
+    int RxFailedNoRxState;		// packets failed, radio not in RΧ
+    int bufferOverflow;			// packets overflown
+
+	/* initialize the struct (C++ syntax)*/
+    PktBreakdown() : transmissions(0), RxReachedNoInterference(0), RxReachedInterference(0),
+	RxFailedNoInterference(0), RxFailedInterference(0), RxFailedSensitivity(0),
+	RxFailedModulation(0), RxFailedNoRxState(0), bufferOverflow(0) {}
+};
+
 class RadioModule : public VirtualCastaliaModule {
     private:
     // parameters and variables
@@ -170,6 +188,8 @@ class RadioModule : public VirtualCastaliaModule {
 
 	int disabled;
 
+	PktBreakdown stats;
+
     protected:
 	virtual void initialize();
 	virtual void handleMessage(cMessage *msg);
@@ -201,7 +221,7 @@ class RadioModule : public VirtualCastaliaModule {
 	list <SleepLevel_type>::iterator parseSleepLevel(string);
 
 	void ReceivedSignalDebug(const char *);
-    
+
     public:
 	double readRSSI();
 	CCA_result isChannelClear();

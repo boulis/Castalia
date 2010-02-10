@@ -97,6 +97,28 @@ float subtractPower_dBm(float a, float b){
 
 }
 
+float ratioTodB(float ratio){
+	static float ratioTodB_array[15] = {	-12.041200,  // dB returned for 1/16<= ratio <2/16
+						-9.030900,   // dB returned for 2/16<= ratio <3/16
+						-7.269987,
+						-6.020600,
+						-5.051500,
+						-4.259687,
+						-3.590219,
+						-3.010300,
+						-2.498775,
+						-2.041200,
+						-1.627273,
+						-1.249387,
+						-0.901766,
+						-0.579919,
+						-0.280287 }; // dB returned for 15/16<= ratio <16/16
+
+	if (ratio >= 1.0)   return 0.0;      // the input to this function should be ratios up to 1.0
+	if (ratio < 0.0625) return -100.0;   // if < 1/16 then return a very small number in dB
+	return ratioTodB_array[(int)floor(16.0*ratio)-1];
+}
+
 
 float erfInv( float y )
 {

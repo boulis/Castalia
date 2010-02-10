@@ -22,6 +22,8 @@ float addPower_dBm(float a, float b);
 
 float subtractPower_dBm(float a, float b);
 
+float ratioTodB(float a);
+
 float erfInv( float y );
 
 float erfcInv( float y );

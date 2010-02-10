@@ -132,12 +132,12 @@ void VirtualNetworkModule::handleMessage(cMessage *msg) {
 
 	case MAC_CONTROL_MESSAGE: {
 	    handleMacControlMessage(msg);
-	    break;
+	    return;
 	}
 	
 	case RADIO_CONTROL_MESSAGE: {
 	    handleRadioControlMessage(msg);
-	    break;
+	    return;
 	}
 	
 	case MAC_CONTROL_COMMAND: {
@@ -180,10 +180,11 @@ void VirtualNetworkModule::handleMessage(cMessage *msg) {
     delete msg;
 }
 
+// handleMacControlMessage needs to either process and DELETE the message OR forward it
 void VirtualNetworkModule::handleMacControlMessage(cMessage *msg) { 
     toApplicationLayer(msg);
 }
-
+// handleRadioControlMessage needs to either process and DELETE the message OR forward it
 void VirtualNetworkModule::handleRadioControlMessage(cMessage *msg) { 
     toApplicationLayer(msg); 
 }

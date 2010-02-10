@@ -21,7 +21,7 @@ void WirelessChannel::initialize(int stage) {
 	    readIniFileParameters();
 	    return;
 	}
-	
+
 	/* variable to report initialization run time */
 	clock_t startTime;
 	startTime = clock();
@@ -94,10 +94,10 @@ void WirelessChannel::initialize(int stage) {
 
 	for (int i = 0; i < numOfNodes; i++)
 	{
-		VirtualMobilityModule * nodeMobilityModule = 
+		VirtualMobilityModule * nodeMobilityModule =
 		    check_and_cast<VirtualMobilityModule*>(topo->getNode(i)->getModule()->getSubmodule("nodeMobilityModule"));
 		nodeLocation[i] = nodeMobilityModule->getLocation();
-		nodeLocation[i].cell = i; 
+		nodeLocation[i].cell = i;
 
 		if (!onlyStaticNodes)
 		{
@@ -139,13 +139,13 @@ void WirelessChannel::initialize(int stage) {
 			}
 
 			int cell = zIndex * zIndexIncrement + yIndex * yIndexIncrement + xIndex * xIndexIncrement;
-			
+
 			if (cell < 0 || cell >= numOfSpaceCells) {
 			    opp_error("Cell out of bounds for node %i, please check your mobility module settings\n",i);
 			}
-			
+
 			nodeLocation[i].cell = cell;
-			
+
 		}
 		/*************************************************
 		 * pushing ID i into the list cellOccupation[cell]
@@ -245,7 +245,7 @@ void WirelessChannel::initialize(int stage) {
 	trace() << "Number of distinct space cells: " << numOfSpaceCells;
 	trace() << "Each cell affects " << (double)totalElements/numOfSpaceCells << " other cells on average";
 	trace() << "The pathLoss array of lists was allocated in " << (double)(totalElements * elementSize)/1048576 << " MBytes";
-	// The larger this number, the slower your simulation. Consider increasing the cell size, 
+	// The larger this number, the slower your simulation. Consider increasing the cell size,
 	// decreasing the field size, or if you only have static nodes, decreasing the number of nodes
 
 
@@ -292,10 +292,10 @@ void WirelessChannel::handleMessage(cMessage *msg) {
     switch (msg->getKind()) {
 
 	case WC_NODE_MOVEMENT: {
-	    
+
 	    WirelessChannelNodeMoveMessage *mobilityMsg = check_and_cast<WirelessChannelNodeMoveMessage*>(msg);
 	    int srcAddr = mobilityMsg->getNodeID();
-	    
+
 	    /*****************************************************
 	     * A node notified the wireless channel that it moved
 	     * to a new space cell. Update the nodeLocation and
@@ -321,7 +321,7 @@ void WirelessChannel::handleMessage(cMessage *msg) {
 		if (nodeLocation[srcAddr].x > xFieldSize)
 		    debug() << "WARNING at WC_NODE_MOVEMENT: node position out of bounds in X dimension!\n";
 	    }
-	    
+
 	    int yIndex = (int)floor(nodeLocation[srcAddr].y/yFieldSize * numOfYCells);
 	    if (((yIndex-1)*yCellSize) >= nodeLocation[srcAddr].y) yIndex--;
 	    else if (yIndex >= numOfYCells ) {
@@ -329,7 +329,7 @@ void WirelessChannel::handleMessage(cMessage *msg) {
 		if (nodeLocation[srcAddr].y > yFieldSize)
 		    debug() << "WARNING at WC_NODE_MOVEMENT: node position out of bounds in Y dimension!\n";
 	    }
-	    
+
 	    int zIndex = (int)floor(nodeLocation[srcAddr].z/zFieldSize * numOfZCells);
 	    if (((zIndex-1)*zCellSize) >= nodeLocation[srcAddr].z) zIndex--;
 	    else if (zIndex >= numOfZCells ) {
@@ -344,17 +344,17 @@ void WirelessChannel::handleMessage(cMessage *msg) {
 		cellOccupation[newCell].push_front(srcAddr);
 		nodeLocation[srcAddr].cell = newCell;
 	    }
-	
+
 	    break;
 	}
 
 
 	case WC_SIGNAL_START: {
-	    
+
 	    WirelessChannelSignalBegin *signalMsg = check_and_cast<WirelessChannelSignalBegin*>(msg);
     	    int srcAddr = signalMsg->getNodeID();
 	    int receptioncount = 0;
-	    
+
 	    /* Find the cell that the transmitting node resides */
 	    int cellTx = nodeLocation[srcAddr].cell;
 
@@ -363,7 +363,7 @@ void WirelessChannel::handleMessage(cMessage *msg) {
 	     * carrier sensing? If yes send a carrier_sensed message. Update
 	     * the currentSignalAtReceiver and nodesAffectedByTransmitter arrays
 	     */
-	    list<PathLossElement *>::iterator it1; 
+	    list<PathLossElement *>::iterator it1;
 	    for ( it1=pathLoss[cellTx].begin(); it1 != pathLoss[cellTx].end(); it1++ ) {
 		/* If no nodes exist in this cell, move on.*/
 	    	if (cellOccupation[(*it1)->cellID].empty()) continue;
@@ -383,7 +383,7 @@ void WirelessChannel::handleMessage(cMessage *msg) {
 		    /* Update the observation time */
 		    (*it1)->lastObservationTime = simTime() - (timePassed_msec - timeProcessed_msec)/1000;
 		}
-	
+
 		/* If the resulting current signal received is
 		 * not strong enough, update the relevant stats
 		 * and continue to the next cell.
@@ -393,7 +393,7 @@ void WirelessChannel::handleMessage(cMessage *msg) {
 		/* Else go through all the nodes of that cell.
 		 * Iterator it2 returns node IDs.
 		 */
-		list<int>::iterator it2; 
+		list<int>::iterator it2;
 		for ( it2=cellOccupation[(*it1)->cellID].begin(); it2 != cellOccupation[(*it1)->cellID].end(); it2++ ) {
 		    if (*it2 == srcAddr) continue;
 		    receptioncount++;
@@ -404,10 +404,10 @@ void WirelessChannel::handleMessage(cMessage *msg) {
 		} //for it2
 	    } //for it1
 
-	    if (receptioncount > 0) 
+	    if (receptioncount > 0)
 		trace() << "signal from node[" << srcAddr << "] reached " << receptioncount << " other nodes";
 	    break;
-	} 
+	}
 
 
     	case WC_SIGNAL_END: {

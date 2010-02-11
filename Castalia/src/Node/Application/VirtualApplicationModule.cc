@@ -1,23 +1,25 @@
-//***************************************************************************************
-//*  Copyright: National ICT Australia,  2007, 2008, 2009				*
-//*  Developed at the Networks and Pervasive Computing program				*
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis				*
-//*  This file is distributed under the terms in the attached LICENSE file.		*
-//*  If you do not find this file, copies can be found by writing to:			*
-//*											*
-//*      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia			*
-//*      Attention:  License Inquiry.							*
-//*											*
-//***************************************************************************************
+/****************************************************************************
+ *  Copyright: National ICT Australia,  2007 - 2010							*
+ *  Developed at the ATP lab, Networked Systems theme						*
+ *  Author(s): Athanassios Boulis, Yuriy Tselishchev						*
+ *  This file is distributed under the terms in the attached LICENSE file.	*
+ *  If you do not find this file, copies can be found by writing to:		*
+ *																			*
+ *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia				*
+ *      Attention:  License Inquiry.										*
+ ***************************************************************************/
 
 
 #include "VirtualApplicationModule.h"
 
 void VirtualApplicationModule::initialize() {
-    //get a valid reference to the object of the Resources Manager module so that we can make direct calls to its public methods
-    //instead of using extra messages & message types for tighlty couplped operations.
+
+    /* Get a valid references to the objects of the Resources Manager module
+     * the Mobility module and the radio module, so that we can make direct
+     * calls to their public methods
+     */
     cModule *parent = getParentModule();
-    self = parent->getIndex();
+
     if(parent->findSubmodule("nodeResourceMgr") != -1) {
         resMgrModule = check_and_cast<ResourceGenericManager*>(parent->getSubmodule("nodeResourceMgr"));
     } else {
@@ -30,6 +32,10 @@ void VirtualApplicationModule::initialize() {
         opp_error("\n[Application]:\n Error in geting a valid reference to nodeMobilityModule for direct method calls.");
     }
 
+	// we make no checks here
+	radioModule = check_and_cast<RadioModule*>(parent->getSubmodule("networkInterface")->getSubmodule("Radio"));
+
+	self = parent->getIndex();
     cpuClockDrift = resMgrModule->getCPUClockDrift();
     setTimerDrift(cpuClockDrift);
     disabled = 1;
@@ -44,12 +50,15 @@ void VirtualApplicationModule::initialize() {
     constantDataPayload = par("constantDataPayload");
     isSink = hasPar("isSink") ? par("isSink") : false;
 
-    // Send the STARTUP message to MAC & to Sensor_Manager modules so that the node start to operate. (after a random delay, because we don't want the nodes to be synchronized)
+    /* Send the STARTUP message to 1)Sensor_Manager, 2)Commmunication module, and
+     * 3)APP (self message) so that the node starts to operate.
+     * We are using a random delay because we don't want the nodes to be synchronized
+     */
     double random_startup_delay = genk_dblrand(0) * 0.05;
-    sendDelayed(new cMessage("Application --> Sensor Dev Mgr [STARTUP]", NODE_STARTUP), simTime() + cpuClockDrift*random_startup_delay, "toSensorDeviceManager");
-    sendDelayed(new cMessage("Application --> Network [STARTUP]", NODE_STARTUP), simTime() + cpuClockDrift*random_startup_delay, "toCommunicationModule");
-    scheduleAt(simTime() + cpuClockDrift*random_startup_delay, new cMessage("Application --> Application (self)", NODE_STARTUP));
-    
+    sendDelayed(new cMessage("Sensor Dev Mgr [STARTUP]", NODE_STARTUP), simTime() + cpuClockDrift*random_startup_delay, "toSensorDeviceManager");
+    sendDelayed(new cMessage("Communication [STARTUP]", NODE_STARTUP), simTime() + cpuClockDrift*random_startup_delay, "toCommunicationModule");
+    scheduleAt(simTime() + cpuClockDrift*random_startup_delay, new cMessage("App [STARTUP]", NODE_STARTUP));
+
     double latencyMax = hasPar("latencyHistogramMax") ? par("latencyHistogramMax") : 200;
     int latencyBuckets = hasPar("latencyHistogramBuckets") ? par("latencyHistogramBuckets") : 10;
     declareHistogram("Application level latency",0,latencyMax,latencyBuckets);
@@ -65,9 +74,7 @@ void VirtualApplicationModule::handleMessage(cMessage *msg) {
     }
 
     switch (msgKind) {
-	/*--------------------------------------------------------------------------------------------------------------
-	 * Sent by ourself in order to start running the Application.
-	 *--------------------------------------------------------------------------------------------------------------*/
+
 	case NODE_STARTUP: {
 	    disabled = 0;
 	    startup();
@@ -100,29 +107,30 @@ void VirtualApplicationModule::handleMessage(cMessage *msg) {
 	    disabled = 1;
 	    break;
 	}
-	
+
 	case DESTROY_NODE: {
 	    disabled = 1;
 	    break;
 	}
-	
+
 	case NETWORK_CONTROL_MESSAGE: {
 	    handleNetworkControlMessage(msg);
 	    break;
 	}
-	
+
 	case MAC_CONTROL_MESSAGE: {
 	    handleMacControlMessage(msg);
 	    break;
 	}
-	
+
 	case RADIO_CONTROL_MESSAGE: {
-	    handleRadioControlMessage(msg);
+		RadioControlMessage *radioMsg = check_and_cast<RadioControlMessage*>(msg);
+	    handleRadioControlMessage(radioMsg);
 	    break;
 	}
-	
+
 	default: {
-	    opp_error("Application module recieved unexpected message");
+	    opp_error("Application module received unexpected message");
 	}
     }
 
@@ -167,4 +175,13 @@ void VirtualApplicationModule::toNetworkLayer(cPacket *pkt, const char * dst) {
     appPkt->getApplicationInteractionControl().applicationID = applicationID;
     appPkt->getApplicationInteractionControl().timestamp = simTime();
     send(appPkt, "toCommunicationModule");
+}
+
+void VirtualApplicationModule::handleRadioControlMessage(RadioControlMessage *radioMsg) {
+	switch (radioMsg->getRadioControlMessageKind()) {
+		case CARRIER_SENSE_INTERRUPT: {
+			trace() << "CS Interrupt received! current RSSI value is: " << radioModule->readRSSI();
+			break;
+		}
+	}
 }

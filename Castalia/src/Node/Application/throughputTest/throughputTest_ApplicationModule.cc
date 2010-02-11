@@ -1,15 +1,13 @@
-//***************************************************************************************
-//*  Copyright: National ICT Australia,  2007, 2008, 2009, 2010				*
-//*  Developed at the Networks and Pervasive Computing program				*
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis, Yuriy Tselishchev		*
-//*  This file is distributed under the terms in the attached LICENSE file.		*
-//*  If you do not find this file, copies can be found by writing to:			*
-//*											*
-//*      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia			*
-//*      Attention:  License Inquiry.							*
-//*											*
-//***************************************************************************************
-
+/****************************************************************************
+ *  Copyright: National ICT Australia,  2007 - 2010							*
+ *  Developed at the ATP lab, Networked Systems theme						*
+ *  Author(s): Athanassios Boulis, Yuriy Tselishchev						*
+ *  This file is distributed under the terms in the attached LICENSE file.	*
+ *  If you do not find this file, copies can be found by writing to:		*
+ *																			*
+ *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia				*
+ *      Attention:  License Inquiry.										*
+ ***************************************************************************/
 
 #include "throughputTest_ApplicationModule.h"
 
@@ -34,7 +32,7 @@ void throughputTest_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPa
     int sequenceNumber = rcvPacket->getSequenceNumber();
 
     if (recipientAddress.compare(SELF_NETWORK_ADDRESS) == 0) {
-	trace() << "Received packet from node " << source << ", SN = " << sequenceNumber; 
+	trace() << "Received packet from node " << source << ", SN = " << sequenceNumber;
 	update_packets_received(atoi(source),sequenceNumber);
     } else {
 	toNetworkLayer(rcvPacket->dup(),recipientAddress.c_str());
@@ -60,7 +58,3 @@ void throughputTest_ApplicationModule::update_packets_received(int srcID, int SN
     packet_info_table[srcID].packets_received[SN]++;
     if (packet_info_table[srcID].packets_received[SN] == 1) collectOutput("Packets received",srcID);
 }
-
-
-
-

@@ -1,7 +1,7 @@
 /********************************************************************************
  *  Copyright: National ICT Australia,  2007 - 2010				*
  *  Developed at the ATP lab, Networked Systems theme				*
- *  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis			*
+ *  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis, Yuriy Tselishchev	*
  *  This file is distributed under the terms in the attached LICENSE file.	*
  *  If you do not find this file, copies can be found by writing to:		*
  *										*
@@ -23,6 +23,8 @@ float addPower_dBm(float a, float b);
 float subtractPower_dBm(float a, float b);
 
 float ratioTodB(float a);
+
+float dBToRatio(float a);
 
 float erfInv( float y );
 

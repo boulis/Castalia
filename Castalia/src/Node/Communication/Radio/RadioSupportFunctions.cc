@@ -1,7 +1,7 @@
 /****************************************************************************
  *  Copyright: National ICT Australia,  2007 - 2010							*
  *  Developed at the ATP lab, Networked Systems theme						*
- *  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis					*
+ *  Author(s): Athanassios Boulis, Dimos Pediaditakis, Yuriy Tselishchev	*
  *  This file is distributed under the terms in the attached LICENSE file.	*
  *  If you do not find this file, copies can be found by writing to:		*
  *																			*
@@ -119,6 +119,15 @@ float ratioTodB(float ratio){
 	return ratioTodB_array[(int)floor(16.0*ratio)-1];
 }
 
+/* Simple approximation function only used to calculate time of CS Interrupt*/
+float dBToRatio(float dB){
+
+	if (dB > 9.0) return 8.0;
+	if (dB > 6.0) return 4.0;
+	if (dB > 3.0) return 2.0;
+	if (dB > 1.25) return 1.3333;   // = 4/3
+	return 1.0;
+}
 
 float erfInv( float y )
 {
@@ -254,7 +263,7 @@ double probabilityOfExactly_N_Errors(double BER, int errors, int numOfBits)
 
 
 RadioControlCommand *createRadioCommand(RadioControlCommand_type kind, double value) {
-    if (kind != SET_TX_OUTPUT && kind != SET_CARRIER_FREQ && kind != SET_CCA_THRESHOLD) 
+    if (kind != SET_TX_OUTPUT && kind != SET_CARRIER_FREQ && kind != SET_CCA_THRESHOLD)
 	opp_error("incorrect usage of createRadioCommand, double argument is only compatible with SET_TX_OUTPUT, SET_CCA_THRESHOLD or SET_CARRIER_FREQ");
     RadioControlCommand *cmd = new RadioControlCommand("Radio control command", RADIO_CONTROL_COMMAND);
     cmd->setRadioControlCommandKind(kind);
@@ -263,7 +272,7 @@ RadioControlCommand *createRadioCommand(RadioControlCommand_type kind, double va
 }
 
 RadioControlCommand *createRadioCommand(RadioControlCommand_type kind, const char * name) {
-    if (kind != SET_MODE && kind != SET_SLEEP_LEVEL) 
+    if (kind != SET_MODE && kind != SET_SLEEP_LEVEL)
 	opp_error("incorrect usage of createRadioCommand, string argument is only compatible with SET_MODE or SET_SLEEP_LEVEL");
     RadioControlCommand *cmd = new RadioControlCommand("Radio control command", RADIO_CONTROL_COMMAND);
     cmd->setRadioControlCommandKind(kind);
@@ -272,7 +281,7 @@ RadioControlCommand *createRadioCommand(RadioControlCommand_type kind, const cha
 }
 
 RadioControlCommand *createRadioCommand(RadioControlCommand_type kind, BasicState_type state) {
-    if (kind != SET_STATE) 
+    if (kind != SET_STATE)
 	opp_error("incorrect usage of createRadioCommand, double argument is only compatible with SET_TX_OUTPUT or SET_CARRIER_FREQ");
     RadioControlCommand *cmd = new RadioControlCommand("Radio control command", RADIO_CONTROL_COMMAND);
     cmd->setRadioControlCommandKind(kind);
@@ -281,7 +290,7 @@ RadioControlCommand *createRadioCommand(RadioControlCommand_type kind, BasicStat
 }
 
 RadioControlCommand *createRadioCommand(RadioControlCommand_type kind) {
-    if (kind != SET_CS_INTERRUPT_ON && kind != SET_CS_INTERRUPT_OFF) 
+    if (kind != SET_CS_INTERRUPT_ON && kind != SET_CS_INTERRUPT_OFF)
 	opp_error("incorrect usage of createRadioCommand, no argument is only compatible with SET_CS_INTERRUPT_OFF or SET_CS_INTERRUPT_ON");
     RadioControlCommand *cmd = new RadioControlCommand("Radio control command", RADIO_CONTROL_COMMAND);
     cmd->setRadioControlCommandKind(kind);

@@ -172,15 +172,15 @@ void WirelessChannel::initialize(int stage) {
 
 	/*******************************************************
 	 * Calculate the distance, beyond which we cannot
-	 * have connectivity between two nodes. This calculation
-	 * is based on the maximum TXPower the receiverSensitivity
+	 * have connectivity between two nodes. This calculation is
+	 * based on the maximum TXPower the signalDeliveryThreshold
 	 * the pathLossExponent, the PLd0. For the random
 	 * shadowing part we use 3*sigma to account for 99.7%
 	 * of the cases. We use this value to considerably
 	 * speed up the filling of the pathLoss array,
 	 * especially for the mobile case.
 	 *******************************************************/
-	float distanceThreshold = d0 * pow(10.0, (maxTxPower - receiverSensitivity - PLd0 + 3*sigma)/(10.0 * pathLossExponent) );
+	float distanceThreshold = d0 * pow(10.0, (maxTxPower - signalDeliveryThreshold - PLd0 + 3*sigma)/(10.0 * pathLossExponent) );
 
 	for (int i = 0; i < numOfSpaceCells; i++)
 	{
@@ -227,13 +227,13 @@ void WirelessChannel::initialize(int stage) {
 
 			float bidirectionalPathLossJitter = normal(0, bidirectionalSigma) / 2;
 
-			if (maxTxPower - PLd - bidirectionalPathLossJitter >= receiverSensitivity)
+			if (maxTxPower - PLd - bidirectionalPathLossJitter >= signalDeliveryThreshold)
 			{
 				pathLoss[i].push_front(new PathLossElement(j, PLd + bidirectionalPathLossJitter));
 				totalElements++;  //keep track of pathLoss size for reporting purposes
 			}
 
-			if (maxTxPower - PLd + bidirectionalPathLossJitter >= receiverSensitivity)
+			if (maxTxPower - PLd + bidirectionalPathLossJitter >= signalDeliveryThreshold)
 			{
 				pathLoss[j].push_front(new PathLossElement(i, PLd - bidirectionalPathLossJitter));
 				totalElements++;  //keep track of pathLoss size for reporting purposes
@@ -258,14 +258,12 @@ void WirelessChannel::initialize(int stage) {
 	if (nodesAffectedByTransmitter==NULL) opp_error("Could not allocate array nodesAffectedByTransmitter\n");
 
 
-
-	/***************************************************************************
-	 * If direct assignment of link qualities is given at the omnetpp.ini file
-	 * (either as RxPower or PRR) we parse the input and update pathLoss.
+	/************************************************************
+	 * If direct assignment of link qualities is given at the
+	 * omnetpp.ini file we parse the input and update pathLoss.
 	 * This is only for static nodes. (onlyStaticNodes==TRUE)
-	 ***************************************************************************/
-        parsePathLossMap();
-	//if(onlyStaticNodes) parsePrrMap();
+	 ************************************************************/
+    parsePathLossMap();
 
 	/* Create temporal model object from parameters file (if given) */
 	if (strlen(temporalModelParametersFile) > 0)
@@ -358,10 +356,9 @@ void WirelessChannel::handleMessage(cMessage *msg) {
 	    /* Find the cell that the transmitting node resides */
 	    int cellTx = nodeLocation[srcAddr].cell;
 
-	    /* Iterate through the list of cells that are affected by cellTx
-	     * and check if there are nodes there. If they are, are they
-	     * carrier sensing? If yes send a carrier_sensed message. Update
-	     * the currentSignalAtReceiver and nodesAffectedByTransmitter arrays
+	    /* Iterate through the list of cells that are affected
+	     * by cellTx and check if there are nodes there.
+	     * Update the nodesAffectedByTransmitter array
 	     */
 	    list<PathLossElement *>::iterator it1;
 	    for ( it1=pathLoss[cellTx].begin(); it1 != pathLoss[cellTx].end(); it1++ ) {
@@ -384,11 +381,10 @@ void WirelessChannel::handleMessage(cMessage *msg) {
 		    (*it1)->lastObservationTime = simTime() - (timePassed_msec - timeProcessed_msec)/1000;
 		}
 
-		/* If the resulting current signal received is
-		 * not strong enough, update the relevant stats
-		 * and continue to the next cell.
+		/* If the resulting current signal received is not strong enough,
+		 * to be delivered to the radio module, continue to the next cell.
 		 */
-		if (currentSignalReceived < receiverSensitivity) continue;
+		if (currentSignalReceived < signalDeliveryThreshold) continue;
 
 		/* Else go through all the nodes of that cell.
 		 * Iterator it2 returns node IDs.
@@ -487,8 +483,8 @@ void WirelessChannel::readIniFileParameters(void)
 	d0 = par("d0");
 
 	pathLossMapFile = par("pathLossMapFile");
-	PRRMapFile = par("PRRMapFile");
 	temporalModelParametersFile = par("temporalModelParametersFile");
+	signalDeliveryThreshold = par("signalDeliveryThreshold");
 
 	numOfNodes = getParentModule()->par("numNodes");
 	xFieldSize = getParentModule()->par("field_x");
@@ -498,44 +494,8 @@ void WirelessChannel::readIniFileParameters(void)
 	yCellSize = getParentModule()->par("yCellSize");
 	zCellSize = getParentModule()->par("zCellSize");
 
-	//find the minimum packet size
-	cModule *node_0;
-	if(getParentModule()->findSubmodule("node", 0) != -1)
-		node_0 = check_and_cast<cModule*>(getParentModule()->getSubmodule("node", 0));
-	else
-		opp_error("\n[Wireless Channel]:\n Error in geting a valid reference to  node[0].\n");
+	maxTxPower = 0.0;
 
-	if( node_0->findSubmodule("nodeApplication")  &&
-	    node_0->findSubmodule("networkInterface") &&
-	    node_0->getSubmodule("networkInterface")->findSubmodule("MAC") &&
-	    node_0->getSubmodule("networkInterface")->findSubmodule("Radio") )
-	{
-//		int appOverhead = node_0->getSubmodule("nodeApplication")->par("packetHeaderOverhead");
-//		int macOverhead = node_0->getSubmodule("networkInterface")->getSubmodule("MAC")->par("macFrameOverhead");
-//		int radioOverhead = node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("phyFrameOverhead");
-//		maxPacketSize = node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("maxPhyFrameSize");
-//		minPacketSize = (appOverhead + macOverhead + radioOverhead + 2);
-
-//		dataRate = node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("dataRate");
-		receiverSensitivity = -100.0; //node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("receiverSensitivity");
-//		noiseBandwidth = node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("noiseBandwidth");
-//		noiseFloor = node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("noiseFloor");
-//		modulationTypeParam = node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("modulationType");
-//		customModulationArray = NULL;
-
-		/* extract the maxTxPower from the string module parameter txPowerLevels */
-		//const char *str = node_0->getSubmodule("networkInterface")->getSubmodule("Radio")->par("txPowerLevels").stringValue();
-		//cStringTokenizer tokenizer(str);
-		//const char *token;
-		maxTxPower = 0.0;
-		//while ((token = tokenizer.nextToken())!=NULL){
-		//	float tempTxPower = atof(token);
-		//	if (tempTxPower > maxTxPower) maxTxPower = tempTxPower;
-		//}
-
-	}
-	else
-		opp_error("\n[Wireless Channel]:\n Error in geting a valid reference to  node[0] Application OR NetworkInterface (MAC/Radio) module.\n");
 } // readIniParameters
 
 

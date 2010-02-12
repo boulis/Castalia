@@ -120,7 +120,7 @@ struct PktBreakdown {
     int RxFailedInterference;		// packets failed with interference
     int RxFailedSensitivity;		// packets failed, below sensitivity
     int RxFailedModulation; 		// packets failed, wrong modulation
-    int RxFailedNoRxState;		// packets failed, radio not in RΧ
+    int RxFailedNoRxState;		// packets failed, radio not in RX
     int bufferOverflow;			// packets overflown
 
 	/* initialize the struct (C++ syntax)*/
@@ -203,7 +203,7 @@ class RadioModule : public VirtualCastaliaModule {
 	void updateInterference(list <ReceivedSignal_type>::iterator it1, WirelessChannelSignalBegin *wcMsg);
 	void updateInterference(list <ReceivedSignal_type>::iterator it1, list <ReceivedSignal_type>::iterator endingSignal);
 
-	void finishStateTransition();
+	void completeStateTransition();
 	void handleRadioControlCommand(RadioControlCommand *);
 	double popAndSendToWirelessChannel();
 	void updatePossibleCSinterrupt();

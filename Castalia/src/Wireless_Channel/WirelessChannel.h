@@ -1,7 +1,7 @@
 /****************************************************************************
  *  Copyright: National ICT Australia,  2007 - 2010
  *  Developed at the ATP lab, Networked Systems theme
- *  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis, Yuriy Tselishchev
+ *  Author(s): Athanassios Boulis, Yuriy Tselishchev
  *  This file is distributed under the terms in the attached LICENSE file.
  *  If you do not find this file, copies can be found by writing to:
  *
@@ -64,16 +64,11 @@ class WirelessChannel : public VirtualCastaliaModule {
 	double bidirectionalSigma;		// std of a zero-mean Gaussian RV
 
 	const char * pathLossMapFile;
-	const char * PRRMapFile;
 	const char * temporalModelParametersFile;
-	const char * modulationTypeParam;
+	double signalDeliveryThreshold;
 
 	bool onlyStaticNodes;
 
-	// variables corresponding to Radio module parameters
-//	double dataRate;
-//	double noiseBandwidth;
-//	int encodingType;
 	double receiverSensitivity;
 	double maxTxPower;			// this is derived, by reading all the Tx power levels
 
@@ -110,7 +105,6 @@ class WirelessChannel : public VirtualCastaliaModule {
 
 	void readIniFileParameters(void);
 	void parsePathLossMap(void);
-	void parsePrrMap(void);
 	int parseInt(const char *, int *);
 	int parseFloat(const char *, float *);
 	void printRxSignalTable(void);

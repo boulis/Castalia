@@ -26,6 +26,7 @@ class TimerModule: public virtual cSimpleModule
     protected:
 	std::map <int, TimerServiceMessage*> timerMessages;
 
+	simtime_t getClock();
 	void setTimerDrift(double new_drift);
 	void setTimer(int index, simtime_t time);
 	void cancelTimer(int index);

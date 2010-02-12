@@ -47,7 +47,12 @@ simple TMacModule like Node.Communication.MAC.MacGenericModule {
 							//	0 - immediate retry (low collision avoidance)
 							//	1 - based on overhearing (default)
 							//	2 - retry next frame (aggressive collision avoidance)
-							
+
+	//parameters dependent on physical layer
+	double phyDelayForValidCS = default(0.128);
+	double phyDataRate = default(250);
+	int phyFrameOverhead = default(6);
+
     gates:
 	output toNetworkModule;
 	output toRadioModule;

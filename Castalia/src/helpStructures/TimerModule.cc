@@ -51,3 +51,7 @@ void TimerModule::handleTimerMessage(cMessage *msg) {
 	}
     }
 }
+
+simtime_t TimerModule::getClock() {
+    return simTime() * timerDrift;
+}

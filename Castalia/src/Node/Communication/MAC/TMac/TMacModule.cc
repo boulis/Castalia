@@ -61,7 +61,6 @@ void TMacModule::startup() {
     }
 
     phyDataRate = par("phyDataRate");
-//    phyDelayForSleep2Listen = ((double) radioModule->par("delaySleep2Listen"))/1000.0;
     phyDelayForValidCS = (double)par("phyDelayForValidCS")/1000.0; //parameter given in ms in the omnetpp.ini
     phyLayerOverhead = par("phyFrameOverhead");
 
@@ -132,7 +131,7 @@ void TMacModule::timerFiredCallback(int timer) {
 	    primaryWakeup = true;
 
 	    // record the current time and extend activation timeout
-	    currentFrameStart = activationTimeout = simTime();
+	    currentFrameStart = activationTimeout = getClock();
 	    extendActivePeriod();
 
 	    // schedule the message to start the next frame. Also check for frame offsets
@@ -168,7 +167,7 @@ void TMacModule::timerFiredCallback(int timer) {
 	     * We may need to extend the timeout here based on the current MAC state, or
 	     * if timeout expired and we have no reason to extend it, then we need to go to sleep.
 	     */
-	    if (activationTimeout <= simTime()) {
+	    if (activationTimeout <= getClock()) {
 		
 		//if disableTAextension is on, then we will behave as SMAC - simply go to sleep if the active period is over
 		if (disableTAextension) {
@@ -227,7 +226,7 @@ void TMacModule::timerFiredCallback(int timer) {
 	     * NOTE that default state for secondary schedules is MAC_STATE_ACTIVE_SILENT
 	     */
 	
-	    activationTimeout = simTime();
+	    activationTimeout = getClock();
 	    extendActivePeriod();
 	    if(macState == MAC_STATE_SLEEP) {
 		toRadioLayer(createRadioCommand(SET_STATE,RX));
@@ -240,7 +239,7 @@ void TMacModule::timerFiredCallback(int timer) {
 	default: {
 	    int tmpTimer = timer - WAKEUP_SILENT;
 	    if (tmpTimer > 0 && tmpTimer < (int)scheduleTable.size()) {
-	        activationTimeout = simTime();
+	        activationTimeout = getClock();
 		extendActivePeriod();
 		if(macState == MAC_STATE_SLEEP) {
 		    toRadioLayer(createRadioCommand(SET_STATE,RX));
@@ -336,7 +335,7 @@ void TMacModule::finishSpecific() {
  * 3 -  IF this is not primary wakeup, MAC can only listen, thus set state to MAC_STATE_ACTIVE_SILENT
  */
 void TMacModule::resetDefaultState()  {
-    if (activationTimeout <= simTime()) {
+    if (activationTimeout <= getClock()) {
 	performCarrierSense(MAC_CARRIER_SENSE_BEFORE_SLEEP);
     } else if (primaryWakeup) {
 	simtime_t randomContentionInterval = genk_dblrand(1)*contentionPeriod;
@@ -345,7 +344,7 @@ void TMacModule::resetDefaultState()  {
 	    syncPacket = new TMacPacket("TMAC SYNC packet", MAC_LAYER_PACKET);
 	    syncPacket->setSyncId(SELF_MAC_ADDRESS);
 	    syncPacket->setSequenceNumber(scheduleTable[0].SN);
-	    syncPacket->setSync(currentFrameStart + frameTime - simTime() - TX_TIME(syncPacketSize) - randomContentionInterval);
+	    syncPacket->setSync(currentFrameStart + frameTime - getClock() - TX_TIME(syncPacketSize) - randomContentionInterval);
 	    syncPacket->setByteLength(syncPacketSize);
 	    performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_SYNC,randomContentionInterval);
 	    return;
@@ -403,7 +402,7 @@ void TMacModule::updateScheduleTable(simtime_t wakeup, int ID, int SN) {
     	    if (scheduleTable[i].SN < SN) {
 
     		//Calculate new frame offset for this schedule
-    		simtime_t new_offset = simTime() - currentFrameStart + wakeup - frameTime;
+    		simtime_t new_offset = getClock() - currentFrameStart + wakeup - frameTime;
     		trace() << "Resync successful for ID:"<<ID<<" old offset:"<<scheduleTable[i].offset<<" new offset:"<<new_offset;
     		scheduleTable[i].offset = new_offset;
     		scheduleTable[i].SN = SN;
@@ -446,7 +445,7 @@ void TMacModule::updateScheduleTable(simtime_t wakeup, int ID, int SN) {
     } else {
 	//This schedule is not primary, it is necessary to calculate the offset from primary
 	//schedule for this new schedule
-	newSch.offset = simTime() - currentFrameStart + wakeup - frameTime;
+	newSch.offset = getClock() - currentFrameStart + wakeup - frameTime;
     }
 
     //Add new schedule to the table
@@ -457,7 +456,7 @@ void TMacModule::updateScheduleTable(simtime_t wakeup, int ID, int SN) {
 	//This is new primary schedule, and since SYNC packet was received at this time, it is
 	//safe to assume that nodes of this schedule are active and listening right now,
 	//so active period can be safely extended
-	currentFrameStart = activationTimeout = simTime();
+	currentFrameStart = activationTimeout = getClock();
 	currentFrameStart += wakeup - frameTime;
 	extendActivePeriod();
 
@@ -761,7 +760,7 @@ void TMacModule::performCarrierSense(int newState, simtime_t delay) {
  * to allow the node to go to sleep if activation timeout expires
  */
 void TMacModule::extendActivePeriod(simtime_t extra) {
-    simtime_t curTime = simTime();
+    simtime_t curTime = getClock();
     if (conservativeTA) {
 	curTime += extra;
 	while (activationTimeout < curTime) { activationTimeout += listenTimeout; }

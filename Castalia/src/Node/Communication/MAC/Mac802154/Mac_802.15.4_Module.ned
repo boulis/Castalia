@@ -44,6 +44,11 @@ simple Mac802154Module like Node.Communication.MAC.MacGenericModule
         int maxLostBeacons = default(4);
         int minCAPLength = default(440);
         int requestGTS = default(0);
+        
+        //parameters dependent on physical layer
+	double phyDelayForValidCS = default(0.128);
+	double phyDataRate = default(250);
+	int phyFrameOverhead = default(6);
 
     gates:
 

@@ -9,19 +9,7 @@
  *      Attention:  License Inquiry.						*
  ********************************************************************************/
 
-#include <cmath>
 #include "Mac_802.15.4_Module.h"
-
-//+++ move them to .h file or make these parameters
-#define ACK_PKT_SIZE 6
-#define COMMAND_PKT_SIZE 8
-#define GTS_SPEC_FIELD_SIZE 3
-#define BASE_BEACON_PKT_SIZE 12
-
-#define TX_GUARD 0.001
-#define PROCESSING_DELAY 0.00001
-
-#define TX_TIME(x) (phyLayerOverhead + x)*1/(1000*phyDataRate/8.0)		//x are in BYTES
 
 Define_Module(Mac802154Module);
 
@@ -45,18 +33,19 @@ void Mac802154Module::startup() {
 	}
 
 	phyDataRate = par("phyDataRate");
-	phyDelayForSleep2Listen = (double)par("phyDelaySleep2Listen")/1000.0;
-	phyDelayForListen2Tx = (double)par("phyDelayListen2Tx")/1000.0;
+	phyDelayForListen2Tx = (double)par("phyDelayRx2Tx")/1000.0;
 	phyDelayForValidCS = (double)par("phyDelayForValidCS")/1000.0;
 	phyLayerOverhead = par("phyFrameOverhead");
 	phyBitsPerSymbol = par("phyBitsPerSymbol");
+	
+	guardTime = (double)par("guardTime")/1000.0;
 
 	/**************************************************************************************************
 	 *			802.15.4 specific intialize
 	 **************************************************************************************************/
 
 	symbolLen = 1/(phyDataRate*1000/phyBitsPerSymbol);
-	ackWaitDuration = symbolLen*unitBackoffPeriod + phyDelayForListen2Tx*2 + TX_TIME(ACK_PKT_SIZE); // + PROCESSING_DELAY;
+	ackWaitDuration = symbolLen*unitBackoffPeriod + phyDelayForListen2Tx*2 + TX_TIME(ACK_PKT_SIZE); 
 
 	beaconPacket = NULL;
 	associateRequestPacket = NULL;
@@ -133,7 +122,7 @@ void Mac802154Module::timerFiredCallback(int index) {
 	    } else {	// if not a PAN coordinator, then wait for beacon
 		toRadioLayer(createRadioCommand(SET_STATE,RX));
 		setMacState(MAC_STATE_WAIT_FOR_BEACON);
-		setTimer(BEACON_TIMEOUT,TX_GUARD*3);
+		setTimer(BEACON_TIMEOUT,guardTime*3);
 	    }
 	    break;
 	}
@@ -151,7 +140,7 @@ void Mac802154Module::timerFiredCallback(int index) {
 		trace() << "Missed beacon from PAN " << associatedPAN;
 		setMacState(MAC_STATE_SLEEP);
 		toRadioLayer(createRadioCommand(SET_STATE,SLEEP));
-		setTimer(FRAME_START,beaconInterval-TX_GUARD*3);
+		setTimer(FRAME_START,beaconInterval-guardTime*3);
 	    }
 	    break;
 	}
@@ -247,11 +236,8 @@ void Mac802154Module::fromNetworkLayer(cPacket *pkt, int dstMacAddress) {
 }
 
 void Mac802154Module::finishSpecific() {
-    while(!TXBuffer.empty()) {
-	cancelAndDelete(TXBuffer.front());
-	TXBuffer.pop();
-    }
-    if (nextPacket) cancelAndDelete(nextPacket);
+
+//    if (nextPacket) cancelAndDelete(nextPacket);
     if (desyncTimeStart >= 0) desyncTime += getClock() - desyncTimeStart;
     
     map<string, int>::const_iterator iter;
@@ -280,6 +266,7 @@ void Mac802154Module::finishSpecific() {
 	collectOutput("Number of beacons sent","",sentBeacons);
     }
 }
+
 
 void Mac802154Module::readIniFileParameters(void) {
     printStateTransitions = par("printStateTransitions");
@@ -418,7 +405,7 @@ void Mac802154Module::fromRadioLayer(cPacket * pkt, double rssi, double lqi) {
 		}
 	    }
 	
-	    setTimer(FRAME_START, baseSuperframeDuration * ( 1 << beaconOrder) * symbolLen - TX_GUARD - TX_TIME(rcvPacket->getByteLength()));
+	    setTimer(FRAME_START, baseSuperframeDuration * ( 1 << beaconOrder) * symbolLen - guardTime - TX_TIME(rcvPacket->getByteLength()));
 	    break;
 	}
 
@@ -547,8 +534,7 @@ void Mac802154Module::handleAckPacket(Mac802154Packet *rcvPacket) {
 	    if (requestGTS) {
 		issueGTSrequest();
 	    } else {
-		setMacState(MAC_STATE_PROCESSING);
-		setTimer(ATTEMPT_TX,PROCESSING_DELAY);
+		attemptTransmission();
 	    }
 	    break;
 	}
@@ -561,8 +547,7 @@ void Mac802154Module::handleAckPacket(Mac802154Packet *rcvPacket) {
 	            else { nextPacketState = "Success"; }
 	        }
 	        nextPacketRetries = 0;
-	        setMacState(MAC_STATE_PROCESSING);
-	        setTimer(ATTEMPT_TX,PROCESSING_DELAY);
+	        attemptTransmission();
 	    }
 	    break;
 	}
@@ -572,8 +557,7 @@ void Mac802154Module::handleAckPacket(Mac802154Packet *rcvPacket) {
 	    cancelAndDelete(nextPacket);
 	    nextPacket = NULL;
 	    if (enableCAP) { 
-		setMacState(MAC_STATE_PROCESSING);
-		setTimer(ATTEMPT_TX,PROCESSING_DELAY);
+		attemptTransmission();
 	    } else {
 		setMacState(MAC_STATE_SLEEP);
 		toRadioLayer(createRadioCommand(SET_STATE,SLEEP));
@@ -625,9 +609,9 @@ void Mac802154Module::attemptTransmission() {
 
     // extract a packet from transmission buffer
     if (TXBuffer.size() > 0) {
-	Mac802154Packet *macPacket = check_and_cast<Mac802154Packet*>(TXBuffer.front()); 
+	nextPacket = check_and_cast<Mac802154Packet*>(TXBuffer.front());
 	TXBuffer.pop();
-	int txAddr = macPacket->getDstID();
+	int txAddr = nextPacket->getDstID();
 	nextPacketState = "";
 	if (txAddr == BROADCAST_MAC_ADDRESS)
 	    initiateCSMACA(0,MAC_STATE_IDLE,0);

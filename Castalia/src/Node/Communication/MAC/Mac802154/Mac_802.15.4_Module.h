@@ -18,6 +18,13 @@
 #include "VirtualMacModule.h"
 #include "Mac802154Packet_m.h"
 
+#define ACK_PKT_SIZE 6
+#define COMMAND_PKT_SIZE 8
+#define GTS_SPEC_FIELD_SIZE 3
+#define BASE_BEACON_PKT_SIZE 12
+
+#define TX_TIME(x) (phyLayerOverhead + x)*1/(1000*phyDataRate/8.0)		//x are in BYTES
+
 using namespace std;
 
 enum MacStates {
@@ -115,6 +122,7 @@ class Mac802154Module : public VirtualMacModule {
     simtime_t nextPacketResponse;	// Duration of timeout for receiving a reply after sending a packet
     simtime_t ackWaitDuration;		// Duration of timeout for receiving an ACK
     simtime_t symbolLen;		// Duration of transmittion of a single symbol
+    simtime_t guardTime;
 
     string nextPacketState;
     simtime_t desyncTime;

@@ -29,6 +29,8 @@
 #define ALL_ERRORS -1
 #define IDEAL_MODULATION_THRESHOLD 5.0
 
+#define PROCESSING_DELAY 0.00001	//delay to pass packets/messages/interrupts to upper layer
+
 using namespace std;
 
 enum Modulation_type {

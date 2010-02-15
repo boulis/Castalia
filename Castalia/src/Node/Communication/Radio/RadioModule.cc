@@ -179,7 +179,7 @@ void RadioModule::handleMessage(cMessage *msg) {
 		    MacGenericPacket *macPkt = check_and_cast<MacGenericPacket*>(wcMsg->decapsulate());
 		    macPkt->getMacInteractionControl().RSSI = readRSSI();
 		    macPkt->getMacInteractionControl().LQI = endingSignal->power_dBm - addPower_dBm(endingSignal->maxInterference, RXmode->noiseFloor);
-		    send(macPkt,"toMacModule");
+		    sendDelayed(macPkt,PROCESSING_DELAY,"toMacModule");
 		    // collect stats
 		    if (endingSignal->maxInterference == -200.0)
 			stats.RxReachedNoInterference++;
@@ -239,7 +239,7 @@ void RadioModule::handleMessage(cMessage *msg) {
 		trace() << "WARNING: discarding [" << macPkt->getName() << "] from MAC layer because Radio buffer is full";
 		RadioControlMessage *fullBuffMsg = new RadioControlMessage("Radio buffer full", RADIO_CONTROL_MESSAGE);
 		fullBuffMsg->setRadioControlMessageKind(RADIO_BUFFER_FULL);
-		send(fullBuffMsg, "toMacModule");
+		sendDelayed(fullBuffMsg, PROCESSING_DELAY, "toMacModule");
 		stats.bufferOverflow++;
 	    }
 	    break;
@@ -661,8 +661,8 @@ void RadioModule::updatePossibleCSinterrupt() {
 	// schedule message
 	CSinterruptMsg = new RadioControlMessage("CS Interrupt", RADIO_CONTROL_MESSAGE);
 	CSinterruptMsg->setRadioControlMessageKind(CARRIER_SENSE_INTERRUPT);
-	latestCSinterruptTime = simTime() + rssiIntegrationTime *  fractionTime;
-	sendDelayed(CSinterruptMsg, rssiIntegrationTime *  fractionTime, "toMacModule");
+	latestCSinterruptTime = simTime() + rssiIntegrationTime * fractionTime + PROCESSING_DELAY;
+	sendDelayed(CSinterruptMsg, rssiIntegrationTime * fractionTime + PROCESSING_DELAY, "toMacModule");
 	return;
 
 }

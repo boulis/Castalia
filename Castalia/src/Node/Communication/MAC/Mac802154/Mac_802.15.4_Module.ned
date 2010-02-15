@@ -17,7 +17,6 @@ simple Mac802154Module like Node.Communication.MAC.MacGenericModule
     parameters:
         //debug parameters
         bool collectTraceInfo = default(false);
-        bool printDebugInfo = default(false);
         bool printStateTransitions = default(false);
 
         //mac layer parameters
@@ -35,7 +34,7 @@ simple Mac802154Module like Node.Communication.MAC.MacGenericModule
         int beaconOrder = default(6);
         int unitBackoffPeriod = default(20); 
         int baseSlotDuration = default(60);
-        
+
         int numSuperframeSlots = default(16);
         int macMinBE = default(5);
         int macMaxBE = default(7);
@@ -44,11 +43,17 @@ simple Mac802154Module like Node.Communication.MAC.MacGenericModule
         int maxLostBeacons = default(4);
         int minCAPLength = default(440);
         int requestGTS = default(0);
-        
+
         //parameters dependent on physical layer
 	double phyDelayForValidCS = default(0.128);
 	double phyDataRate = default(250);
+	double phyDelayRx2Tx = default(0.02); //in ms
 	int phyFrameOverhead = default(6);
+	int phyBitsPerSymbol = default(2);
+	
+	
+	//reception guard time, in ms
+	double guardTime = default(1);
 
     gates:
 

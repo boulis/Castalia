@@ -49,7 +49,7 @@ void Mac802154Module::startup() {
 
 	beaconPacket = NULL;
 	associateRequestPacket = NULL;
-	nextPacket = NULL;
+	nextPacket = NULL; 
 	nextPacketResponse = 0;
 	nextPacketRetries = 0;
 	nextPacketState = "";
@@ -66,6 +66,7 @@ void Mac802154Module::startup() {
 	lostBeacons = 0;
 	sentBeacons = 0;
 	recvBeacons = 0;
+	packetoverflow = 0;
 	
 	desyncTime = 0;
 	desyncTimeStart = 0;
@@ -84,6 +85,7 @@ void Mac802154Module::timerFiredCallback(int index) {
 	case FRAME_START: {
 	    if (isPANCoordinator) {	// as a PAN coordinator, create and broadcast beacon packet
 		beaconPacket = new Mac802154Packet("PAN beacon packet", MAC_LAYER_PACKET);
+		beaconPacket->setDstID(BROADCAST_MAC_ADDRESS);
 		beaconPacket->setPANid(SELF_MAC_ADDRESS);
 		beaconPacket->setMac802154PacketType(MAC_802154_BEACON_PACKET);
 		beaconPacket->setBeaconOrder(beaconOrder);
@@ -136,11 +138,11 @@ void Mac802154Module::timerFiredCallback(int index) {
 		associatedPAN = -1;
 		lockedGTS = false;
 		desyncTimeStart = getClock();
-	    } else {
-		trace() << "Missed beacon from PAN " << associatedPAN;
+	    } else if (associatedPAN != -1) {
+		trace() << "Missed beacon from PAN " << associatedPAN << ", will wake up to receive next beacon in " << beaconInterval*symbolLen-guardTime*3 << " seconds";
 		setMacState(MAC_STATE_SLEEP);
 		toRadioLayer(createRadioCommand(SET_STATE,SLEEP));
-		setTimer(FRAME_START,beaconInterval-guardTime*3);
+		setTimer(FRAME_START,beaconInterval*symbolLen-guardTime*3);
 	    }
 	    break;
 	}
@@ -164,14 +166,13 @@ void Mac802154Module::timerFiredCallback(int index) {
 	    if (macState != MAC_STATE_IN_TX && macState != MAC_STATE_WAIT_FOR_DATA_ACK &&
 		macState != MAC_STATE_WAIT_FOR_ASSOCIATE_RESPONSE && macState != MAC_STATE_WAIT_FOR_GTS &&
 		macState != MAC_STATE_PROCESSING) {
-		trace() << "WARNING ATTEMPT_TX timer was not cancelled";
+		trace() << "WARNING ATTEMPT_TX timer was not cancelled, macState is " << macState;
 		break;
 	    }
-	    if (nextPacket && nextPacket->getMac802154PacketType() == MAC_802154_DATA_PACKET && 
-		    macState == MAC_STATE_WAIT_FOR_DATA_ACK) {
-		if (nextPacketState.size()) { nextPacketState.append(",NoAck"); }
-		else { nextPacketState = "NoAck"; }
-	    }
+
+	    if (macState == MAC_STATE_WAIT_FOR_DATA_ACK) 
+		collectPacketState("NoAck");
+
 	    attemptTransmission();
 	    break;
 	}
@@ -182,16 +183,23 @@ void Mac802154Module::timerFiredCallback(int index) {
 	    CCA_result CCAcode = radioModule->isChannelClear();
 	    
 	    if (CCAcode == CLEAR) { 
-		carrierIsClear();
+	        CW--;
+		if (CW != 0) {
+		    // since carrier is clear, no need to generate another random delay
+		    setTimer(PERFORM_CCA,unitBackoffPeriod*symbolLen);
+		} else if (!nextPacket) {
+		    trace() << "ERROR: CSMA_CA algorithm executed without any data to transmit";
+		    attemptTransmission();
+		} else {
+		    // CSMA-CA successful (CW == 0), can transmit the queued packet
+		    transmitNextPacket();
+		}
 	    } else if (CCAcode == BUSY) {
 		//if MAC is preforming CSMA-CA, update corresponding parameters
 		CW = enableSlottedCSMA ? 2 : 1; NB++; BE++;
 		if (BE > macMaxBE) BE = macMaxBE;
 		if (NB > macMaxCSMABackoffs) {
-		    if (nextPacket->getMac802154PacketType() == MAC_802154_DATA_PACKET) {
-			if (nextPacketState.size()) { nextPacketState.append(",CSfail"); }
-			else { nextPacketState = "CSfail"; }
-		    }
+		    collectPacketState("CSfail");
 		    nextPacketRetries--;
 		    attemptTransmission();
 		} else {
@@ -221,7 +229,12 @@ void Mac802154Module::timerFiredCallback(int index) {
  * be done separately for each transmission attempt
  */
 void Mac802154Module::fromNetworkLayer(cPacket *pkt, int dstMacAddress) {
-    Mac802154Packet *macPacket = new Mac802154Packet("802.15.4 MAC data packet", MAC_LAYER_PACKET);
+    //debug start
+    stringstream out;
+    out << "MAC data packet " << simTime();
+    //debug end
+           
+    Mac802154Packet *macPacket = new Mac802154Packet(out.str().c_str(),MAC_LAYER_PACKET); //"802.15.4 MAC data packet", MAC_LAYER_PACKET);
     macPacket->setSrcID(SELF_MAC_ADDRESS);	//if we are connected, we would have short MAC address assigned, 
 						//but we are not using short addresses in this model
     macPacket->setDstID(dstMacAddress);
@@ -231,34 +244,43 @@ void Mac802154Module::fromNetworkLayer(cPacket *pkt, int dstMacAddress) {
     if (bufferPacket(macPacket)) {
 	if (macState == MAC_STATE_IDLE) attemptTransmission();
     } else {
+	packetoverflow++;
 	//full buffer message
     }
 }
 
 void Mac802154Module::finishSpecific() {
 
-//    if (nextPacket) cancelAndDelete(nextPacket);
+    if (nextPacket) cancelAndDelete(nextPacket);
     if (desyncTimeStart >= 0) desyncTime += getClock() - desyncTimeStart;
     
     map<string, int>::const_iterator iter;
     declareOutput("Packet breakdown");
-    for (iter=packetBreak.begin(); iter != packetBreak.end(); ++iter) {
+    if (packetoverflow > 0) 
+	collectOutput("Packet breakdown","Failed, buffer overflow",packetoverflow);
+    for (iter = packetBreak.begin(); iter != packetBreak.end(); ++iter) {
 	if (iter->first.compare("Success") == 0) {
 	    collectOutput("Packet breakdown", "Success, first try", iter->second);
+	} else if (iter->first.compare("Broadcast") == 0) {
+	    collectOutput("Packet breakdown", "Broadcast", iter->second);
 	} else if (iter->first.find("Success") != string::npos) {
 	    collectOutput("Packet breakdown", "Success, not first try", iter->second);
-	} else if (iter->first.find("NoAack") != string::npos) {
+	} else if (iter->first.find("NoAck") != string::npos) {
 	    collectOutput("Packet breakdown", "Failed, no ack", iter->second);
 	} else if (iter->first.find("CSfail") != string::npos) {
 	    collectOutput("Packet breakdown", "Failed, busy channel", iter->second);
-	} else {
+	} else if (iter->first.find("NoPAN") != string::npos) {
 	    collectOutput("Packet breakdown", "Failed, not connected to PAN", iter->second);
+	} else {
+	    trace() << "Unknown packet breakdonw category: " << iter->first << " with " << iter->second << " packets";
 	}
     }
 
     if (!isPANCoordinator) {
-	declareOutput("Fraction of time without PAN connection");
-	collectOutput("Fraction of time without PAN connection","",desyncTime/getClock());
+	if (desyncTime > 0) {
+	    declareOutput("Fraction of time without PAN connection");
+	    collectOutput("Fraction of time without PAN connection","",SIMTIME_DBL(desyncTime)/SIMTIME_DBL(getClock()));
+	}
 	declareOutput("Number of beacons received");
 	collectOutput("Number of beacons received","",recvBeacons);
     } else {
@@ -320,7 +342,6 @@ void Mac802154Module::setMacState(int newState) {
     if (macState == newState) return;
     if (printStateTransitions)
 	trace() << "state changed from " << stateDescr[macState] << " to " << stateDescr[newState];
-
     macState = newState;
 }
 
@@ -339,14 +360,12 @@ void Mac802154Module::fromRadioLayer(cPacket * pkt, double rssi, double lqi) {
 	    if (associatedPAN == -1) {
 		//if not associated - create an association request packet
 		if (nextPacket) {
-		    if (nextPacket->getMac802154PacketType() == MAC_802154_DATA_PACKET) {
-			if (nextPacketState.size()) { nextPacketState.append(",NoPAN"); }
-		        else { nextPacketState = "NoPAN"; }
+		    if (collectPacketState("NoPAN"))
 		        packetBreak[nextPacketState]++;
-		    }
 		    cancelAndDelete(nextPacket); 
 		}
 		nextPacket = new Mac802154Packet("PAN associate request", MAC_LAYER_PACKET);
+		nextPacket->setDstID(PANaddr);
 		nextPacket->setPANid(PANaddr);
 		nextPacket->setMac802154PacketType(MAC_802154_ASSOCIATE_PACKET);
 		nextPacket->setSrcID(SELF_MAC_ADDRESS);
@@ -358,7 +377,7 @@ void Mac802154Module::fromRadioLayer(cPacket * pkt, double rssi, double lqi) {
 	    }
 
 	    //update frame parameters
-	    currentFrameStart = lastCarrierSense;
+	    currentFrameStart = getClock() - TX_TIME(rcvPacket->getByteLength());
 	    lostBeacons = 0;
 	    frameOrder = rcvPacket->getFrameOrder();
 	    beaconOrder = rcvPacket->getBeaconOrder();
@@ -530,7 +549,7 @@ void Mac802154Module::handleAckPacket(Mac802154Packet *rcvPacket) {
 	    }
 	    trace() << "associated with PAN:" << associatedPAN;
 	    cancelAndDelete(nextPacket);
-	    nextPacket = NULL;
+	    nextPacket = NULL; 
 	    if (requestGTS) {
 		issueGTSrequest();
 	    } else {
@@ -542,10 +561,8 @@ void Mac802154Module::handleAckPacket(Mac802154Packet *rcvPacket) {
 	//received an ack while waiting for a response to data packet
 	case MAC_STATE_WAIT_FOR_DATA_ACK: {
 	    if (isPANCoordinator || associatedPAN == rcvPacket->getSrcID()) {
-		if (nextPacket->getMac802154PacketType() == MAC_802154_DATA_PACKET) {
-	            if (nextPacketState.size()) { nextPacketState.append(",Success"); }
-	            else { nextPacketState = "Success"; }
-	        }
+		collectPacketState("Success");
+		trace() << "Packet successfully transmitted to " << rcvPacket->getSrcID();
 	        nextPacketRetries = 0;
 	        attemptTransmission();
 	    }
@@ -555,7 +572,7 @@ void Mac802154Module::handleAckPacket(Mac802154Packet *rcvPacket) {
 	case MAC_STATE_WAIT_FOR_GTS: {
 	    lockedGTS = true;
 	    cancelAndDelete(nextPacket);
-	    nextPacket = NULL;
+	    nextPacket = NULL; 
 	    if (enableCAP) { 
 		attemptTransmission();
 	    } else {
@@ -575,7 +592,9 @@ void Mac802154Module::handleAckPacket(Mac802154Packet *rcvPacket) {
 // This function will initiate a transmission (or retransmission) attempt after a given delay
 void Mac802154Module::attemptTransmission() {
 
-    if (currentFrameStart + CAPend > getClock()) {	// we coult use a timer here
+    cancelTimer(ATTEMPT_TX);
+    
+    if (currentFrameStart + CAPend > getClock()) {	// we could use a timer here
 	// still in CAP period of the frame
 	if (!enableCAP) { setMacState(MAC_STATE_IDLE); return; }
     } else if (requestGTS == 0 || GTSstart == 0) {
@@ -589,16 +608,19 @@ void Mac802154Module::attemptTransmission() {
 	return;
     }
 
-    
     // if a packet already queued for transmission - check avaliable retries
     if (nextPacket) {
 	if (nextPacketRetries <= 0) {
 	    if (nextPacket->getMac802154PacketType() == MAC_802154_DATA_PACKET) {
-		packetBreak[nextPacketState]++;
-	    }
+		if (nextPacket->getDstID() != BROADCAST_MAC_ADDRESS)
+		    packetBreak[nextPacketState]++;
+		else 
+		    packetBreak["Broadcast"]++;
+	    } 
 	    cancelAndDelete(nextPacket);
-	    nextPacket = NULL;
+	    nextPacket = NULL; 
 	} else {
+	    trace() << "Continuing transmission of [" << nextPacket->getName() << "], retries left: " << nextPacketRetries;
 	    initiateCSMACA();
 	    return;
 	}
@@ -614,7 +636,7 @@ void Mac802154Module::attemptTransmission() {
 	int txAddr = nextPacket->getDstID();
 	nextPacketState = "";
 	if (txAddr == BROADCAST_MAC_ADDRESS)
-	    initiateCSMACA(0,MAC_STATE_IDLE,0);
+	    initiateCSMACA(0,MAC_STATE_IN_TX,TX_TIME(nextPacket->getByteLength()));
 	else
 	    initiateCSMACA(macMaxFrameRetries,MAC_STATE_WAIT_FOR_DATA_ACK,ackWaitDuration + TX_TIME(nextPacket->getByteLength()));
 	return;
@@ -625,6 +647,7 @@ void Mac802154Module::attemptTransmission() {
 
 // initiate CSMA-CA algorithm, initialising retries, next state and response values
 void Mac802154Module::initiateCSMACA(int retries, int nextState, simtime_t response) {
+    trace() << "Initiating new transmission of [" << nextPacket->getName() << "], retries left: " << retries;
     nextPacketRetries = retries;
     nextMacState = nextState;
     nextPacketResponse = response;
@@ -672,28 +695,12 @@ void Mac802154Module::continueCSMACA() {
 	CCAtime += backoffBoundary;
     }
 
-    trace() << "Random backoff value: " << rnd << ", time: " << CCAtime+getClock();
+    trace() << "Random backoff value: " << rnd << ", in " << CCAtime << " seconds";
 
     //set a timer to perform carrier sense after calculated time
     setTimer(PERFORM_CCA,CCAtime);
 }
 
-// carrier is clear (for CSMA-CA algorithm)
-void Mac802154Module::carrierIsClear() {
-    if (macState != MAC_STATE_CCA) return;
-    CW--;
-
-    if (CW != 0) {
-	// since carrier is clear, no need to generate another random delay
-	setTimer(PERFORM_CCA,unitBackoffPeriod*symbolLen);
-    } else if (!nextPacket) {
-	trace() << "ERROR: CSMA_CA algorithm executed without any data to transmit";
-	attemptTransmission();
-    } else {
-	// CSMA-CA successful (CW == 0), can transmit the queued packet
-	transmitNextPacket();
-    }
-}
 
 /* Transmit a packet by sending it to the radio */
 void Mac802154Module::transmitNextPacket() {
@@ -736,19 +743,33 @@ void Mac802154Module::transmitNextPacket() {
 /* Create a GTS request packet and schedule it for transmission */
 void Mac802154Module::issueGTSrequest() {
     if (nextPacket) {
-        if (nextPacket->getMac802154PacketType() == MAC_802154_DATA_PACKET) {
-    	    if (nextPacketState.size()) { nextPacketState.append(",NoSync"); }
-	    else { nextPacketState = "NoSync"; }
+	if (collectPacketState("NoPAN")) 
 	    packetBreak[nextPacketState]++;
-	}
 	cancelAndDelete(nextPacket); 
     }
     
     nextPacket = new Mac802154Packet("GTS request", MAC_LAYER_PACKET);
     nextPacket->setPANid(associatedPAN);
+    nextPacket->setDstID(associatedPAN);
     nextPacket->setMac802154PacketType(MAC_802154_GTS_REQUEST_PACKET);
     nextPacket->setSrcID(SELF_MAC_ADDRESS);
     nextPacket->setGTSlength(requestGTS);
     nextPacket->setByteLength(COMMAND_PKT_SIZE);
     initiateCSMACA(9999,MAC_STATE_WAIT_FOR_GTS,ackWaitDuration + TX_TIME(COMMAND_PKT_SIZE));
+}
+
+int Mac802154Module::collectPacketState(const char *s) {
+    if (!nextPacket) opp_error("MAC 802.15.4 internal error: collectPacketState called while nextPacket pointer is NULL");
+    if (nextPacket->getMac802154PacketType() == MAC_802154_DATA_PACKET && 
+	nextPacket->getDstID() != BROADCAST_MAC_ADDRESS) {
+        if (nextPacketState.size()) { 
+    	    nextPacketState.append(","); 
+    	    nextPacketState.append(s);
+        } else { 
+    	    nextPacketState = s; 
+    	}
+        //packetBreak[nextPacketState]++;
+        return 1;
+    } 
+    return 0;
 }

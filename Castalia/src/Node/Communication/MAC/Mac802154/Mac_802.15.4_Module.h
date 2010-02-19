@@ -61,6 +61,7 @@ class Mac802154Module : public VirtualMacModule {
 
     int sentBeacons;
     int recvBeacons;
+    int packetoverflow;
 
     /*--- A map for packet breakdown statistics ---*/
     map <string, int> packetBreak;
@@ -118,7 +119,6 @@ class Mac802154Module : public VirtualMacModule {
     simtime_t GTSend;
     simtime_t GTSlength;
 
-    simtime_t lastCarrierSense;		// Absolute recorded time of last carrier sense message from the radio
     simtime_t nextPacketResponse;	// Duration of timeout for receiving a reply after sending a packet
     simtime_t ackWaitDuration;		// Duration of timeout for receiving an ACK
     simtime_t symbolLen;		// Duration of transmittion of a single symbol
@@ -148,7 +148,6 @@ class Mac802154Module : public VirtualMacModule {
 	void readIniFileParameters(void);
 	void setMacState(int newState);
 	void handleAckPacket(Mac802154Packet*);
-	void carrierIsClear();
 	void initiateCSMACA(int, int, simtime_t);
 	void initiateCSMACA();
 	void continueCSMACA();
@@ -156,6 +155,7 @@ class Mac802154Module : public VirtualMacModule {
 	void transmitNextPacket();
 	void issueGTSrequest();
 	void timerFiredCallback(int);
+	int collectPacketState(const char *);
 };
 
 #endif //MAC_802154_MODULE

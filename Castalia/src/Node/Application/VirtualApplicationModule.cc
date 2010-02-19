@@ -61,7 +61,7 @@ void VirtualApplicationModule::initialize() {
 
     double latencyMax = hasPar("latencyHistogramMax") ? par("latencyHistogramMax") : 200;
     int latencyBuckets = hasPar("latencyHistogramBuckets") ? par("latencyHistogramBuckets") : 10;
-    declareHistogram("Application level latency",0,latencyMax,latencyBuckets);
+    declareHistogram("Application level latency, in ms",0,latencyMax,latencyBuckets);
 }
 
 void VirtualApplicationModule::handleMessage(cMessage *msg) {
@@ -86,7 +86,7 @@ void VirtualApplicationModule::handleMessage(cMessage *msg) {
 	    rcvPacket = check_and_cast<ApplicationGenericDataPacket *>(msg);
 	    ApplicationInteractionControl_type control = rcvPacket->getApplicationInteractionControl();
 	    if (applicationID.compare(control.applicationID.c_str()) == 0) {
-		collectHistogram("Application level latency",SIMTIME_DBL(simTime() - control.timestamp));
+		collectHistogram("Application level latency, in ms",1000*SIMTIME_DBL(simTime() - control.timestamp));
 		fromNetworkLayer(rcvPacket,control.source.c_str(),control.RSSI,control.LQI);
 	    }
 	    break;
@@ -139,7 +139,6 @@ void VirtualApplicationModule::handleMessage(cMessage *msg) {
 }
 
 void VirtualApplicationModule::finish() {
-    finishSpecific();
     VirtualCastaliaModule::finish();
     DebugInfoWriter::closeStream();
 }
@@ -178,10 +177,10 @@ void VirtualApplicationModule::toNetworkLayer(cPacket *pkt, const char * dst) {
 }
 
 void VirtualApplicationModule::handleRadioControlMessage(RadioControlMessage *radioMsg) {
-	switch (radioMsg->getRadioControlMessageKind()) {
-		case CARRIER_SENSE_INTERRUPT: {
-			trace() << "CS Interrupt received! current RSSI value is: " << radioModule->readRSSI();
-			break;
-		}
+    switch (radioMsg->getRadioControlMessageKind()) {
+	case CARRIER_SENSE_INTERRUPT: {
+    	    trace() << "CS Interrupt received! current RSSI value is: " << radioModule->readRSSI();
+	    break;
 	}
+    }
 }

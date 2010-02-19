@@ -24,7 +24,7 @@ simple throughputTest_ApplicationModule like Node.Application.ApplicationGeneric
         int priority = default(1);
         int maxAppPacketSize = default(0);
         int packetHeaderOverhead = default(5);		// in bytes
-        int constantDataPayload = default(1000);	// in bytes
+        int constantDataPayload = default(100);		// in bytes
 
         string nextRecipient = default("0");		// Destination for packets produced in this node. 
         						// This parameter can be used to create an

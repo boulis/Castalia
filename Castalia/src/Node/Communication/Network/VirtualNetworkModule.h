@@ -62,6 +62,7 @@ class VirtualNetworkModule : public VirtualCastaliaModule, public TimerModule {
 	
 	void encapsulatePacket(cPacket *, cPacket *);
 	cPacket *decapsulatePacket(cPacket *);
+	int resolveNetworkAddress(const char *);
 	
 	virtual void handleMacControlMessage(cMessage *);
 	virtual void handleRadioControlMessage(cMessage *);

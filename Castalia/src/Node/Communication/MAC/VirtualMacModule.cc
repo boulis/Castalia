@@ -33,7 +33,7 @@ void VirtualMacModule::initialize() {
     }
     setTimerDrift(resMgrModule->getCPUClockDrift());
     disabled = 1;
-    declareOutput("Buffer overflow");
+    //declareOutput("Buffer overflow");
 }
 
 int VirtualMacModule::handleControlCommand(cMessage *msg) {
@@ -48,13 +48,14 @@ int VirtualMacModule::handleRadioControlMessage(cMessage *msg) {
 
 int VirtualMacModule::bufferPacket(cPacket* rcvFrame) {
     if ((int)TXBuffer.size() >= macBufferSize) {
-	collectOutput("Buffer overflow");
+	//collectOutput("Buffer overflow");  this is handled in specific MACs
+	cancelAndDelete(rcvFrame);
 	return 0;
     } else {
 	TXBuffer.push(rcvFrame);
 	trace() << "Packet buffered from network layer, buffer state: " <<
 		    TXBuffer.size() << "/" << macBufferSize;
-	return 1; 
+	return 1;
     }
 }
 
@@ -131,12 +132,11 @@ void VirtualMacModule::handleMessage(cMessage *msg) {
 }
 
 void VirtualMacModule::finish() {
-    finishSpecific();
+    VirtualCastaliaModule::finish();
     while(!TXBuffer.empty()) {
 	cancelAndDelete(TXBuffer.front());
         TXBuffer.pop();
     }
-    VirtualCastaliaModule::finish();
 }
 
 void VirtualMacModule::toNetworkLayer(cMessage* macMsg) {

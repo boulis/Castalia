@@ -190,20 +190,19 @@ void VirtualNetworkModule::handleRadioControlMessage(cMessage *msg) {
 }
 
 void VirtualNetworkModule::finish() {
-    finishSpecific();
+    VirtualCastaliaModule::finish();
     cPacket *pkt;
     while(!TXBuffer.empty()) {
 	pkt = TXBuffer.front();
 	TXBuffer.pop();
 	cancelAndDelete(pkt);
-	pkt = NULL;
     }
-    VirtualCastaliaModule::finish();
 }
 
 int VirtualNetworkModule::bufferPacket(cPacket* rcvFrame) {
     if ((int)TXBuffer.size() >= netBufferSize) {
 	collectOutput("Buffer overflow");
+	cancelAndDelete(rcvFrame);
 	return 0;
     } else {
 	TXBuffer.push(rcvFrame);
@@ -211,4 +210,8 @@ int VirtualNetworkModule::bufferPacket(cPacket* rcvFrame) {
 		TXBuffer.size() << "/" << netBufferSize;
 	return 1; 
     }
+}
+int VirtualNetworkModule::resolveNetworkAddress(const char * netAddr) {
+    if (!netAddr[0] || netAddr[0] < '0' || netAddr[0] > '9') return BROADCAST_MAC_ADDRESS;
+    return atoi(netAddr);
 }

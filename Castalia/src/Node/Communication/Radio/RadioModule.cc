@@ -146,8 +146,8 @@ void RadioModule::handleMessage(cMessage *msg) {
 	     * delete the corresponding signal from the received signals list
 	     */
 	    if ((state != RX) || (changingToState != -1)) {
-		receivedSignals.erase(endingSignal);
 		if (endingSignal->bitErrors != ALL_ERRORS) stats.RxFailedNoRxState++;
+		receivedSignals.erase(endingSignal);
 		break; // exit case WC_SIGNAL_END
 	    }
 

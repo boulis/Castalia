@@ -28,7 +28,7 @@ void BypassRoutingModule::fromApplicationLayer(cPacket *pkt, const char * destin
     netPacket->setDestination(destination);
 
     encapsulatePacket(netPacket,pkt);
-    toMacLayer(netPacket,BROADCAST_MAC_ADDRESS);
+    toMacLayer(netPacket,resolveNetworkAddress(destination));
 }
 
 //MAC layer sends a packet up to network also providing source MAC address 

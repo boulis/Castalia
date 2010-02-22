@@ -171,6 +171,7 @@ void VirtualApplicationModule::toNetworkLayer(cMessage *msg) {
 void VirtualApplicationModule::toNetworkLayer(cPacket *pkt, const char * dst) {
     ApplicationGenericDataPacket *appPkt = check_and_cast<ApplicationGenericDataPacket*>(pkt);
     appPkt->getApplicationInteractionControl().destination = string(dst);
+    appPkt->getApplicationInteractionControl().source = string(SELF_NETWORK_ADDRESS);
     appPkt->getApplicationInteractionControl().applicationID = applicationID;
     appPkt->getApplicationInteractionControl().timestamp = simTime();
     send(appPkt, "toCommunicationModule");

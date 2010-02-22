@@ -23,6 +23,6 @@ struct valueReportData {
 }
 
 
-message valueReporting_DataPacket extends ApplicationGenericDataPacket {
+packet valueReporting_DataPacket extends ApplicationGenericDataPacket {
     valueReportData extraData;
 }

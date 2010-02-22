@@ -305,10 +305,10 @@ void TMacModule::fromNetworkLayer(cPacket* netPkt, int destination) {
     macPkt->setDestination(destination);
     macPkt->setSequenceNumber(txSequenceNum);
     encapsulatePacket(macPkt,netPkt);
-    if (bufferPacket(macPkt)) {
+    if (bufferPacket(macPkt)) {	// this is causing problems
 	if (TXBuffer.size() == 1) checkTxBuffer();
     } else {
-	cancelAndDelete(macPkt);
+	// cancelAndDelete(macPkt);
 	//We could send a control message to upper layer to inform of full buffer
     }
 }
@@ -490,7 +490,6 @@ void TMacModule::fromRadioLayer(cPacket *pkt, double RSSI, double LQI) {
 	if (collisionResolution != 2 && nav > 0) setTimer(TRANSMISSION_TIMEOUT,nav);
 	extendActivePeriod(nav);
 	setMacState(MAC_STATE_ACTIVE_SILENT);
-	delete macPkt;
 	return;
     }
 
@@ -574,7 +573,6 @@ void TMacModule::fromRadioLayer(cPacket *pkt, double RSSI, double LQI) {
 	    break;
 	}
     }
-    delete macPkt;
 }
 
 /* This function handles carrier clear message, received from the radio module.

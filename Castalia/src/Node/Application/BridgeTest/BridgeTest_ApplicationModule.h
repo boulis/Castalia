@@ -13,15 +13,15 @@
 #ifndef _BRIDGETEST_APPLICATIONMODULE_H_
 #define _BRIDGETEST_APPLICATIONMODULE_H_
 
-#include <string>
-
 #include "VirtualApplicationModule.h"
 
+#define REPROGRAM_PACKET_NAME "Bridge test reprogram packet"
+#define REPORT_PACKET_NAME "Bridge test report packet"
 
 using namespace std;
 
 struct version_info {
-    int version;
+    double version;
     int seq;
     vector <int> parts;
 };
@@ -43,18 +43,14 @@ class BridgeTest_ApplicationModule : public VirtualApplicationModule
 	private:
 	    int reportTreshold;
 	    double sampleInterval;
-	    bool broadcastReports;
-	    int reprogramInterval;
-	    int reprogramPacketDelay;
+	    simtime_t reprogramInterval;
+	    simtime_t reprogramPacketDelay;
 	    int reprogramPayload;
 	    int sampleSize;
 	    int maxPayload;
 	
 	    simtime_t outOfEnergy;
-	
-	    char selfAddr[16];
-	    char broadcastAddr[16];
-	
+
 	    int currentVersion;
 	    int currentVersionPacket;
 	    int currSampleSN;
@@ -64,13 +60,15 @@ class BridgeTest_ApplicationModule : public VirtualApplicationModule
 	    int routingLevel;
 	    vector <version_info> version_info_table;
 	    vector <report_info> report_info_table;
+
+	    string reportDestination;
 	
 	protected:
 	    virtual void startup();
 	    void finishSpecific();
 	
 	    void send2NetworkDataPacket(const char *destID, const char *pcktID, int data, int pckSeqNumber, int size);
-	    int updateVersionTable(int version, int seq);
+	    int updateVersionTable(double version, int seq);
 	    int updateReportTable(int src, int seq);
 	
 	    void fromNetworkLayer(ApplicationGenericDataPacket*, const char *, double, double);

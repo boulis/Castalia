@@ -45,6 +45,10 @@ simple TunableMacModule like Node.Communication.MAC.MacGenericModule
 	int macBufferSize = default(32);
 
 	bool carrierSense = default(true);		//if we want the MAC to perform carrier sense before sending to Radio
+	
+	double phyDataRate = default(250.0);
+	double phyDelayForValidCS = default(0.128);
+	int phyFrameOverhead = default(6);
 
     gates:
 	output toNetworkModule;

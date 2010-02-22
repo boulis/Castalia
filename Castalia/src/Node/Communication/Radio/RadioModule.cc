@@ -28,6 +28,7 @@ void RadioModule::initialize() {
     totalPowerReceived.push_front(initialTotalPower);
 
     CSinterruptMsg = NULL;
+    stateTxCompleteMsg = NULL;
     latestCSinterruptTime = 0;
 
     declareOutput("RX pkt breakdown");
@@ -212,6 +213,7 @@ void RadioModule::handleMessage(cMessage *msg) {
 	 * Radio self message to complete the transition to a state
 	 ***********************************************************/
 	case RADIO_ENTER_STATE: {
+	    if (stateTxCompleteMsg == msg) stateTxCompleteMsg = NULL;
 	    completeStateTransition();
 	    break;
 	}
@@ -284,7 +286,7 @@ void RadioModule::handleRadioControlCommand(RadioControlCommand *radioCmd) {
 	     */
 
 	    // if we are asked to change to the current state, do nothing
-	    if (state == radioCmd->getState()) break;
+	    if (state == radioCmd->getState() || changingToState == radioCmd->getState()) break;
 	    changingToState = radioCmd->getState();
 
 	    double transitionDelay = transition[state][changingToState].delay;
@@ -320,11 +322,12 @@ void RadioModule::handleRadioControlCommand(RadioControlCommand *radioCmd) {
 	    }
 
 	    powerDrawn(avgDrawnTransitionPower);
-	    trace() << "SET STATE, changing state to " <<
+	    trace() << "SET STATE to " <<
 			(changingToState == TX ? "TX" : (changingToState == RX ? "RX" : "SLEEP" )) <<
-			", trans delay=" << transitionDelay << ", trans power=" << avgDrawnTransitionPower;
-
-	    scheduleAt(simTime()+ transitionDelay, new cMessage("Enter Radio state", RADIO_ENTER_STATE));
+			", delay=" << transitionDelay << ", power=" << avgDrawnTransitionPower;
+    
+	    delayStateTransition(transitionDelay);
+//	    scheduleAt(simTime()+ transitionDelay, new cMessage("Enter Radio state", RADIO_ENTER_STATE));
 	    break;
 	}
 
@@ -396,6 +399,15 @@ void RadioModule::handleRadioControlCommand(RadioControlCommand *radioCmd) {
     }
 }
 
+void RadioModule::delayStateTransition(simtime_t delay) {
+    if (stateTxCompleteMsg) { 
+	trace() << "WARNING: command to change to a new state was received before previous state transition was completed";
+	cancelAndDelete(stateTxCompleteMsg);
+    }
+    stateTxCompleteMsg = new cMessage("Complete state transition", RADIO_ENTER_STATE);
+    scheduleAt(simTime() + delay, stateTxCompleteMsg);
+}
+
 void RadioModule::completeStateTransition() {
     state = (BasicState_type)changingToState;
     trace() << "completing transition to " << state << " (" << (state == TX ? "TX" : (state == RX ? "RX" : "SLEEP" )) << ")";
@@ -411,7 +423,8 @@ void RadioModule::completeStateTransition() {
 
 		// don't like this way too much
 		changingToState = TX;
-		scheduleAt(simTime() + timeToTxPacket, new cMessage("continueTX", RADIO_ENTER_STATE));
+		delayStateTransition(timeToTxPacket);
+		//scheduleAt(simTime() + timeToTxPacket, new cMessage("continueTX", RADIO_ENTER_STATE));
 	    } else {
 		// send a command to change to RX, don't just do it (state = RX;)
 		RadioControlCommand *radioCmd = new RadioControlCommand("TX->RX", RADIO_CONTROL_COMMAND);
@@ -771,8 +784,8 @@ void RadioModule::readIniFileParameters(void) {
     else if (startingState.compare("TX") == 0) changingToState = TX;
     else if (startingState.compare("SLEEP") == 0) changingToState = SLEEP;
     else opp_error("Unknown basic state name '%s'\n", startingState.c_str());
-
-    scheduleAt(simTime(), new cMessage("enter initial state", RADIO_ENTER_STATE));
+    
+    completeStateTransition();	// this will complete initialisation of the radio according to startingState parameter
 }
 
 

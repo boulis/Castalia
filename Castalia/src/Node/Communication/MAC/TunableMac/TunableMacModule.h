@@ -78,7 +78,7 @@ class TunableMacModule : public VirtualMacModule
 	void fromRadioLayer(cPacket *, double, double);
 	int handleControlCommand(cMessage *msg);
 	void timerFiredCallback(int);
-	void carrierSenseCallback(int);
+	void handleCarrierSenseResult(int);
 	void attemptTx();
 	void sendBeaconsOrData();
 };

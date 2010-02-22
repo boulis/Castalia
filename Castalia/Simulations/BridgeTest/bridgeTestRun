@@ -6,8 +6,8 @@ use Getopt::Long;
 
 use constant WC_IDEAL => "../Parameters/WirelessChannel/Ideal.ini";
 use constant WC_REAL => "../Parameters/WirelessChannel/Realistic.ini";
-use constant R_IDEAL => "../Parameters/Radio/CC2420_IDEALmodulation.ini";
-use constant R_REAL => "../Parameters/Radio/CC2420.ini";
+use constant R_IDEAL => "../Parameters/Radio/CC2420_IDEALmodulation.txt";
+use constant R_REAL => "../Parameters/Radio/CC2420.txt";
 use constant MAC_TUNABLE => "./MAC_Tunable.ini";
 use constant MAC_TMAC => "../Parameters/MAC/TMAC.ini";
 use constant MAC_SMAC => "../Parameters/MAC/SMAC.ini";
@@ -53,12 +53,12 @@ bridgeTestRun has the following options:
     -h, --help		print this message
 
     -a, --algorithm	communication stack to use, supported values are:
-			1 - Tunable MAC with simple tree routing (default)
+			1 - Tunable MAC with simple tree routing [temporarily not supported]
 			2 - Tunable MAC with multipath rings routing
-			3 - Tunable MAC with broadcasts (no routing)
-			4 - TMAC with simple tree routing
+			3 - Tunable MAC with broadcasts (no routing, default)
+			4 - TMAC with simple tree routing [temporarily not supported]
 			5 - TMAC with broadcasts (no routing)
-			6 - SMAC with simple tree routing
+			6 - SMAC with simple tree routing [temporarily not supported]
 			7 - SMAC with broadcasts (no routing)
 			any other value defaults to 1
 			NOTE that multipath rings uses broadcast packets only, so it is not compatible with TMAC
@@ -76,10 +76,14 @@ $time = 600 unless $time && $time > 0;
 $sample = 100 unless $sample && $sample > 0;
 $duty_cycle = 1 unless $duty_cycle > 0 and $duty_cycle < 1;
 $listen = 100 * $duty_cycle unless $listen > 0;
-$alg = 1 unless $alg && $alg > 0 && $alg < 8;
+$alg = 3 unless $alg && $alg > 0 && $alg < 8;
 my $tmac = ($alg == 4 || $alg == 5);
 my $smac = ($alg == 6 || $alg == 7);
 my $broadcast = ($alg == 3 || $alg == 5 || $alg == 7);
+
+if ($alg == 1 || $alg == 4 || $alg == 6) {
+    die("ERROR: Simple tree routing not supported in current version of Castalia\n");
+}
 
 my $ini = "
 
@@ -91,7 +95,7 @@ sim-time-limit = ".$time."s
 
 include ../Parameters/SensorDevice/Accelerometer.ini
 include ".($ideal ? WC_IDEAL : WC_REAL)."
-include ".($ideal ? R_IDEAL : R_REAL)."
+SN.node[*].networkInterface.Radio.RadioParametersFile = \"".($ideal ? R_IDEAL : R_REAL)."\"
 include ".($tmac ? MAC_TMAC : ($smac ? MAC_SMAC : MAC_TUNABLE))."
 include ".($broadcast ? ROUTING_BP : ($alg == 2 ? ROUTING_MP : ROUTING_ST))."
 ".(!$tmac && !$smac ? "
@@ -109,7 +113,7 @@ SN.node[*].nodeApplication.packetHeaderOverhead = 8 #in bytes
 
 SN.node[*].nodeApplication.reportTreshold = 10
 SN.node[*].nodeApplication.sampleInterval = $sample
-SN.node[*].nodeApplication.broadcastReports = ".($broadcast ? "true" : "false")."
+SN.node[*].nodeApplication.reportDestination = ".($broadcast ? "\"-1\"" : "\"0\"")."
 
 SN.physicalProcessModuleName = \"CarsPhysicalProcess\"
 SN.physicalProcess[0].printDebugInfo = false

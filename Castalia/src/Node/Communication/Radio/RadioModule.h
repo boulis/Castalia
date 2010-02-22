@@ -187,6 +187,9 @@ class RadioModule : public VirtualCastaliaModule {
 	// pointer to message that carries a future carrier sense interrupt
 	RadioControlMessage *CSinterruptMsg;
 	simtime_t latestCSinterruptTime;
+	
+	// pointer to self message to complete state transition
+	cMessage *stateTxCompleteMsg;
 
 	int disabled;
 
@@ -206,6 +209,7 @@ class RadioModule : public VirtualCastaliaModule {
 	void updateInterference(list <ReceivedSignal_type>::iterator it1, list <ReceivedSignal_type>::iterator endingSignal);
 
 	void completeStateTransition();
+	void delayStateTransition(simtime_t);
 	void handleRadioControlCommand(RadioControlCommand *);
 	double popAndSendToWirelessChannel();
 	void updatePossibleCSinterrupt();

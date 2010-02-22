@@ -96,7 +96,6 @@ void CarsPhysicalProcess::finishSpecific() {
 }
 
 void CarsPhysicalProcess::readIniFileParameters(void) {
-    printDebugInfo = par("printDebugInfo");
     max_num_cars = par("max_num_cars");
     car_speed = par("car_speed");
     car_value = par("car_value");

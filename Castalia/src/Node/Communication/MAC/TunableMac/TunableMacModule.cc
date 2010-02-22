@@ -28,7 +28,6 @@ void TunableMacModule::startup() {
     backoffType = par("backoffType");
 
     phyDataRate = par("phyDataRate");
-//    phyoDelayForSleep2Listen = ((double) radioModule->par("delaySleep2Listen"))/1000.0;
     phyDelayForValidCS = (double)par("phyDelayForValidCS")/1000.0; //parameter given in ms in the omnetpp.ini
     phyLayerOverhead = par("phyFrameOverhead");
 
@@ -82,7 +81,7 @@ void TunableMacModule::timerFiredCallback(int timer) {
 
 	case START_CARRIER_SENSING: {
 	    toRadioLayer(createRadioCommand(SET_STATE,RX));
-	    carrierSenseCallback(radioModule->isChannelClear());
+	    handleCarrierSenseResult(radioModule->isChannelClear());
 	    break;
 	}
 
@@ -102,7 +101,7 @@ void TunableMacModule::timerFiredCallback(int timer) {
     }
 }
 
-void TunableMacModule::carrierSenseCallback(int returnCode) {
+void TunableMacModule::handleCarrierSenseResult(int returnCode) {
 
     switch(returnCode) {
 
@@ -120,6 +119,7 @@ void TunableMacModule::carrierSenseCallback(int returnCode) {
 		remainingBeaconsToTx = 0;
 	    }
 	    macState = MAC_STATE_TX;
+	    trace() << "MAC_STATE_TX";
 	    sendBeaconsOrData();
 	    break;
 	}
@@ -163,7 +163,7 @@ void TunableMacModule::carrierSenseCallback(int returnCode) {
 	    break;
 	}
 
-	case CS_NOT_VALID:   // this case never happens since in TunableMAC we always change to RX before we try CS
+	case CS_NOT_VALID:
 	case CS_NOT_VALID_YET: {
 	    setTimer(START_CARRIER_SENSING,phyDelayForValidCS);
 	    break;
@@ -199,12 +199,13 @@ void TunableMacModule::fromNetworkLayer(cPacket *netPkt, int destination) {
 	    attemptTx();
 	}
     } else {
-	cancelAndDelete(macPkt);
 	// we could send buffer full control message to upper layer
     }
 }
 
 void TunableMacModule::attemptTx() {
+    trace() << "attemptTx(), buffer size: " << TXBuffer.size() << ", numTxTries: " << numTxTries;
+    
     if (numTxTries <= 0) {
 	/* We can enter attemptTx from many places, in some cases the buffer may be empty
 	 * If its not empty but we have 0 tries left, then the front message is deleted
@@ -222,6 +223,7 @@ void TunableMacModule::attemptTx() {
 	    attemptTx();
 	} else {
 	    macState = MAC_STATE_DEFAULT;
+	    trace() << "MAC_STATE_DEFAULT";
 	    /* We have nothing left to transmit, need to resume sleep/listen pattern
 	     * Starting by going to sleep immediately (timer with 0 delay)
 	     */
@@ -231,8 +233,8 @@ void TunableMacModule::attemptTx() {
     }
 
     macState = MAC_STATE_CONTENDING;
-    numTxTries--;
-
+    trace() << "MAC_STATE_CONTENDING";
+    
     if (genk_dblrand(0) < probTx) {
 	/* This transmission attempt will happen after random offset  */
 	setTimer(START_CARRIER_SENSING,genk_dblrand(1) * randomTxOffset);
@@ -262,12 +264,17 @@ void TunableMacModule::sendBeaconsOrData() {
 	setTimer(SEND_BEACONS_OR_DATA,beaconTxTime + listenInterval/2.0);
 
     } else {
-
+	if (TXBuffer.empty()) {
+	    trace() << "WARNING: sendBeaconsOrData called with empty TX buffer!";
+	    setTimer(ATTEMPT_TX,reTxInterval);
+	    return; 
+	}
+	
 	toRadioLayer(TXBuffer.front()->dup());
 	toRadioLayer(createRadioCommand(SET_STATE,TX));
 	double packetTxTime = ((double)(TXBuffer.front()->getByteLength()+phyLayerOverhead)) * 8.0 / (1000.0 * phyDataRate);
-
-
+	numTxTries--;
+	
 	/* We are done sending a _copy_ of the packet from the front of
 	 * the buffer. We now move on to either A) the next copy or B) the next
 	 * packet if the current packet has no TX attempts remaining.
@@ -292,11 +299,6 @@ void TunableMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
     switch (macFrame->getFrameType()) {
 
 	case BEACON_FRAME: {
-	    /* If this is the first beacon we should enter state MAC_STATE_EXPECTING_RX.
-	     * In this state we cannot go to sleep or Tx.
-	     * Also schedule a self event to get out of it after sleepInterval.
-	     * We might get out of MAC_STATE_EXPECTING_RX earlier if we receive a data packet.
-	     */
 	    if (macState == MAC_STATE_DEFAULT) {
 		if ((dutyCycle > 0.0) && (dutyCycle < 1.0)) cancelTimer(START_SLEEPING);
 	    } else if (macState == MAC_STATE_CONTENDING) {
@@ -309,18 +311,31 @@ void TunableMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 		 break;
 	    }
 	    macState = MAC_STATE_RX;
-	    setTimer(ATTEMPT_TX,sleepInterval);
+	    trace() << "MAC_STATE_RX";
+	    if ((dutyCycle > 0.0) && (dutyCycle < 1.0)) {
+		setTimer(ATTEMPT_TX,sleepInterval);
+	    } else { 
+		trace() << "WARNING: received a beacon packet without duty cycle in place";
+		// this happens only when one node hass duty cycle while another one does not
+		// TunableMac was not designed for this case as more thought is required
+		// a possible solution could be to include duration information in the 
+		// beacon itself
+		// here we will just wait for 0.5 seconds to complete the reception
+		// before trying to transmit again.
+		setTimer(ATTEMPT_TX,0.5);
+	    }
 	    break;
 	}
 
 	case DATA_FRAME: {
 	    toNetworkLayer(macFrame->decapsulate());
-	    attemptTx();
+	    if (macState == MAC_STATE_RX) {
+		cancelTimer(ATTEMPT_TX);
+		attemptTx();
+	    }
 	    break;
 	}
     }
-
-    delete macFrame;
 }
 
 int TunableMacModule::handleControlCommand(cMessage *msg) {

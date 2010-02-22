@@ -10,16 +10,7 @@
 //*											*
 //***************************************************************************************
 
-
 #include "BridgeTest_ApplicationModule.h"
-
-
-#define MEMORY_PROFILE_FREE(numBytes) resMgrModule->RamFree(numBytes)
-
-#define NO_ROUTING_LEVEL -1
-
-#define REPORT_PACKET "Report packet"
-#define VERSION_PACKET "Version packet"
 
 Define_Module(BridgeTest_ApplicationModule);
 
@@ -27,7 +18,7 @@ void BridgeTest_ApplicationModule::startup() {
 
     reportTreshold = par("reportTreshold");
     sampleInterval = (double)par("sampleInterval")/1000;
-    broadcastReports = par("broadcastReports");
+    reportDestination = par("reportDestination").stringValue();
     reprogramInterval = par("reprogramInterval");
     reprogramPacketDelay = (double)par("reprogramPacketDelay")/1000;
     reprogramPayload = par("reprogramPayload");
@@ -74,6 +65,7 @@ void BridgeTest_ApplicationModule::timerFiredCallback(int timer) {
 	
 	case SEND_REPROGRAM_PACKET: {
 	    ApplicationGenericDataPacket *newPkt = createGenericDataPacket(currentVersion,currentVersionPacket,maxPayload);
+	    newPkt->setName(REPROGRAM_PACKET_NAME);
 	    toNetworkLayer(newPkt,BROADCAST_NETWORK_ADDRESS);
 	    currentVersionPacket++;
 	    if (currentVersionPacket < totalVersionPackets) setTimer(SEND_REPROGRAM_PACKET,reprogramPacketDelay);
@@ -83,22 +75,24 @@ void BridgeTest_ApplicationModule::timerFiredCallback(int timer) {
 }
 
 void BridgeTest_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket* rcvPacket, const char * source, double rssi, double lqi) {
-    string packetType(""); //rcvPacket->getHeader().applicationID.c_str());
+    string packetName(rcvPacket->getName()); 
     
-    int versionData = rcvPacket->getData();
+    double versionData = rcvPacket->getData();
     int sequenceNumber = rcvPacket->getSequenceNumber();
 
-    if (packetType.compare(REPORT_PACKET) == 0) {
+    if (packetName.compare(REPORT_PACKET_NAME) == 0) {
 	// this is report packet which contains sensor reading information
-	if (isSink || broadcastReports) {
-	    if (updateReportTable(atoi(source),sequenceNumber) && broadcastReports) {
-		// forward the packet only if we broadcast reports and this is a new (unseen) report
-		// updateReportTable returns 0 for duplicate packets
-		toNetworkLayer(rcvPacket->dup(),BROADCAST_NETWORK_ADDRESS);
+	trace() << "Received report from " << source;
+	if (updateReportTable(atoi(source),sequenceNumber)) {
+	    // forward the packet only if we broadcast reports and this is a new (unseen) report
+	    // updateReportTable returns 0 for duplicate packets
+	    if (!isSink) {
+		trace() << "Forwarding report packet from node " << source;
+		toNetworkLayer(rcvPacket->dup(),reportDestination.c_str());
 	    }
 	}
 
-    } else if (packetType.compare(VERSION_PACKET) == 0) {
+    } else if (packetName.compare(REPROGRAM_PACKET_NAME) == 0) {
 	// this is version (reprogramming) packet
 	if (!isSink && updateVersionTable(versionData,sequenceNumber)) {
 	    // forward the packet only if not sink and its a new packet 
@@ -107,7 +101,7 @@ void BridgeTest_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket
 	}
 
     } else {
-        trace() << "unknown packet type received " << packetType;
+        trace() << "unknown packet received: [" << packetName << "]";
     }
 }
 
@@ -125,13 +119,11 @@ void BridgeTest_ApplicationModule::handleSensorReading(SensorReadingGenericMessa
     currentSampleAccumulated += sampleSize;
     if (currentSampleAccumulated < maxSampleAccumulated) return;
 
-    if (broadcastReports)
-	toNetworkLayer(createGenericDataPacket(sensValue,currSampleSN,currentSampleAccumulated),BROADCAST_NETWORK_ADDRESS); 
-    else
-	toNetworkLayer(createGenericDataPacket(sensValue,currSampleSN,currentSampleAccumulated),SINK_NETWORK_ADDRESS);
-
-    currSampleSN++;
+    ApplicationGenericDataPacket *newPkt = createGenericDataPacket(sensValue,currSampleSN,currentSampleAccumulated);
+    newPkt->setName(REPORT_PACKET_NAME);
+    toNetworkLayer(newPkt, reportDestination.c_str());
     currentSampleAccumulated = 0;
+    currSampleSN++;
 }
 
 void BridgeTest_ApplicationModule::finishSpecific() {
@@ -184,7 +176,7 @@ int BridgeTest_ApplicationModule::updateReportTable(int src, int seq) {
     return 1;
 }
 
-int BridgeTest_ApplicationModule::updateVersionTable(int version, int seq) {
+int BridgeTest_ApplicationModule::updateVersionTable(double version, int seq) {
     int pos = -1;
     for (int i=0; i<(int)version_info_table.size(); i++) {
 	if (version_info_table[i].version == version) pos = i;

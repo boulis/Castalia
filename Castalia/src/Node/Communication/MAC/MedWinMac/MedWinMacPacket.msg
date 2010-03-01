@@ -84,6 +84,9 @@ packet MedWinPacket extends MacGenericPacket {
 							//		total header: 7 bytes
 }
 
+// We define all different packet types that carry extra information on their 
+// packet body, as separate packets. All derived from MedWinPacket.
+
 packet MedWinBeaconPacket extends MedWinPacket {
     //Beacon payload fields
     int senderAddress;					//6 bytes
@@ -124,8 +127,8 @@ packet MedWinConnectionAssignmentPacket extends MedWinPacket {
     int changeIndication;                               //1 byte
     int nextWakeup;					//1 byte
     int wakeupinterval;					//1 byte
-    int uplinkRequest;					//these requests are complex structures of atleast 
-    int downlinkRequest;				//atleast 7 bytes length, here we will simplyfy it
+    int uplinkRequest;					//these requests are complex structures of at least 
+    int downlinkRequest;				//7 bytes length, here we will simplify them
     int bilinkRequest;					//by saying that this particular number of slots
 							//is assigned
 							//		total: 29 bytes + 7 bytes in header

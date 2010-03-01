@@ -31,9 +31,17 @@ static int CWmin[8] = { 16, 16, 8, 8, 4, 4, 2, 1 };
 static int CWmax[8] = { 64, 32, 32, 16, 16, 8, 8, 4};
 
 class MedWinMacModule : public VirtualMacModule {
+	private:
+	double allocationSlotLength;
+
     protected:
 	void startup();
 	void timerFiredCallback(int);
 	void fromNetworkLayer(cPacket*, int);
 	void fromRadioLayer(cPacket*,double,double);
+	bool MedWinMacModule::isPacketForMe(MedWinPacket * pkt);
+	void MedWinMacModule::setHeaderFields(MedWinPacket * pkt, AcknowledgementPolicy_type ackPolicy, Frame_type frameType, Frame_subtype frameSubtype);
+	void MedWinMacModule::attempTxInRAP();
+	simtime_t MedWinMacModule::timeToNextBeacon(simtime_t interval, int index, int phase);
+
 }

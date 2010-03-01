@@ -22,6 +22,7 @@ using namespace std;
 
 enum MacStates {
     MAC_STATE_SETUP = 1000,
+    MAC_STATE_WAIR_FOR_ACK = 1001,
 };
 
 enum Timers {
@@ -31,17 +32,24 @@ static int CWmin[8] = { 16, 16, 8, 8, 4, 4, 2, 1 };
 static int CWmax[8] = { 64, 32, 32, 16, 16, 8, 8, 4};
 
 class MedWinMacModule : public VirtualMacModule {
-	private:
+    private:
+	int maxPacketRetries;
+	int currentPacketRetries;
+	
 	double allocationSlotLength;
+	
+	simtime_t endTime;
+	simtime_t RAPEndTime;
 
     protected:
 	void startup();
 	void timerFiredCallback(int);
 	void fromNetworkLayer(cPacket*, int);
 	void fromRadioLayer(cPacket*,double,double);
-	bool MedWinMacModule::isPacketForMe(MedWinPacket * pkt);
-	void MedWinMacModule::setHeaderFields(MedWinPacket * pkt, AcknowledgementPolicy_type ackPolicy, Frame_type frameType, Frame_subtype frameSubtype);
-	void MedWinMacModule::attempTxInRAP();
+	bool isPacketForMe(MedWinPacket * pkt);
+	void setHeaderFields(MedWinPacket * pkt, AcknowledgementPolicy_type ackPolicy, Frame_type frameType, Frame_subtype frameSubtype);
+	void attempTxInRAP();
+	bool needToTx();
 	simtime_t MedWinMacModule::timeToNextBeacon(simtime_t interval, int index, int phase);
 
 }

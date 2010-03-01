@@ -12,6 +12,10 @@
 
 cplusplus {{
 #include "MacGenericPacket_m.h"
+
+#define MEDWIN_HEADER_SIZE 7
+#define MEDWIN_BEACON_SIZE 17 + MEDWIN_HEADER_SIZE
+
 }}
 
 class MacGenericPacket;

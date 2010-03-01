@@ -9,11 +9,24 @@
 //*      Attention:  License Inquiry.
 //***************************************************************************/
 
-package Node.Communication.MAC.MedWinMac
+package Node.Communication.MAC.MedWinMac;
 
 simple MedWinMacModule like Node.Communication.MAC.MacGenericModule
 {
     parameters:
+	bool collectTraceInfo = default(false);
+	int macMaxPacketSize = default(0);
+	int macBufferSize = default(32);
+	int macPacketOverhead = default(7);
 	int scheduledAccessLength = default(0);		//in slots, default: no scheduled access
 	int scheduledAccessPeriod = default(1);		//in beacon periods, default: 1-periodic
+	int packetRetries = default(2);
+	    
+    gates:
+        output toNetworkModule;
+        output toRadioModule;
+        input fromNetworkModule;
+        input fromRadioModule;
+        input fromCommModuleResourceMgr;
+
 }

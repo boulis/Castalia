@@ -130,6 +130,11 @@ void VirtualNetworkModule::handleMessage(cMessage *msg) {
 			//packet, making sure that the network layer packet gets deleted anyway
 	}
 
+	case TIMER_SERVICE: {
+	    handleTimerMessage(msg);
+	    break;
+	}
+
 	case MAC_CONTROL_MESSAGE: {
 	    handleMacControlMessage(msg);
 	    return;
@@ -173,7 +178,7 @@ void VirtualNetworkModule::handleMessage(cMessage *msg) {
 	}
 	
 	default: {
-	    opp_error("Network module recieved unexpected message");
+	    opp_error("Network module recieved unexpected message: [%s]", msg->getName());
 	}
     }
 

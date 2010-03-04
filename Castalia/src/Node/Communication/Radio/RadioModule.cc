@@ -262,8 +262,22 @@ void RadioModule::handleMessage(cMessage *msg) {
 	    break;
 	}
 
+	/* This is special case for carrier sense interrupt message.
+	 * Since carrier sense interrupt is recalculated and rescheduled
+	 * each time the signal is changed, it is important to be able to 
+	 * cancel an existing message if necessary. This is only possible 
+	 * for self messages. So radio will schedule CS interrupt message
+	 * as a self event, and when it fires (i.e. not cancelled), then 
+	 * the message can just be forwarded to MAC. NOTE the 'return'
+	 * to avoid message deletion in the end;
+	 */
+	case RADIO_CONTROL_MESSAGE: {
+	    send(msg,"toMacModule");
+	    return;
+	}
+
 	default: {
-	    opp_error("\n[Radio_%d] t= %f: ERROR: received message of unknown type.\n", self, SIMTIME_DBL(simTime()));
+	    opp_error("\n[Radio_%d] t= %f: ERROR: received message [%s] of unknown type.\n", self, SIMTIME_DBL(simTime()), msg->getName());
 	    break;
 	}
     }
@@ -675,7 +689,8 @@ void RadioModule::updatePossibleCSinterrupt() {
 	CSinterruptMsg = new RadioControlMessage("CS Interrupt", RADIO_CONTROL_MESSAGE);
 	CSinterruptMsg->setRadioControlMessageKind(CARRIER_SENSE_INTERRUPT);
 	latestCSinterruptTime = simTime() + rssiIntegrationTime * fractionTime + PROCESSING_DELAY;
-	sendDelayed(CSinterruptMsg, rssiIntegrationTime * fractionTime + PROCESSING_DELAY, "toMacModule");
+//	sendDelayed(CSinterruptMsg, rssiIntegrationTime * fractionTime + PROCESSING_DELAY, "toMacModule");
+	scheduleAt(latestCSinterruptTime, CSinterruptMsg);
 	return;
 
 }

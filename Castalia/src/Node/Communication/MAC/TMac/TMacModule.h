@@ -15,6 +15,8 @@
 #include "VirtualMacModule.h"
 #include "TMacPacket_m.h"
 
+#define TX_TIME(x)		(phyLayerOverhead + x)*1/(1000*phyDataRate/8.0)		//x are in BYTES
+
 using namespace std;
 
 enum MacStates {
@@ -120,23 +122,22 @@ class TMacModule : public VirtualMacModule
 	void finishSpecific();
 	
 	void timerFiredCallback(int);
-	void carrierSenseCallback(int);
 	void fromNetworkLayer(cPacket*,int);
 	void fromRadioLayer(cPacket*,double,double);
+	int handleRadioControlMessage(cMessage*);
 
-	void resetDefaultState();
-	void setMacState(int newState);
+	void resetDefaultState(const char *descr = NULL);
+	void setMacState(int newState, const char *descr = NULL);
 	void createPrimarySchedule();
 	void scheduleSyncPacket(simtime_t when);
 	void processMacPacket(TMacPacket *);
 	void carrierIsClear();
+	void carrierIsBusy();
 	void updateScheduleTable(simtime_t wakeup, int ID, int SN);
 	void performCarrierSense(int newState, simtime_t delay = 0);
 	void extendActivePeriod(simtime_t extra = 0);
 	void checkTxBuffer();
 	void popTxBuffer();
-	void updateTimeout(simtime_t t);
-	void clearTimeout();
 };
 
 #endif //TMACMODULE

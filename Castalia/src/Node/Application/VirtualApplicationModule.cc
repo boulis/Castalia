@@ -124,7 +124,7 @@ void VirtualApplicationModule::handleMessage(cMessage *msg) {
 	}
 
 	case RADIO_CONTROL_MESSAGE: {
-		RadioControlMessage *radioMsg = check_and_cast<RadioControlMessage*>(msg);
+	    RadioControlMessage *radioMsg = check_and_cast<RadioControlMessage*>(msg);
 	    handleRadioControlMessage(radioMsg);
 	    break;
 	}

@@ -77,24 +77,27 @@ void BridgeTest_ApplicationModule::timerFiredCallback(int timer) {
 void BridgeTest_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket* rcvPacket, const char * source, double rssi, double lqi) {
     string packetName(rcvPacket->getName()); 
     
-    double versionData = rcvPacket->getData();
+    double data = rcvPacket->getData();
     int sequenceNumber = rcvPacket->getSequenceNumber();
 
     if (packetName.compare(REPORT_PACKET_NAME) == 0) {
 	// this is report packet which contains sensor reading information
-	trace() << "Received report from " << source;
-	if (updateReportTable(atoi(source),sequenceNumber)) {
+	// NOTE that data field is used to store source address instead of using char *source
+	// this is done because some routing and flooding is done on the application layer
+	// and source address will not always correctly represent the author of the sensed data
+	trace() << "Received report from " << (int)data;
+	if (updateReportTable((int)data,sequenceNumber)) {
 	    // forward the packet only if we broadcast reports and this is a new (unseen) report
 	    // updateReportTable returns 0 for duplicate packets
 	    if (!isSink) {
-		trace() << "Forwarding report packet from node " << source;
+		trace() << "Forwarding report packet from node " << (int)data;
 		toNetworkLayer(rcvPacket->dup(),reportDestination.c_str());
 	    }
 	}
 
     } else if (packetName.compare(REPROGRAM_PACKET_NAME) == 0) {
 	// this is version (reprogramming) packet
-	if (!isSink && updateVersionTable(versionData,sequenceNumber)) {
+	if (!isSink && updateVersionTable(data,sequenceNumber)) {
 	    // forward the packet only if not sink and its a new packet 
 	    // updateVersionTable returns 0 for duplicate packets
 	    toNetworkLayer(rcvPacket->dup(),BROADCAST_NETWORK_ADDRESS);
@@ -119,7 +122,7 @@ void BridgeTest_ApplicationModule::handleSensorReading(SensorReadingGenericMessa
     currentSampleAccumulated += sampleSize;
     if (currentSampleAccumulated < maxSampleAccumulated) return;
 
-    ApplicationGenericDataPacket *newPkt = createGenericDataPacket(sensValue,currSampleSN,currentSampleAccumulated);
+    ApplicationGenericDataPacket *newPkt = createGenericDataPacket((double)self,currSampleSN,currentSampleAccumulated);
     newPkt->setName(REPORT_PACKET_NAME);
     toNetworkLayer(newPkt, reportDestination.c_str());
     currentSampleAccumulated = 0;

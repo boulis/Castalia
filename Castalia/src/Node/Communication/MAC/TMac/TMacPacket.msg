@@ -17,13 +17,13 @@ cplusplus {{
 class MacGenericPacket;
 
 enum TmacPacket_type {
-    SYNC_FRAME = 1;
-    RTS_FRAME = 2;
-    CTS_FRAME = 3;
-    DS_FRAME = 4;
-    FRTS_FRAME = 5;
-    DATA_FRAME = 6;
-    ACK_FRAME = 7;
+    SYNC_TMAC_PACKET = 1;
+    RTS_TMAC_PACKET = 2;
+    CTS_TMAC_PACKET = 3;
+    DS_TMAC_PACKET = 4;
+    FRTS_TMAC_PACKET = 5;
+    DATA_TMAC_PACKET = 6;
+    ACK_TMAC_PACKET = 7;
 }
 
 packet TMacPacket extends MacGenericPacket {

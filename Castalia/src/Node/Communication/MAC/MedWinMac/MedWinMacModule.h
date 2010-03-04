@@ -1,23 +1,23 @@
 /********************************************************************************
- *  Copyright: National ICT Australia,  2010					*
- *  Developed at the ATP lab, Networked Systems theme				*
- *  Author(s): Athanassios Boulis, Yuri Tselishchev				*
- *  This file is distributed under the terms in the attached LICENSE file.	*
- *  If you do not find this file, copies can be found by writing to:		*
- *										*
- *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia			*
- *      Attention:  License Inquiry.						*
+ *  Copyright: National ICT Australia,  2010									*
+ *  Developed at the ATP lab, Networked Systems theme							*
+ *  Author(s): Athanassios Boulis, Yuri Tselishchev								*
+ *  This file is distributed under the terms in the attached LICENSE file.		*
+ *  If you do not find this file, copies can be found by writing to:			*
+ *																				*
+ *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia					*
+ *      Attention:  License Inquiry.											*
  ********************************************************************************/
 
-#ifndef MEDWIN_MAC_MODULE
-#define MEDWIN_MAC_MODULE
+#ifndef MEDWIN_MAC_MODULE_H
+#define MEDWIN_MAC_MODULE_H
 
 #include "VirtualMacModule.h"
 #include "MedWinMacPacket_m.h"
 
 #define TX_TIME(x) (phyLayerOverhead + x)*1/(1000*phyDataRate/8.0) //x are in BYTES
 #define UNCONNECTED -1
-#define GUARD_TIME pastSyncIntervalNominal?: guardTime(): allocationSlotLength/10.0;
+#define GUARD_TIME pastSyncIntervalNominal ? guardTime() : allocationSlotLength/10.0;
 
 using namespace std;
 
@@ -37,10 +37,18 @@ class MedWinMacModule : public VirtualMacModule {
 	int maxPacketRetries;
 	int currentPacketRetries;
 
+	int currentScheduleAssignmentStart;
+	int currentFreeConnectedNID;
+
 	double allocationSlotLength;
 	int RAP1Length;
+	int beaconPeriodLength;
 	bool CWdouble;
 	bool pastSyncIntervalNominal;
+	
+	int scheduledAccessStart;
+	int scheduledAccessEnd;
+	int scheduledAccessLength;
 
 	simtime_t endTime;
 	simtime_t RAPEndTime;
@@ -54,6 +62,8 @@ class MedWinMacModule : public VirtualMacModule {
 	void setHeaderFields(MedWinPacket * pkt, AcknowledgementPolicy_type ackPolicy, Frame_type frameType, Frame_subtype frameSubtype);
 	void attempTxInRAP();
 	bool needToTx();
-	simtime_t MedWinMacModule::timeToNextBeacon(simtime_t interval, int index, int phase);
+	simtime_t timeToNextBeacon(simtime_t interval, int index, int phase);
 
 }
+
+#endif // MEDWIN_MAC_MODULE_H

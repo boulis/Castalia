@@ -1,20 +1,23 @@
-// **************************************************************************************
-// *  Copyright: National ICT Australia, 2010						*
-// *  Developed at the Networks and Pervasive Computing program				*
-// *  Author(s): Yuriy Tselishchev, Athanassios Boulis					*
-// *  This file is distributed under the terms in the attached LICENSE file.		*
+// ******************************************************************************
+// *  Copyright: National ICT Australia, 2010									*
+// *  Developed at the Networks and Pervasive Computing program					*
+// *  Author(s): Yuriy Tselishchev, Athanassios Boulis							*
+// *  This file is distributed under the terms in the attached LICENSE file.	*
 // *  If you do not find this file, copies can be found by writing to:			*
-// *											*
-// *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia			*
-// *      Attention:  License Inquiry.							*
-// *											*
-// **************************************************************************************/
+// *																			*
+// *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia				*
+// *      Attention:  License Inquiry.											*
+// *																			*
+// ******************************************************************************/
 
 cplusplus {{
 #include "MacGenericPacket_m.h"
 
 #define MEDWIN_HEADER_SIZE 7
 #define MEDWIN_BEACON_SIZE 17 + MEDWIN_HEADER_SIZE
+
+#define BROADCAST_NID 255
+#define UNCONNECTED_BROADCAST_NID 0
 
 }}
 
@@ -105,44 +108,47 @@ packet MedWinBeaconPacket extends MedWinPacket {
 }
 
 packet MedWinConnectionRequestPacket extends MedWinPacket {
-    int recipientAddress;				//6 bytes
-    int senderAddress;					//6 bytes
-    int formerHubAddress;				//6 bytes
+    int recipientAddress;						//6 bytes
+    int senderAddress;							//6 bytes
+    int formerHubAddress;						//6 bytes
     //4 bytes for capabilities and security
-    int changeIndication;				//1 byte
-    int nextWakeup;					//1 byte
-    int wakeupinterval;					//1 byte
-    int uplinkRequest;					//these requests are complex structures of atleast 
-    int downlinkRequest;				//atleast 7 bytes length, here we will simplyfy it
-    int bilinkRequest;					//by saying that this particular number of slots
-							//is requested
-							//    		total: 28 bytes + 7 bytes in header
+    int changeIndication;						//1 byte
+    int nextWakeup;								//1 byte
+    int wakeupinterval;							//1 byte
+    int uplinkRequest;							//these requests are complex structures of atleast 
+    int downlinkRequest;						//atleast 7 bytes length, here we will simplyfy it
+    int bilinkRequest;							//by saying that this particular number of slots
+												//is requested
+												//    		total: 28 bytes + 7 bytes in header
 }
 
 packet MedWinConnectionAssignmentPacket extends MedWinPacket {
-    int recipientAddress;                               //6 bytes
-    int senderAddress;                                  //6 bytes
-    int channelDwellLength;				//1 byte
-    int channelDwellPhase;				//1 byte
-    int minRAPlength;					//1 byte
+    int recipientAddress;                       //6 bytes
+    int senderAddress;                          //6 bytes
+    int channelDwellLength;						//1 byte
+    int channelDwellPhase;						//1 byte
+    int minRAPlength;							//1 byte
     int statusCode enum(statusCode_type);		//1 byte
     //4 bytes for capabilities and security
-    int NID;						//1 byte
-    int changeIndication;                               //1 byte
-    int nextWakeup;					//1 byte
-    int wakeupinterval;					//1 byte
-    int uplinkRequest;					//these requests are complex structures of at least 
-    int downlinkRequest;				//7 bytes length, here we will simplify them
-    int bilinkRequest;					//by saying that this particular number of slots
-							//is assigned
-							//		total: 29 bytes + 7 bytes in header
+    int NID;									//1 byte
+    int changeIndication;                       //1 byte
+    int nextWakeup;								//1 byte
+    int wakeupinterval;							//1 byte
+    
+    int uplinkRequestStart;						//these requests are complex structures of at least 
+    int uplinkRequestEnd;						//7 bytes length, here we will simplify them
+    int downlinkRequestStart;					//by saying that this particular number of slots assigned
+    int downlinkRequestEnd;
+    int bilinkRequestStart;						
+    int bilinkRequestEnd;
+												//		total: 29 bytes + 7 bytes in header
 }
 
 packet MedWinBAckPacket extends MedWinPacket {
-    int nextBlockSize;					//1 byte
-    int oldestFrameExpected;				//1 byte
-    int frameStatusBitmap;				//1 byte
-							//		total: 3 bytes + 7 bytes in header
+    int nextBlockSize;							//1 byte
+    int oldestFrameExpected;					//1 byte
+    int frameStatusBitmap;						//1 byte
+												//		total: 3 bytes + 7 bytes in header
 }
 
 packet MedWinTPollPacket extends MedWinPacket {

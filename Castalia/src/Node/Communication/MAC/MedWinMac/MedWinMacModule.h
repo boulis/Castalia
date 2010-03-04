@@ -17,6 +17,7 @@
 
 #define TX_TIME(x) (phyLayerOverhead + x)*1/(1000*phyDataRate/8.0) //x are in BYTES
 #define UNCONNECTED -1
+#define GUARD_TIME pastSyncIntervalNominal?: guardTime(): allocationSlotLength/10.0;
 
 using namespace std;
 
@@ -35,9 +36,12 @@ class MedWinMacModule : public VirtualMacModule {
     private:
 	int maxPacketRetries;
 	int currentPacketRetries;
-	
+
 	double allocationSlotLength;
-	
+	int RAP1Length;
+	bool CWdouble;
+	bool pastSyncIntervalNominal;
+
 	simtime_t endTime;
 	simtime_t RAPEndTime;
 

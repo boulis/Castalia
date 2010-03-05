@@ -22,18 +22,31 @@
 using namespace std;
 
 enum MacStates {
-    MAC_STATE_SETUP = 1000,
-    MAC_STATE_WAIR_FOR_ACK = 1001,
+	MAC_STATE_SETUP = 1000,
+	MAC_RAP = 1001,
+	MAC_SCHEDULED_TX_ACCESS = 1002,
+	MAC_SCHEDULED_RX_ACCESS = 1003,
+	MAC_SLEEP = 1010
 };
 
 enum Timers {
+	CARRIER_SENSING = 1,
+	SEND_PACKET = 2,
+	ACK_TIMEOUT = 3,
+	START_SLEEPING = 4,
+	START_SCHEDULED_TX_ACCESS = 5,
+	WAKEUP_FOR_BEACON = 6,
+	SYNC_INTERVAL_TIMEOUT = 7,
+	SEND_BEACON = 8,
+	HUB_ATTEMPT_TX_IN_RAP = 9,
+	HUB_SCHEDULED_ACCESS = 10
 };
 
 static int CWmin[8] = { 16, 16, 8, 8, 4, 4, 2, 1 };
 static int CWmax[8] = { 64, 32, 32, 16, 16, 8, 8, 4};
 
 class MedWinMacModule : public VirtualMacModule {
-    private:
+	private:
 	int maxPacketRetries;
 	int currentPacketRetries;
 
@@ -45,7 +58,7 @@ class MedWinMacModule : public VirtualMacModule {
 	int beaconPeriodLength;
 	bool CWdouble;
 	bool pastSyncIntervalNominal;
-	
+
 	int scheduledAccessStart;
 	int scheduledAccessEnd;
 	int scheduledAccessLength;
@@ -53,7 +66,9 @@ class MedWinMacModule : public VirtualMacModule {
 	simtime_t endTime;
 	simtime_t RAPEndTime;
 
-    protected:
+	bool isHub;
+
+	protected:
 	void startup();
 	void timerFiredCallback(int);
 	void fromNetworkLayer(cPacket*, int);
@@ -63,7 +78,6 @@ class MedWinMacModule : public VirtualMacModule {
 	void attempTxInRAP();
 	bool needToTx();
 	simtime_t timeToNextBeacon(simtime_t interval, int index, int phase);
-
 }
 
 #endif // MEDWIN_MAC_MODULE_H

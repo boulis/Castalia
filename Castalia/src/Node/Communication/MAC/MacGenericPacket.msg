@@ -10,6 +10,9 @@
 //*											*
 //***************************************************************************************
 
+enum MacControlMessage_type {
+    MAC_BUFFER_FULL = 1;
+}
 
 struct MacInteractionControl_type {
     double RSSI;
@@ -18,4 +21,8 @@ struct MacInteractionControl_type {
 
 packet MacGenericPacket {
     MacInteractionControl_type MacInteractionControl;
+}
+
+message MacControlMessage {
+    int macControlMessageKind enum(MacControlCommand_type);
 }

@@ -47,20 +47,23 @@ int VirtualMacModule::handleRadioControlMessage(cMessage *msg) {
 }
 
 int VirtualMacModule::bufferPacket(cPacket* rcvFrame) {
-    if ((int)TXBuffer.size() >= macBufferSize) {
-	//collectOutput("Buffer overflow");  this is handled in specific MACs
-	cancelAndDelete(rcvFrame);
-	return 0;
-    } else {
-	TXBuffer.push(rcvFrame);
-	trace() << "Packet buffered from network layer, buffer state: " <<
-		    TXBuffer.size() << "/" << macBufferSize;
-	return 1;
-    }
+	if ((int)TXBuffer.size() >= macBufferSize) {
+		//collectOutput("Buffer overflow");  this is handled in specific MACs
+		cancelAndDelete(rcvFrame);
+		// send a control message to the upper layer
+		MacControlMessage *fullBuffMsg = new MacControlMessage("MAC buffer full", MAC_CONTROL_MESSAGE);
+		fullBuffMsg->setMacControlMessageKind(MAC_BUFFER_FULL);
+		send(fullBuffMsg, "toNetworkModule");
+		return 0;
+	} else {
+		TXBuffer.push(rcvFrame);
+		trace() << "Packet buffered from network layer, buffer state: " << TXBuffer.size() << "/" << macBufferSize;
+		return 1;
+	}
 }
 
 void VirtualMacModule::handleMessage(cMessage *msg) {
-    
+
     int msgKind = (int)msg->getKind();
 
     if(disabled && msgKind != NODE_STARTUP) {
@@ -70,7 +73,7 @@ void VirtualMacModule::handleMessage(cMessage *msg) {
     }
 
     switch (msgKind) {
-	
+
 	case NODE_STARTUP: {
 	    disabled = 0;
 	    startup();
@@ -80,8 +83,8 @@ void VirtualMacModule::handleMessage(cMessage *msg) {
 	case NETWORK_LAYER_PACKET: {
 	    NetworkGenericPacket *pkt = check_and_cast<NetworkGenericPacket*>(msg);
 	    if (macMaxFrameSize > 0 && macMaxFrameSize < pkt->getByteLength() + macFrameOverhead) {
-		trace() << "Oversized packet dropped. Size:" << pkt->getByteLength() << 
-			    ", MAC layer overhead:" << macFrameOverhead << 
+		trace() << "Oversized packet dropped. Size:" << pkt->getByteLength() <<
+			    ", MAC layer overhead:" << macFrameOverhead <<
 			    ", max MAC frame size:" << macMaxFrameSize;
 		break;
 	    }
@@ -127,7 +130,7 @@ void VirtualMacModule::handleMessage(cMessage *msg) {
 	}
     }
 
-    delete msg; 
+    delete msg;
     msg = NULL;		// safeguard
 }
 

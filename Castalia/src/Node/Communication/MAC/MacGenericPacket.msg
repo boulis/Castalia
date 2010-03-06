@@ -24,5 +24,5 @@ packet MacGenericPacket {
 }
 
 message MacControlMessage {
-    int macControlMessageKind enum(MacControlCommand_type);
+    int macControlMessageKind enum(MacControlMessage_type);
 }

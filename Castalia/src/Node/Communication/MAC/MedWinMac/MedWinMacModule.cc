@@ -19,7 +19,7 @@ void MedWinMacModule::startup() {
 		connectedHID = SELF_MAC_ADDRESS % 2<<16;
 		connectedNID = BROADCAST_NID; // default value, usually overwritten
 		currentFreeConnectedNID = 16; // start assigning connected NID from ID 16
-		allocationSlotLength = par("allocationSlotLength");
+		allocationSlotLength = (double) par("allocationSlotLength")/1000.0; // convert msec to sec
 		beaconPeriodLength = par("beaconPeriodLength");
 		RAP1Length = currentScheduleAssignmentStart = par("RAP1Length");
 		setTimer(SEND_BEACON,0);
@@ -30,14 +30,18 @@ void MedWinMacModule::startup() {
 		scheduledAccessLength = par("scheduledAccessLength");
 		scheduledAccessPeriod = par("scheduledAccessPeriod");
 		pastSyncIntervalNominal = false;
+		macState = MAC_SETUP;
+		SInominal = -1;
 	}
 
+	pTIFS = (double) par("pTIFS")/1000.0;
 	phyLayerOverhead = par("phyLayerOverhead");
 	phyDataRate = par("phyDataRate");
-	priority = getParentModule()->getParentModule()->findSubModule("nodeApplication")->par("priority");
+	priority = getParentModule()->getParentModule()->getSubmodule("nodeApplication")->par("priority");
+	mClockAccuracy = par("mClockAccuracy");
 
-	contentionSlot = par("contentionSlot");
-	maxPacketRetries = par("packetRetries");
+	contentionSlotLength = (double) par("contentionSlotLength")/1000.0; // convert msec to sec;
+	maxPacketRetries = par("maxPacketRetries");
 	CW = CWmin[priority];
 	CWdouble = false;
 }
@@ -51,14 +55,14 @@ void MedWinMacModule::timerFiredCallback(int index) {
 			CCA_result CCAcode = radioModule->isChannelClear();
 			if (CCAcode == CLEAR) {
 				backoffCounter--;
-				if (backoffCounter > 0) setTimer(CARRIER_SENSING,contentionSlot);
+				if (backoffCounter > 0) setTimer(CARRIER_SENSING, contentionSlotLength);
 				else sendPacket();
 			} else {
 				/* spec states that we wait until the channel is not busy
 				 * we cannot simply do that, we have to have periodic checks
 				 * we arbitrarily choose 10*contention slot = 3.6msec
 				 */
-				setTimer(CARRIER_SENSING,contentionSlot*10);
+				setTimer(CARRIER_SENSING, contentionSlotLength*10.0);
 			}
 			break;
 		}
@@ -81,7 +85,7 @@ void MedWinMacModule::timerFiredCallback(int index) {
 		}
 
 		case START_SLEEPING: {
-			macstate = MAC_SLEEP;
+			macState = MAC_SLEEP;
 			toRadioLayer(createRadioCommand(SET_STATE,SLEEP));
 			break;
 		}
@@ -143,8 +147,8 @@ void MedWinMacModule::timerFiredCallback(int index) {
 	}
 }
 
-void MedWinMacModule::fromNetworkLayer(cPacket pkt, int dst) {
-	MedWinMacPacket * medWinDataPkt = new MedWinMacPacket("MedWin data packet",MAC_LAYER_PACKET);
+void MedWinMacModule::fromNetworkLayer(cPacket *pkt, int dst) {
+	MedWinMacPacket *medWinDataPkt = new MedWinMacPacket("MedWin data packet",MAC_LAYER_PACKET);
 	encapsulatePacket(medWinDataPkt,pkt);
 	if (bufferPacket(medWinDataPkt)) {
 		if (packetToBeSent == NULL && needToTx()) {
@@ -157,7 +161,7 @@ void MedWinMacModule::fromNetworkLayer(cPacket pkt, int dst) {
 	}
 }
 
-void MedWinMacModule::fromRadioLayer(cPacket pkt, double rssi, double lqi) {
+void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 	// if the incoming packet is not MedWin, return (VirtualMAC will delete it)
 	MedWinMacPacket * medWinPkt = dynamic_cast<MedWinMacPacket*>(pkt);
 	if (medWinPkt == NULL) return;
@@ -167,9 +171,9 @@ void MedWinMacModule::fromRadioLayer(cPacket pkt, double rssi, double lqi) {
 
 	// if the packet received requires an ACK, we should send it now
 	if (medWinPkt->getAckPolicy() == I_ACK_POLICY) {
-		MedWinPacket * ackPacket = new MedWinPacket("ACK packet",MAC_LAYER_PACKET);
+		MedWinMacPacket * ackPacket = new MedWinMacPacket("ACK packet",MAC_LAYER_PACKET);
 		setHeaderFields(ackPacket,N_ACK_POLICY,CONTROL,I_ACK);
-		ackPacket->setNID(connRequest->getNID());
+		ackPacket->setNID(medWinPkt->getNID());
 		toRadioLayer(ackPacket);
 		toRadioLayer(createRadioCommand(SET_STATE,TX));
 	}
@@ -187,7 +191,7 @@ void MedWinMacModule::fromRadioLayer(cPacket pkt, double rssi, double lqi) {
 	switch(medWinPkt->getFrameSubtype()) {
 		case BEACON: {
 			MedWinBeaconPacket * medWinBeacon = check_and_cast<MedWinBeaconPacket*>(medWinPkt);
-			simtime_t beaconTxTime = TX_TIME(MedWinBeaconPacket->getByteLength());
+			simtime_t beaconTxTime = TX_TIME(medWinBeacon->getByteLength());
 
 			// get the allocation slot length, which is used in many calculations
 			allocationSlotLength = medWinBeacon->getAllocationSlotLength() / 1000.0;
@@ -218,7 +222,7 @@ void MedWinMacModule::fromRadioLayer(cPacket pkt, double rssi, double lqi) {
 					setHeaderFields(connectionRequest,I_ACK_POLICY,MANAGEMENT,CONNECTION_REQUEST);
 					// while setHeaderFields should take care of the HID field, we are currently unconnected.
 					// We want to keep this state, yet send the request to the right hub.
-					connectionRequest->setHID(MedWinBeaconPacket->getHID());
+					connectionRequest->setHID(medWinBeacon->getHID());
 
 					// This block takes care of connection request specific fields
 					connectionRequest->setRecipientAddress(medWinBeacon->getSenderAddress());
@@ -242,7 +246,7 @@ void MedWinMacModule::fromRadioLayer(cPacket pkt, double rssi, double lqi) {
 			} else  {
 
 				// schedule a timer to wake up for the next beacon (it might be m periods away
-				setTimer(WAKEUP_FOR_BEACON, beaconPeriodLength * scheduledAccessPeriod * allocationSlotLength - beaconTxTime - GUARD_TIME);
+				setTimer(WAKEUP_FOR_BEACON, beaconPeriodLength * scheduledAccessPeriod * allocationSlotLength - beaconTxTime - GUARD_TIME );
 
 				// if we have a schedule that does not start after RAP, or our schedule
 				// is not assigned yet, then go to sleep after RAP.  RAP === period length???
@@ -317,7 +321,7 @@ void MedWinMacModule::fromRadioLayer(cPacket pkt, double rssi, double lqi) {
 		}
 
 		case CONNECTION_REQUEST: {
-			MadWinConnectionRequestPacket *connRequest = check_and_cast<MedWinConnectionRequest*>(medWinPkt);
+			MedWinConnectionRequestPacket *connRequest = check_and_cast<MedWinConnectionRequestPacket*>(medWinPkt);
 
 			/* We acked the packet. Now it is a design decision when to send
 			 * connection assignment. Here we send it immediately.
@@ -342,14 +346,15 @@ void MedWinMacModule::fromRadioLayer(cPacket pkt, double rssi, double lqi) {
 
 			toRadioLayer(connAssignment);
 
-			setTimer(ACK_TIMEOUT, 2*TX_TIME(ackPacket) + 3*pTIFS + TX_TIME(connAssignment));
+			// the MEDWIN_HEADER_SIZE below is the size of an ACK packet
+			setTimer(ACK_TIMEOUT, 2*TX_TIME(MEDWIN_HEADER_SIZE) + 3*pTIFS + TX_TIME(connAssignment->getByteLength()));
 		}
 
 		case POLL:
 		case T_POLL:
 
 		case ASSOCIATION:
-		case DISSASSOCIATION:
+		case DISASSOCIATION:
 		case PTK:
 		case GTK: {
 			trace() << "WARNING: unimplemented packet subtype in [" << medWinPkt->getName() << "]";
@@ -358,11 +363,11 @@ void MedWinMacModule::fromRadioLayer(cPacket pkt, double rssi, double lqi) {
 	}
 }
 
-bool MedWinMacModule::isPacketForMe(MedWinPacket *pkt) {
+bool MedWinMacModule::isPacketForMe(MedWinMacPacket *pkt) {
 	int pktHID = pkt->getHID();
 	int pktNID = pkt->getNID();
 
-	if (connectedHID == pktHID)
+	if (connectedHID == pktHID) {
 		if (isHub) return true;
 		if ((connectedNID == pktNID) || (pktNID == BROADCAST_NID)) return true;
 		if (connectedNID != UNCONNECTED) return false;
@@ -373,11 +378,11 @@ bool MedWinMacModule::isPacketForMe(MedWinPacket *pkt) {
 	return false;
 }
 
-void MedWinMacModule::guardTime() {
-	return allocationSlotLength / 10.0 + (getClock() - syncIntervalAdditionalStart) * mClockAccuracy;
+simtime_t MedWinMacModule::guardTime() {
+	return (simtime_t) allocationSlotLength / 10.0 + (getClock() - syncIntervalAdditionalStart) * mClockAccuracy;
 }
 
-void MedWinMacModule::setHeaderFields(MedWinPacket * pkt, AcknowledgementPolicy_type ackPolicy, Frame_type frameType, Frame_subtype frameSubtype) {
+void MedWinMacModule::setHeaderFields(MedWinMacPacket * pkt, AcknowledgementPolicy_type ackPolicy, Frame_type frameType, Frame_subtype frameSubtype) {
 	pkt->setHID(connectedHID);
 	if (connectedNID != UNCONNECTED)
 		pkt->setNID(connectedNID);
@@ -389,15 +394,11 @@ void MedWinMacModule::setHeaderFields(MedWinPacket * pkt, AcknowledgementPolicy_
 	pkt->setFrameSubtype(frameSubtype);
 }
 
-void MedWinMacModule::attempTxInRAP() {
+void MedWinMacModule::attemptTxInRAP() {
 	if (backoffCounter == 0) {
 		backoffCounter = 1 + genk_intrand(0,CW);
 	}
 	setTimer(CARRIER_SENSING,0);
-}
-
-simtime_t MedWinMacModule::timeToNextBeacon(simtime_t interval, int index, int phase) {
-	return interval;
 }
 
 // This function will examine the current packet ...
@@ -412,14 +413,14 @@ bool MedWinMacModule::needToTx() {
 	if (TXBuffer.size() == 0) return false;
 	if (macState != MAC_RAP && macState != MAC_SCHEDULED_TX_ACCESS) return false;
 
-	packetToBeSent = TXBuffer.front(); TXBuffer.pop();
-	setHeaderFields(packetToBeSent,I_ACK_POLICY,DATA,0);
+	packetToBeSent = (MedWinMacPacket*)TXBuffer.front();   TXBuffer.pop();
+	setHeaderFields(packetToBeSent, I_ACK_POLICY, DATA, RESERVED);
 	currentPacketRetries = 0;
 	return true;
 }
 
 bool MedWinMacModule::canFitTx() {
-	if (endTime - getClock() - GUARD_TIME - TX_TIME(packetToBeSent->getByteLength()) > 0) return true;
+	if ( endTime - getClock() - GUARD_TIME - TX_TIME(packetToBeSent->getByteLength()) > 0) return true;
 	return false;
 }
 
@@ -435,4 +436,8 @@ void MedWinMacModule::sendPacket() {
 		// no need to wait
 		setTimer(SEND_PACKET, TX_TIME(packetToBeSent->getByteLength()));
 	}
+}
+
+simtime_t MedWinMacModule::timeToNextBeacon(simtime_t interval, int index, int phase) {
+	return interval;
 }

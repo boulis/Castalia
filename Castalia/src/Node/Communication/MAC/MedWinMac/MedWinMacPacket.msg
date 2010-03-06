@@ -14,7 +14,7 @@ cplusplus {{
 #include "MacGenericPacket_m.h"
 
 #define MEDWIN_HEADER_SIZE 7
-#define MEDWIN_BEACON_SIZE 17 + MEDWIN_HEADER_SIZE
+#define MEDWIN_BEACON_SIZE 17 + 7
 
 #define BROADCAST_NID 255
 #define UNCONNECTED_BROADCAST_NID 0
@@ -31,7 +31,7 @@ enum SecurityLevel_type {
 }
 
 enum AcknowledgementPolicy_type {
-    NO_ACK_POLICY = 1;
+    N_ACK_POLICY = 1;
     I_ACK_POLICY = 2;
     L_ACK_POLICY = 3;
     B_ACK_POLICY = 4;
@@ -44,6 +44,7 @@ enum Frame_type {
 }
 
 enum Frame_subtype {
+    RESERVED = 0;
     BEACON = 1;
     ASSOCIATION = 2;
     DISASSOCIATION = 3;
@@ -71,7 +72,7 @@ enum statusCode_type {
     MODIFIED = 7;
 }
 
-packet MedWinPacket extends MacGenericPacket {
+packet MedWinMacPacket extends MacGenericPacket {
     //MAC Header fields
     int HID;						//2 bytes, 2 last bytes of full MAC address
     int NID;						//1 byte, short MAC address
@@ -94,7 +95,7 @@ packet MedWinPacket extends MacGenericPacket {
 // We define all different packet types that carry extra information on their 
 // packet body, as separate packets. All derived from MedWinPacket.
 
-packet MedWinBeaconPacket extends MedWinPacket {
+packet MedWinBeaconPacket extends MedWinMacPacket {
     //Beacon payload fields
     int senderAddress;					//6 bytes
     int beaconShiftingSequenceIndex; 			//1 byte
@@ -107,14 +108,14 @@ packet MedWinBeaconPacket extends MedWinPacket {
 							//		total: 17 bytes + 7 bytes in header
 }
 
-packet MedWinConnectionRequestPacket extends MedWinPacket {
+packet MedWinConnectionRequestPacket extends MedWinMacPacket {
     int recipientAddress;						//6 bytes
     int senderAddress;							//6 bytes
     int formerHubAddress;						//6 bytes
     //4 bytes for capabilities and security
     int changeIndication;						//1 byte
     int nextWakeup;								//1 byte
-    int wakeupinterval;							//1 byte
+    int wakeupInterval;							//1 byte
     int uplinkRequest;							//these requests are complex structures of atleast 
     int downlinkRequest;						//atleast 7 bytes length, here we will simplyfy it
     int bilinkRequest;							//by saying that this particular number of slots
@@ -122,7 +123,7 @@ packet MedWinConnectionRequestPacket extends MedWinPacket {
 												//    		total: 28 bytes + 7 bytes in header
 }
 
-packet MedWinConnectionAssignmentPacket extends MedWinPacket {
+packet MedWinConnectionAssignmentPacket extends MedWinMacPacket {
     int recipientAddress;                       //6 bytes
     int senderAddress;                          //6 bytes
     int channelDwellLength;						//1 byte
@@ -144,14 +145,14 @@ packet MedWinConnectionAssignmentPacket extends MedWinPacket {
 												//		total: 29 bytes + 7 bytes in header
 }
 
-packet MedWinBAckPacket extends MedWinPacket {
+packet MedWinBAckPacket extends MedWinMacPacket {
     int nextBlockSize;							//1 byte
     int oldestFrameExpected;					//1 byte
     int frameStatusBitmap;						//1 byte
 												//		total: 3 bytes + 7 bytes in header
 }
 
-packet MedWinTPollPacket extends MedWinPacket {
+packet MedWinTPollPacket extends MedWinMacPacket {
     int currentBeaconPeriod;				//1 byte
     int currentAllocationSlot;				//1 byte
     int currentSlotOffset;				//2 byte

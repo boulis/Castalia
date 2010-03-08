@@ -868,7 +868,7 @@ void RadioModule::parseRadioParameterFile(const char * fileName) {
 		    if (rxmode.name.compare(it1->name) == 0)
 			opp_error("Bad syntax of radio parameters file, duplicate RX mode %s",rxmode.name.c_str());
 		}
-		RXmodeList.push_front(rxmode);
+		RXmodeList.push_back(rxmode);
 
 	    } else if (section == 2) {
 		// parsing lines in the following format:

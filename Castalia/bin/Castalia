@@ -93,18 +93,18 @@ for line in ini:
 	
     m = re.match(r"^\[Config (\S+)\]$",line)
     if (m):
-	section = m.group(1)
-	continue
+		section = m.group(1)
+		continue
 	
     k = re.split("\s=\s",line,1)
     if (len(k) != 2):
-	quit("Unexpected line in configuration file:\n" +k)
+		quit("Unexpected line in configuration file:\n" +k)
     
     currentConfig = {}
     if (configDictionary.has_key(section)):
-	currentConfig = configDictionary[section]
-    currentConfig[k[0]] = k[1]
-    configDictionary[section] = currentConfig
+		currentConfig = configDictionary[section]
+ 	   	currentConfig[k[0]] = k[1]
+    	configDictionary[section] = currentConfig
 
 baseConfigList = []
 interleavedConfigList = []

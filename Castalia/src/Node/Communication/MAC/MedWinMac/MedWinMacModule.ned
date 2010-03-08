@@ -22,7 +22,7 @@ simple MedWinMacModule like Node.Communication.MAC.MacGenericModule
 		bool isHub = default(false);
 		double allocationSlotLength = default(30);	//in msecs, defines how long is a slot
 
-		int beaconPeriodLength = default(128);		//in slots, defined for the Hub
+		int beaconPeriodLength = default(32);		//in slots, defined for the Hub
 		int RAP1Length= default(8);					//in slots, defined for the Hub
 		int scheduledAccessLength = default(0);		//in slots, asked by the sensor, default: no scheduled access
 		int scheduledAccessPeriod = default(1);		//in beacon periods, asked by the sensor, default: 1-periodic
@@ -33,10 +33,10 @@ simple MedWinMacModule like Node.Communication.MAC.MacGenericModule
 
 		// parameters related to the PHY layer. As the proposal suggests we define them independantly.
 		
-		double pTIFS = default(0.02);				//in msecs, time to start TXing a frame after you received one
+		double pTIFS = default(0.03);				//in msecs, time to start TXing a frame after you received one
 		int phyLayerOverhead = default(6);			//in bytes
-		double phyDataRate = default(1000);			//in Kbps
-		double mClockAccuracy = default(0.00002);	//fraction, clock drift
+		double phyDataRate = default(1024);			//in Kbps
+		double mClockAccuracy = default(0.0001);	//fraction, clock drift
 		
 	gates:
 		output toNetworkModule;

@@ -39,6 +39,7 @@ void MedWinMacModule::startup() {
 	phyDataRate = par("phyDataRate");
 	priority = getParentModule()->getParentModule()->getSubmodule("nodeApplication")->par("priority");
 	mClockAccuracy = par("mClockAccuracy");
+	enhanceGuardTime = par("enhanceGuardTime");
 
 	contentionSlotLength = (double) par("contentionSlotLength")/1000.0; // convert msec to sec;
 	maxPacketRetries = par("maxPacketRetries");
@@ -96,6 +97,16 @@ void MedWinMacModule::timerFiredCallback(int index) {
 			if (beaconPeriodLength > scheduledAccessEnd)
 				setTimer(START_SLEEPING, (scheduledAccessEnd - scheduledAccessStart) * allocationSlotLength);
 			if (needToTx() && canFitTx()) sendPacket();
+			break;
+		}
+
+		// this state will be used for downlink traffic in the sensors and uplink traffic in the Hub
+		// currently it is not used as we only have uplink traffic (and the hub does not really need it).
+		case START_SCHEDULED_RX_ACCESS: {
+			macState = MAC_SCHEDULED_RX_ACCESS;
+			toRadioLayer(createRadioCommand(SET_STATE,RX));
+			if (beaconPeriodLength > scheduledRxAccessEnd)
+				setTimer(START_SLEEPING, (scheduledRxAccessEnd - scheduledRxAccessStart) * allocationSlotLength);
 			break;
 		}
 
@@ -157,7 +168,7 @@ void MedWinMacModule::fromNetworkLayer(cPacket *pkt, int dst) {
 		}
 	} else {
 		trace() << "WARNING MedWin MAC buffer overflow";
-		collectOutput("Buffer overflow");
+		collectOutput("pkt breakdown", "buffer overflow");
 	}
 }
 
@@ -256,7 +267,7 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 
 				// schedule the timer to go in scheduled access
 				if (scheduledAccessStart != UNCONNECTED) {
-					setTimer(START_SCHEDULED_TX_ACCESS, scheduledAccessStart * allocationSlotLength - beaconTxTime - GUARD_TIME);
+					setTimer(START_SCHEDULED_TX_ACCESS, scheduledAccessStart * allocationSlotLength - beaconTxTime + GUARD_TX_TIME);
 				}
 
 				// We are in Tx if you can
@@ -363,6 +374,9 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 	}
 }
 
+/* A function to filter incoming MedWin packets.
+ * Works for both hub or sensor as a receiver.
+ */
 bool MedWinMacModule::isPacketForMe(MedWinMacPacket *pkt) {
 	int pktHID = pkt->getHID();
 	int pktNID = pkt->getNID();
@@ -378,10 +392,15 @@ bool MedWinMacModule::isPacketForMe(MedWinMacPacket *pkt) {
 	return false;
 }
 
-simtime_t MedWinMacModule::guardTime() {
-	return (simtime_t) allocationSlotLength / 10.0 + (getClock() - syncIntervalAdditionalStart) * mClockAccuracy;
+/* A function to calculate the extra guard time, if we are past the Sync time nominal.
+ */
+simtime_t MedWinMacModule::extraGuardTime() {
+	return (simtime_t) (getClock() - syncIntervalAdditionalStart) * mClockAccuracy;
 }
 
+/* A function to set the header fields of a packet.
+ * It works with both hub- and sensor-created packets
+ */
 void MedWinMacModule::setHeaderFields(MedWinMacPacket * pkt, AcknowledgementPolicy_type ackPolicy, Frame_type frameType, Frame_subtype frameSubtype) {
 	pkt->setHID(connectedHID);
 	if (connectedNID != UNCONNECTED)
@@ -394,6 +413,9 @@ void MedWinMacModule::setHeaderFields(MedWinMacPacket * pkt, AcknowledgementPoli
 	pkt->setFrameSubtype(frameSubtype);
 }
 
+/* TX in RAP requires contending for the channel (a carrier sensing scheme)
+ * this function prepares an important variable and starts the process.
+ */
 void MedWinMacModule::attemptTxInRAP() {
 	if (backoffCounter == 0) {
 		backoffCounter = 1 + genk_intrand(0,CW);
@@ -401,8 +423,9 @@ void MedWinMacModule::attemptTxInRAP() {
 	setTimer(CARRIER_SENSING,0);
 }
 
-// This function will examine the current packet ...
-//
+/* This function will return true if we have something to TX: either retransmit
+ * the current packet, or prepare a new packet from the MAC buffer to be sent
+ */
 bool MedWinMacModule::needToTx() {
 	if (packetToBeSent) {
 		if (currentPacketRetries < maxPacketRetries) return true;
@@ -419,11 +442,19 @@ bool MedWinMacModule::needToTx() {
 	return true;
 }
 
+/* This function lets us know if a transmission fits in the time we have (scheduled or RAP)
+ * It takes into account guard times too. A small issue exists with scheduled access:
+ * Sleeping is handled at the timer code, which does not take into account the guard times.
+ * In fact if we TX once then we'll stay awake for the whole duration of the scheduled slot.
+ */
 bool MedWinMacModule::canFitTx() {
-	if ( endTime - getClock() - GUARD_TIME - TX_TIME(packetToBeSent->getByteLength()) > 0) return true;
+	if ( endTime - getClock() - GUARD_FACTOR * GUARD_TIME - TX_TIME(packetToBeSent->getByteLength()) > 0) return true;
 	return false;
 }
 
+
+/* Sends a packet to the radio and either waits for an ack or sets up a timer to TX more.
+ */
 void MedWinMacModule::sendPacket() {
 	toRadioLayer(packetToBeSent->dup());
 	toRadioLayer(createRadioCommand(SET_STATE,TX));
@@ -433,11 +464,13 @@ void MedWinMacModule::sendPacket() {
 		// need to wait for ack
 		setTimer(ACK_TIMEOUT, TX_TIME(packetToBeSent->getByteLength()) + 2*pTIFS + TX_TIME(MEDWIN_HEADER_SIZE));
 	} else {
-		// no need to wait
+		// no need to wait for ack, schedule a timer to try TX other packets
 		setTimer(SEND_PACKET, TX_TIME(packetToBeSent->getByteLength()));
 	}
 }
 
+/* Not currently implemented. In the future useful if we implement the beacon shift sequences
+ */
 simtime_t MedWinMacModule::timeToNextBeacon(simtime_t interval, int index, int phase) {
 	return interval;
 }

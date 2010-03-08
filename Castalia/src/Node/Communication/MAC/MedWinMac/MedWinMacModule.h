@@ -17,7 +17,15 @@
 
 #define TX_TIME(x) (phyLayerOverhead + x)*1/(1000*phyDataRate/8.0) //x are in BYTES
 #define UNCONNECTED -1
-#define GUARD_TIME (pastSyncIntervalNominal ? guardTime() : allocationSlotLength/10.0)
+
+// Guard time used to start RX earlier and allow less time to finish TX
+#define GUARD_TIME (pastSyncIntervalNominal ? allocationSlotLength / 10.0 + extraGuardTime() : allocationSlotLength/10.0)
+// Guard time used to delay the start of a transmission
+#define GUARD_TX_TIME (pastSyncIntervalNominal ? extraGuardTime() : 0.0)
+// We discovered that ending a TX we should really guard for 2*GT instead of 1*GT.
+// We offer this option with the enhanceGuardTime parameter
+#define GUARD_FACTOR (enhanceGuardTime ? 2.0 : 1.0)
+
 #define MAC_SELF_ADDRESS self
 
 using namespace std;
@@ -37,11 +45,12 @@ enum Timers {
 	ACK_TIMEOUT = 3,
 	START_SLEEPING = 4,
 	START_SCHEDULED_TX_ACCESS = 5,
-	WAKEUP_FOR_BEACON = 6,
-	SYNC_INTERVAL_TIMEOUT = 7,
-	SEND_BEACON = 8,
-	HUB_ATTEMPT_TX_IN_RAP = 9,
-	HUB_SCHEDULED_ACCESS = 10
+	START_SCHEDULED_RX_ACCESS = 6,
+	WAKEUP_FOR_BEACON = 7,
+	SYNC_INTERVAL_TIMEOUT = 8,
+	SEND_BEACON = 9,
+	HUB_ATTEMPT_TX_IN_RAP = 10,
+	HUB_SCHEDULED_ACCESS = 11
 };
 
 static int CWmin[8] = { 16, 16, 8, 8, 4, 4, 2, 1 };
@@ -64,6 +73,9 @@ class MedWinMacModule : public VirtualMacModule {
 	int scheduledAccessEnd;
 	int scheduledAccessLength;
 	int scheduledAccessPeriod;
+
+	int scheduledRxAccessStart;
+	int scheduledRxAccessEnd;
 
 	double pTIFS;
 	int phyLayerOverhead;
@@ -88,6 +100,7 @@ class MedWinMacModule : public VirtualMacModule {
 
 	double SInominal;
 	double mClockAccuracy;
+	bool enhanceGuardTime;
 
 	protected:
 	void startup();
@@ -95,7 +108,7 @@ class MedWinMacModule : public VirtualMacModule {
 	void fromNetworkLayer(cPacket*, int);
 	void fromRadioLayer(cPacket*,double,double);
 	bool isPacketForMe(MedWinMacPacket * pkt);
-	simtime_t guardTime();
+	simtime_t extraGuardTime();
 	void setHeaderFields(MedWinMacPacket * pkt, AcknowledgementPolicy_type ackPolicy, Frame_type frameType, Frame_subtype frameSubtype);
 	void attemptTxInRAP();
 	bool needToTx();

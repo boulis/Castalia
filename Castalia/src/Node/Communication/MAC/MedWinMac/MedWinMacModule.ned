@@ -13,20 +13,35 @@ package Node.Communication.MAC.MedWinMac;
 
 simple MedWinMacModule like Node.Communication.MAC.MacGenericModule
 {
-    parameters:
-	bool collectTraceInfo = default(false);
-	int macMaxPacketSize = default(0);
-	int macBufferSize = default(32);
-	int macPacketOverhead = default(7);
-	int scheduledAccessLength = default(0);		//in slots, default: no scheduled access
-	int scheduledAccessPeriod = default(1);		//in beacon periods, default: 1-periodic
-	int packetRetries = default(2);
-	    
-    gates:
-        output toNetworkModule;
-        output toRadioModule;
-        input fromNetworkModule;
-        input fromRadioModule;
-        input fromCommModuleResourceMgr;
+	parameters:
+		bool collectTraceInfo = default(false);
+		int macMaxPacketSize = default(1000);
+		int macBufferSize = default(32);
+		int macPacketOverhead = default(7);			//in bytes, 7 bytes is the MedWin header size
 
+		bool isHub = default(false);
+		double allocationSlotLength = default(30);	//in msecs, defines how long is a slot
+
+		int beaconPeriodLength = default(128);		//in slots, defined for the Hub
+		int RAP1Length= default(8);					//in slots, defined for the Hub
+		int scheduledAccessLength = default(0);		//in slots, asked by the sensor, default: no scheduled access
+		int scheduledAccessPeriod = default(1);		//in beacon periods, asked by the sensor, default: 1-periodic
+		
+		int maxPacketRetries = default(2);
+		double contentionSlotLength = default(0.36);	//in msecs, mini-slots used in contention 
+		bool enhanceGuardTime = default(false);
+
+		// parameters related to the PHY layer. As the proposal suggests we define them independantly.
+		
+		double pTIFS = default(0.02);				//in msecs, time to start TXing a frame after you received one
+		int phyLayerOverhead = default(6);			//in bytes
+		double phyDataRate = default(1000);			//in Kbps
+		double mClockAccuracy = default(0.00002);	//fraction, clock drift
+		
+	gates:
+		output toNetworkModule;
+		output toRadioModule;
+		input fromNetworkModule;
+		input fromRadioModule;
+		input fromCommModuleResourceMgr;
 }

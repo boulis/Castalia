@@ -133,7 +133,7 @@ packet MedWinConnectionAssignmentPacket extends MedWinMacPacket {
     int minRAPlength;							//1 byte
     int statusCode enum(statusCode_type);		//1 byte
     //4 bytes for capabilities and security
-    int NID;									//1 byte
+    int assignedNID;									//1 byte
     int changeIndication;                       //1 byte
     int nextWakeup;								//1 byte
     int wakeupinterval;							//1 byte

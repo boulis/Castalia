@@ -37,7 +37,7 @@ void VirtualMacModule::initialize() {
 }
 
 int VirtualMacModule::handleControlCommand(cMessage *msg) {
-    trace() << "handleControlCommand not defined in this module";
+    trace() << "WARNING: handleControlCommand not defined in this module";
     return 0;
 }
 
@@ -88,7 +88,7 @@ void VirtualMacModule::handleMessage(cMessage *msg) {
 			    ", max MAC frame size:" << macMaxFrameSize;
 		break;
 	    }
-	    trace() << "Received [" << pkt->getName() << "] from Network layer";
+	    // trace() << "Received [" << pkt->getName() << "] from Network layer";
 	    fromNetworkLayer(pkt, pkt->getNetworkInteractionControl().nextHop);
 	    return;
 	}
@@ -100,7 +100,7 @@ void VirtualMacModule::handleMessage(cMessage *msg) {
 
 	case MAC_LAYER_PACKET: {
 	    MacGenericPacket *pkt = check_and_cast<MacGenericPacket*>(msg);
-	    trace() << "Received [" << pkt->getName() << "] from Radio layer";
+	    // trace() << "Received [" << pkt->getName() << "] from Radio layer";
 	    fromRadioLayer(pkt,pkt->getMacInteractionControl().RSSI,pkt->getMacInteractionControl().LQI);
 	    break;
 	}

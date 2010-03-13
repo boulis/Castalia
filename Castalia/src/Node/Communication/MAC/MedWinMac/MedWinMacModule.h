@@ -27,6 +27,7 @@
 #define GUARD_FACTOR (enhanceGuardTime ? 2.0 : 1.0)
 
 #define MAC_SELF_ADDRESS self
+#define MGMT_BUFFER_SIZE 16  // hold maximum of 16 management pakcets
 
 using namespace std;
 
@@ -41,7 +42,7 @@ enum MacStates {
 
 enum Timers {
 	CARRIER_SENSING = 1,
-	SEND_PACKET = 2,
+	START_ATTEMPT_TX = 2,
 	ACK_TIMEOUT = 3,
 	START_SLEEPING = 4,
 	START_SCHEDULED_TX_ACCESS = 5,
@@ -49,8 +50,7 @@ enum Timers {
 	WAKEUP_FOR_BEACON = 7,
 	SYNC_INTERVAL_TIMEOUT = 8,
 	SEND_BEACON = 9,
-	HUB_ATTEMPT_TX_IN_RAP = 10,
-	HUB_SCHEDULED_ACCESS = 11
+	HUB_SCHEDULED_ACCESS = 10
 };
 
 static int CWmin[8] = { 16, 16, 8, 8, 4, 4, 2, 1 };
@@ -95,12 +95,16 @@ class MedWinMacModule : public VirtualMacModule {
 	simtime_t syncIntervalAdditionalStart;
 
 	MedWinMacPacket *packetToBeSent;
-	simtime_t endTime;
-	simtime_t RAPEndTime;
+	simtime_t endTime; // the time when our right to TX ends. Covers RAP and scheduled access
 
 	double SInominal;
 	double mClockAccuracy;
 	bool enhanceGuardTime;
+
+	// a buffer to store Mangement packets that require ack and possible reTX
+	// these packets are treated like data packets, but with higher priority
+	queue <MedWinMacPacket *>MgmtBuffer;
+
 
 	protected:
 	void startup();
@@ -111,7 +115,7 @@ class MedWinMacModule : public VirtualMacModule {
 	simtime_t extraGuardTime();
 	void setHeaderFields(MedWinMacPacket * pkt, AcknowledgementPolicy_type ackPolicy, Frame_type frameType, Frame_subtype frameSubtype);
 	void attemptTxInRAP();
-	bool needToTx();
+	void attemptTX();
 	bool canFitTx();
 	void sendPacket();
 	simtime_t timeToNextBeacon(simtime_t interval, int index, int phase);

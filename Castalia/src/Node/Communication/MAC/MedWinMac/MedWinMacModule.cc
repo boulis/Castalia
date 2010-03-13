@@ -16,7 +16,7 @@ Define_Module(MedWinMacModule);
 void MedWinMacModule::startup() {
 	isHub = par("isHub");
 	if (isHub) {
-		connectedHID = SELF_MAC_ADDRESS % 2<<16;
+		connectedHID = SELF_MAC_ADDRESS % (2<<16); // keep the 16 LS bits as a short address
 		connectedNID = BROADCAST_NID; // default value, usually overwritten
 		currentFreeConnectedNID = 16; // start assigning connected NID from ID 16
 		allocationSlotLength = (double) par("allocationSlotLength")/1000.0; // convert msec to sec
@@ -44,12 +44,14 @@ void MedWinMacModule::startup() {
 
 	contentionSlotLength = (double) par("contentionSlotLength")/1000.0; // convert msec to sec;
 	maxPacketRetries = par("maxPacketRetries");
-	
+
 	CW = CWmin[priority];
 	CWdouble = false;
 	backoffCounter = 0;
-	
+
 	packetToBeSent = NULL;
+	declareOutput("Data pkt breakdown");
+	declareOutput("Mgmt & Ctrl pkt breakdown");
 }
 
 void MedWinMacModule::timerFiredCallback(int index) {
@@ -61,10 +63,8 @@ void MedWinMacModule::timerFiredCallback(int index) {
 			CCA_result CCAcode = radioModule->isChannelClear();
 			if (CCAcode == CLEAR) {
 				backoffCounter--;
-	//			trace() << "BackoffCounter = " << backoffCounter;
 				if (backoffCounter > 0) setTimer(CARRIER_SENSING, contentionSlotLength);
 				else {
-	//				trace() << "Sending packet in RAP";
 					sendPacket();
 				}
 			} else {
@@ -77,21 +77,28 @@ void MedWinMacModule::timerFiredCallback(int index) {
 			break;
 		}
 
-		case SEND_PACKET: {
-			if (needToTx() && canFitTx()) sendPacket();
+		case START_ATTEMPT_TX: {
+			attemptTX();
 			break;
 		}
 
 		case ACK_TIMEOUT: {
 			trace() << "ACK timeout fired";
-		
 			// double the Contention Window, after every second fail.
 			CWdouble ? CWdouble=false : CWdouble=true;
 			if ((CWdouble) && (CW < CWmax[priority])) CW *=2;
 
-			if (!needToTx()) break;
-			if (macState == MAC_RAP) attemptTxInRAP();
-			if ((macState == MAC_SCHEDULED_TX_ACCESS) && (canFitTx())) sendPacket();
+			// check if we reached the max number and if so delete the packet
+			if (currentPacketRetries == maxPacketRetries) {
+				// collect statistics
+				if (packetToBeSent->getFrameType() == DATA)
+					collectOutput("Data pkt breakdown", "Failed, No Ack");
+				else collectOutput("Mgmt & Ctrl pkt breakdown", "Failed, No Ack");
+				cancelAndDelete(packetToBeSent);
+				packetToBeSent = NULL;
+				currentPacketRetries = 0;
+			}
+			attemptTX();
 			break;
 		}
 
@@ -106,12 +113,14 @@ void MedWinMacModule::timerFiredCallback(int index) {
 			endTime = getClock() + (scheduledAccessEnd - scheduledAccessStart) * allocationSlotLength;
 			if (beaconPeriodLength > scheduledAccessEnd)
 				setTimer(START_SLEEPING, (scheduledAccessEnd - scheduledAccessStart) * allocationSlotLength);
-			if (needToTx() && canFitTx()) sendPacket();
+			attemptTX();
 			break;
 		}
 
-		// this state will be used for downlink traffic in the sensors and uplink traffic in the Hub
-		// currently it is not used as we only have uplink traffic (and the hub does not really need it).
+		/* this timer and corresponding state will be used for downlink traffic (sensors case)
+		 * and uplink traffic (Hub case). Currently it is not used as we only have uplink traffic,
+		 * (and the hub just uses the generic HUB_SCHEDULED_ACCESS timer).
+		 */
 		case START_SCHEDULED_RX_ACCESS: {
 			macState = MAC_SCHEDULED_RX_ACCESS;
 			toRadioLayer(createRadioCommand(SET_STATE,RX));
@@ -134,9 +143,12 @@ void MedWinMacModule::timerFiredCallback(int index) {
 
 		// These timers are specific to a Hub
 		case SEND_BEACON: {
+			trace() << "BEACON SEND, next beacon in " << beaconPeriodLength * allocationSlotLength << "\n";
 			macState = MAC_RAP;
-			setTimer(SEND_BEACON,beaconPeriodLength * allocationSlotLength);
+			setTimer(SEND_BEACON, beaconPeriodLength * allocationSlotLength);
 			setTimer(HUB_SCHEDULED_ACCESS, RAP1Length * allocationSlotLength);
+			// the hub has to set its own endTime
+			endTime = getClock() + RAP1Length * allocationSlotLength;
 
 			MedWinBeaconPacket * beaconPkt = new MedWinBeaconPacket("MedWin beacon",MAC_LAYER_PACKET);
 			setHeaderFields(beaconPkt,N_ACK_POLICY,MANAGEMENT,BEACON);
@@ -150,13 +162,7 @@ void MedWinMacModule::timerFiredCallback(int index) {
 			toRadioLayer(beaconPkt);
 			toRadioLayer(createRadioCommand(SET_STATE,TX));
 
-			setTimer(HUB_ATTEMPT_TX_IN_RAP, pTIFS + TX_TIME(beaconPkt->getByteLength()));
-			break;
-		}
-
-		case HUB_ATTEMPT_TX_IN_RAP: {
-			macState = MAC_RAP;
-			if (needToTx()) attemptTxInRAP();
+			setTimer(START_ATTEMPT_TX, (TX_TIME(beaconPkt->getByteLength()) + pTIFS) * (1 + mClockAccuracy));
 			break;
 		}
 
@@ -173,13 +179,10 @@ void MedWinMacModule::fromNetworkLayer(cPacket *pkt, int dst) {
 	MedWinMacPacket *medWinDataPkt = new MedWinMacPacket("MedWin data packet",MAC_LAYER_PACKET);
 	encapsulatePacket(medWinDataPkt,pkt);
 	if (bufferPacket(medWinDataPkt)) {
-		if (packetToBeSent == NULL && needToTx()) {
-			if (macState == MAC_RAP) attemptTxInRAP();
-			if ((macState == MAC_SCHEDULED_TX_ACCESS) && (canFitTx())) sendPacket();
-		}
+		attemptTX();
 	} else {
 		trace() << "WARNING MedWin MAC buffer overflow";
-		collectOutput("pkt breakdown", "buffer overflow");
+		collectOutput("Data pkt breakdown", "Fail, buffer overflow");
 	}
 }
 
@@ -197,11 +200,14 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 		setHeaderFields(ackPacket,N_ACK_POLICY,CONTROL,I_ACK);
 		ackPacket->setNID(medWinPkt->getNID());
 		ackPacket->setByteLength(MEDWIN_HEADER_SIZE);
-		trace() << "transmitting " << ackPacket->getName() << " NID:" << medWinPkt->getNID() << " HID:" << ackPacket->getHID();
+		// if we are unconnected (but the packet is for us since it was not filtered) we need to set a proper HID
+		if (connectedHID == UNCONNECTED) ackPacket->setHID(medWinPkt->getHID());
+		trace() << "transmitting ACK to/from NID:" << medWinPkt->getNID();
 		toRadioLayer(ackPacket);
 		toRadioLayer(createRadioCommand(SET_STATE,TX));
 	}
 
+	// Handle data packets
 	if (medWinPkt->getFrameType() == DATA) {
 		toNetworkLayer(decapsulatePacket(medWinPkt));
 		// if this pkt requires a block ACK we should send it,
@@ -212,6 +218,7 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 		return;
 	}
 
+	// Handle management and control packets
 	switch(medWinPkt->getFrameSubtype()) {
 		case BEACON: {
 			MedWinBeaconPacket * medWinBeacon = check_and_cast<MedWinBeaconPacket*>(medWinPkt);
@@ -219,7 +226,7 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 
 			// get the allocation slot length, which is used in many calculations
 			allocationSlotLength = medWinBeacon->getAllocationSlotLength() / 1000.0;
-			SInominal = (allocationSlotLength/10.0 - pTIFS) / 2*mClockAccuracy;
+			SInominal = (allocationSlotLength/10.0 - pTIFS) / (2*mClockAccuracy);
 
 			// a beacon is our synchronization event. Update relevant timer
 			setTimer(SYNC_INTERVAL_TIMEOUT, SInominal);
@@ -230,6 +237,9 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 				macState = MAC_RAP;
 				endTime = getClock() + RAP1Length * allocationSlotLength - beaconTxTime;
 			}
+			trace() << "Beacon rx: reseting sync clock to " << SInominal << " secs";
+			trace() << "           Slot= " << allocationSlotLength << " secs, beacon period= " << beaconPeriodLength << "slots";
+			trace() << "           RAP1= " << RAP1Length << "slots, RAP ends at time: "<< endTime;
 
 			if (connectedHID == UNCONNECTED) {
 				/* We will try to connect to this BAN  if our scheduled access length
@@ -257,61 +267,62 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 					//uplink request is simplified in this implementation to only ask for a number of slots needed
 					connectionRequest->setUplinkRequest(scheduledAccessLength);
 					connectionRequest->setByteLength(MEDWIN_CONNECTION_REQUEST_SIZE);
-					
-					if (packetToBeSent) cancelAndDelete(packetToBeSent);
-					packetToBeSent = connectionRequest;
-					currentPacketRetries = 0;
-					
-					trace() << "created connection request";
-					attemptTxInRAP();
-				} else if (needToTx()) {
-					attemptTxInRAP();
+
+					// Management packets go in their own buffer, and handled by attemptTX() with priority
+					MgmtBuffer.push(connectionRequest);
+					trace() << "           (unconnected): created connection request";
 				}
-
-			// else we are connected already and previous filtering made sure
- 			// that this beacon belongs to our BAN
+			/* else we are connected already and previous filtering
+			 * made sure that this beacon belongs to our BAN
+			 */
 			} else  {
-
 				// schedule a timer to wake up for the next beacon (it might be m periods away
 				setTimer(WAKEUP_FOR_BEACON, beaconPeriodLength * scheduledAccessPeriod * allocationSlotLength - beaconTxTime - GUARD_TIME );
 
 				// if we have a schedule that does not start after RAP, or our schedule
-				// is not assigned yet, then go to sleep after RAP.  RAP === period length???
+				// is not assigned yet, then go to sleep after RAP.
 				if ((scheduledAccessStart == UNCONNECTED && RAP1Length < beaconPeriodLength)
-								|| (scheduledAccessStart!= RAP1Length +1))
+								|| (scheduledAccessStart > RAP1Length)) {
 					setTimer(START_SLEEPING, RAP1Length * allocationSlotLength - beaconTxTime);
-
-				// schedule the timer to go in scheduled access
-				if (scheduledAccessStart != UNCONNECTED) {
-					setTimer(START_SCHEDULED_TX_ACCESS, scheduledAccessStart * allocationSlotLength - beaconTxTime + GUARD_TX_TIME);
+					trace() << "           --- start sleeping in: " << RAP1Length * allocationSlotLength - beaconTxTime << " secs";
 				}
-
-				// We are in Tx if you can
-				if (needToTx()) attemptTxInRAP();
+				// schedule the timer to go in scheduled access
+				if ((scheduledAccessStart != UNCONNECTED) && (scheduledAccessLength > 0)) {
+					setTimer(START_SCHEDULED_TX_ACCESS, scheduledAccessStart * allocationSlotLength - beaconTxTime + GUARD_TX_TIME);
+					trace() << "           --- start scheduled TX access in: " << scheduledAccessStart * allocationSlotLength - beaconTxTime + GUARD_TX_TIME << " secs";
+				}
 			}
-
+			attemptTX();
 			break;
 		}
 
 		case I_ACK_POLL: {
 			// handle the polling part and not use 'break' to let it roll over to the ACK part
 		}
-
 		case I_ACK: {
+			// collect statistics
+			if (currentPacketRetries == 1){
+				if (packetToBeSent->getFrameType() == DATA)
+					collectOutput("Data pkt breakdown", "Success, 1st try");
+				else collectOutput("Mgmt & Ctrl pkt breakdown", "Success, 1st try");
+			} else {
+				if (packetToBeSent->getFrameType() == DATA)
+					collectOutput("Data pkt breakdown", "Success, 2 or more tries");
+				else collectOutput("Mgmt & Ctrl pkt breakdown", "Success, 2 or more tries");
+			}
 			cancelTimer(ACK_TIMEOUT);
 			cancelAndDelete(packetToBeSent);
 			packetToBeSent = NULL;
+			currentPacketRetries = 0;
 			CW = CWmin[priority];
-			if (!needToTx()) break;
-			if (macState == MAC_RAP) attemptTxInRAP();
-			if ((macState == MAC_SCHEDULED_TX_ACCESS) && (canFitTx())) sendPacket();
+
+			attemptTX();
 			break;
 		}
 
 		case B_ACK_POLL: {
 			// handle the polling part and not use 'break' to let it roll over to the ACK part
 		}
-
 		case B_ACK: {
 			cancelTimer(ACK_TIMEOUT);
 			cancelAndDelete(packetToBeSent);
@@ -319,25 +330,27 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 			CW = CWmin[priority];
 
 			// we need to analyze the bitmap and see if some of the LACK packets need to be retxed
-			if (!needToTx()) break;
-			if (macState == MAC_RAP) attemptTxInRAP();
-			if ((macState == MAC_SCHEDULED_TX_ACCESS) && (canFitTx())) sendPacket();
+
+			attemptTX();
 			break;
 		}
 
 		case CONNECTION_ASSIGNMENT: {
 			MedWinConnectionAssignmentPacket *connAssignment = check_and_cast<MedWinConnectionAssignmentPacket*>(medWinPkt);
-			if (connAssignment->getRecipientAddress() != MAC_SELF_ADDRESS) {
-				if (unconnectedNID == connAssignment->getNID()) unconnectedNID = 1 + genk_intrand(0,14);
-				break;
-			}
 			if (connAssignment->getStatusCode() == ACCEPTED || connAssignment->getStatusCode() == MODIFIED) {
 				connectedHID = connAssignment->getHID();
-				connectedNID = connAssignment->getNID();
+				connectedNID = connAssignment->getAssignedNID();
+				// set anew the header fields of the packet to be sent
+				if (packetToBeSent){
+					packetToBeSent->setHID(connectedHID);
+					packetToBeSent->setNID(connectedNID);
+				}
+				// set the start and end times for the schedule
 				scheduledAccessStart = connAssignment->getUplinkRequestStart();
 				scheduledAccessEnd = connAssignment->getUplinkRequestEnd();
-				trace() << "connected as NID " << connectedNID;
-			} // else we dont need to do anything - request is rejected
+				trace() << "connected as NID " << connectedNID << "  --start TX access at slot: " << scheduledAccessStart << ", end at slot: " << scheduledAccessEnd;
+			} // else we don't need to do anything - request is rejected
+			else trace() << "Connection Request REJECTED, status code: " << connAssignment->getStatusCode();
 
 			break;
 		}
@@ -351,17 +364,22 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 		case CONNECTION_REQUEST: {
 			MedWinConnectionRequestPacket *connRequest = check_and_cast<MedWinConnectionRequestPacket*>(medWinPkt);
 			trace() << "Connection request from NID " << connRequest->getNID() << " assigning new NID " << currentFreeConnectedNID;
-		
-			/* We acked the packet. Now it is a design decision when to send
-			 * connection assignment. Here we send it immediately.
+
+			/* The ACK for the connection req packet is handled by the general code.
+			 * Here we need to create the connection assignment packet and decide
+			 * when to send it. We treat management packets that need ack similar
+			 * to data packets, but with higher priority. They have their own buffer.
 			 */
 			MedWinConnectionAssignmentPacket *connAssignment = new MedWinConnectionAssignmentPacket("MedWin connection assignment",MAC_LAYER_PACKET);
 			setHeaderFields(connAssignment,I_ACK_POLICY,MANAGEMENT,CONNECTION_ASSIGNMENT);
-			connAssignment->setNID(currentFreeConnectedNID);
+			// this is the assigned NID and it is part of the payload
+			connAssignment->setAssignedNID(currentFreeConnectedNID);
+			// this is the unconnected NID that goes in the header. Used for addressing
+			connAssignment->setNID(connRequest->getNID());
 
 			connAssignment->setRecipientAddress(connRequest->getSenderAddress());
 			connAssignment->setByteLength(MEDWIN_CONNECTION_ASSIGNMENT_SIZE);
-			
+
 			if (connRequest->getUplinkRequest() > beaconPeriodLength - currentScheduleAssignmentStart) {
 				connAssignment->setStatusCode(REJ_NO_RESOURCES);
 				// can not accomodate request
@@ -372,18 +390,34 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 				currentFreeConnectedNID++;
 				connAssignment->setUplinkRequestStart(currentScheduleAssignmentStart);
 				connAssignment->setUplinkRequestEnd(currentScheduleAssignmentStart + connRequest->getUplinkRequest());
-				currentScheduleAssignmentStart += connRequest->getUplinkRequest() + 1;
+				currentScheduleAssignmentStart += connRequest->getUplinkRequest();
 			}
 
-			toRadioLayer(connAssignment);
-
+			MgmtBuffer.push(connAssignment);
+			// attempt to TX it after TXing the I-ACK to the connection req is finished
 			// the MEDWIN_HEADER_SIZE below is the size of an ACK packet
-			setTimer(ACK_TIMEOUT, (2*TX_TIME(MEDWIN_HEADER_SIZE) + 3*pTIFS + TX_TIME(connAssignment->getByteLength())) *  (1 + mClockAccuracy));
+			setTimer(START_ATTEMPT_TX, (TX_TIME(MEDWIN_HEADER_SIZE) + pTIFS) * (1 + mClockAccuracy));
+			trace() << "Conn assgnmnt created, wait for " << (TX_TIME(MEDWIN_HEADER_SIZE) + pTIFS) * (1 + mClockAccuracy) << " to attempTX";
 			break;
 		}
 
-		case POLL:
 		case T_POLL:
+			// just read the time values from the payload, update relevant variables
+			// and roll over to handle the POLL part (no break)
+		case POLL: {
+			// check if this is an immediate (not future) poll
+			if (medWinPkt->getMoreData() == 0){
+				setTimer(START_SCHEDULED_TX_ACCESS, 0);
+				endTime = getClock() + pTIFS + medWinPkt->getSequenceNumber() * allocationSlotLength;
+			}
+			// else treat this as a POST: a post of the polling message coming in the future
+			else {
+				// seqNum holds the num of allocation slots in the future and fragNum the num of beacon periods in the future
+				double postTime = (medWinPkt->getSequenceNumber() + medWinPkt->getFragmentNumber()* beaconPeriodLength) * allocationSlotLength ;
+				setTimer(START_SCHEDULED_RX_ACCESS, postTime);
+			}
+			break;
+		}
 
 		case ASSOCIATION:
 		case DISASSOCIATION:
@@ -401,18 +435,22 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 bool MedWinMacModule::isPacketForMe(MedWinMacPacket *pkt) {
 	int pktHID = pkt->getHID();
 	int pktNID = pkt->getNID();
-
+	// trace() << "pktHID=" << pktHID << ", pktNID=" << pktNID << ", connectedHID=" << connectedHID << ", unconnectedNID=" << unconnectedNID;
 	if (connectedHID == pktHID) {
 		if (isHub) return true;
 		if ((connectedNID == pktNID) || (pktNID == BROADCAST_NID)) return true;
-		if (connectedNID != UNCONNECTED) return false;
-		if ((unconnectedNID == pktNID) || (pktNID == UNCONNECTED_BROADCAST_NID)) return true;
-	} else if (connectedHID == UNCONNECTED) {
-		if (pkt->getFrameSubtype() == CONNECTION_REQUEST) return false;
+	} else if ((connectedHID == UNCONNECTED) &&
+		   ((unconnectedNID == pktNID) || (pktNID == UNCONNECTED_BROADCAST_NID) || (pktNID == BROADCAST_NID))){
 		if (pkt->getFrameSubtype() == CONNECTION_ASSIGNMENT) {
 			MedWinConnectionAssignmentPacket *connAssignment = check_and_cast<MedWinConnectionAssignmentPacket*>(pkt);
-			if (connAssignment->getRecipientAddress() == SELF_MAC_ADDRESS) return true;
+			if (connAssignment->getRecipientAddress() != SELF_MAC_ADDRESS) {
+				// the packet is not for us, but the NID is the same, so we need to choose a new one.
+				unconnectedNID = 1 + genk_intrand(0,14);
+				trace() << "Choosing NEW unconnectedNID = " << unconnectedNID;
+				return false;
+			}
 		}
+		// for all other cases of HID == UNCONNECTED, return true
 		return true;
 	}
 
@@ -443,6 +481,7 @@ void MedWinMacModule::setHeaderFields(MedWinMacPacket * pkt, AcknowledgementPoli
 
 /* TX in RAP requires contending for the channel (a carrier sensing scheme)
  * this function prepares an important variable and starts the process.
+ * It is used by the more generic attemptTX() function.
  */
 void MedWinMacModule::attemptTxInRAP() {
 	if (backoffCounter == 0) {
@@ -451,23 +490,43 @@ void MedWinMacModule::attemptTxInRAP() {
 	setTimer(CARRIER_SENSING,0);
 }
 
-/* This function will return true if we have something to TX: either retransmit
- * the current packet, or prepare a new packet from the MAC buffer to be sent
+/* This function will attempt to TX in all TX access states(RAP, scheduled)
+ * It will check whether we need to retransmit the current packet, or prepare
+ * a new packet from the MAC data buffer or the Management buffer to be sent.
  */
-bool MedWinMacModule::needToTx() {
-	if (packetToBeSent) {
-		if (currentPacketRetries < maxPacketRetries) return true;
-		cancelAndDelete(packetToBeSent);
-		packetToBeSent = NULL;
+void MedWinMacModule::attemptTX() {
+	trace() << "ATTEMPT TX in state " << macState << "  Data buffer size= " << TXBuffer.size() << " Mgmt buffer size= " <<  MgmtBuffer.size();
+	if (packetToBeSent && currentPacketRetries < maxPacketRetries) {
+		//trace() << "ATTEMPT_TX trying to send previously stored packet";
+		if (macState == MAC_RAP) attemptTxInRAP();
+		if ((macState == MAC_SCHEDULED_TX_ACCESS) && (canFitTx())) sendPacket();
+		return;
 	}
+	/* Else we check for cases to return without doing anything:
+	 * 1) There is a packet to be sent (which has reached the max
+	 * # of retries). In this case we are waiting for an I_ACK or
+	 * ACK_TIMEOUT to delete the packet. 2) We are not in a state
+	 * that allows us to TX. If none of these cases is true then
+	 * we draw a new packet from the data or Management buffers.
+	 */
+	if (packetToBeSent) {return;}
 
-	if (TXBuffer.size() == 0) return false;
-	if (macState != MAC_RAP && macState != MAC_SCHEDULED_TX_ACCESS) return false;
+	// If we are not in a TX access state, return
+	if (macState != MAC_RAP && macState != MAC_SCHEDULED_TX_ACCESS) {return;}
 
-	packetToBeSent = (MedWinMacPacket*)TXBuffer.front();   TXBuffer.pop();
-	setHeaderFields(packetToBeSent, I_ACK_POLICY, DATA, RESERVED);
-	currentPacketRetries = 0;
-	return true;
+	if (MgmtBuffer.size() !=0) {
+		packetToBeSent = (MedWinMacPacket*)MgmtBuffer.front();  MgmtBuffer.pop();
+		if (MgmtBuffer.size() > MGMT_BUFFER_SIZE)
+			trace() << "WARNING: Management buffer reached a size of " << MgmtBuffer.size();
+	} else if (TXBuffer.size() != 0){
+		packetToBeSent = (MedWinMacPacket*)TXBuffer.front();   TXBuffer.pop();
+		setHeaderFields(packetToBeSent, I_ACK_POLICY, DATA, RESERVED);
+	}
+	// if we found a packet in any of the buffers, try to TX it.
+	if (packetToBeSent){
+		if (macState == MAC_RAP) attemptTxInRAP();
+		if ((macState == MAC_SCHEDULED_TX_ACCESS) && (canFitTx())) sendPacket();
+	}
 }
 
 /* This function lets us know if a transmission fits in the time we have (scheduled or RAP)
@@ -482,21 +541,27 @@ bool MedWinMacModule::canFitTx() {
 }
 
 
-/* Sends a packet to the radio and either waits for an ack or sets up a timer to TX more.
+/* Sends a packet to the radio and either waits for an ack or restart the attemptTX process
  */
 void MedWinMacModule::sendPacket() {
 	trace() << "transmitting [" << packetToBeSent->getName() << "]";
-	toRadioLayer(packetToBeSent->dup());
-	toRadioLayer(createRadioCommand(SET_STATE,TX));
-	currentPacketRetries++;
 
 	if (packetToBeSent->getAckPolicy() == I_ACK_POLICY || packetToBeSent->getAckPolicy() == B_ACK_POLICY) {
 		// need to wait for ack
 		trace() << "setting ACK_TIMEOUT to " << TX_TIME(packetToBeSent->getByteLength()) + 2*pTIFS + TX_TIME(MEDWIN_HEADER_SIZE);
 		setTimer(ACK_TIMEOUT, (TX_TIME(packetToBeSent->getByteLength()) + 2*pTIFS + TX_TIME(MEDWIN_HEADER_SIZE)) * (1 + mClockAccuracy));
+
+		currentPacketRetries++;
+		toRadioLayer(packetToBeSent->dup());
+		toRadioLayer(createRadioCommand(SET_STATE,TX));
+
 	} else {
-		// no need to wait for ack, schedule a timer to try TX other packets
-		setTimer(SEND_PACKET, TX_TIME(packetToBeSent->getByteLength()));
+		// no need to wait for ack, no need to dub the pkt, try TX other packets
+		toRadioLayer(packetToBeSent); // no need to dup() we are only sending it once
+		toRadioLayer(createRadioCommand(SET_STATE,TX));
+		// start the process of attempting to TX again. This is more fair for contention-based periods
+		setTimer(START_ATTEMPT_TX, TX_TIME(packetToBeSent->getByteLength()));
+		packetToBeSent = NULL; // do not delete the message, just make the packetToBeSent placeholded available
 	}
 }
 

@@ -26,6 +26,8 @@
 // We offer this option with the enhanceGuardTime parameter
 #define GUARD_FACTOR (enhanceGuardTime ? 2.0 : 1.0)
 
+#define SLEEP2TX (isRadioSleeping ? pTimeSleepToTX : 0.0)
+
 #define MAC_SELF_ADDRESS self
 #define MGMT_BUFFER_SIZE 16  // hold maximum of 16 management pakcets
 
@@ -100,8 +102,11 @@ class MedWinMacModule : public VirtualMacModule {
 	double SInominal;
 	double mClockAccuracy;
 	bool enhanceGuardTime;
+	bool isRadioSleeping;
+	double pTimeSleepToTX;
+	bool waitingForACK;
 
-	// a buffer to store Mangement packets that require ack and possible reTX
+	// a buffer to store Management packets that require ack and possible reTX
 	// these packets are treated like data packets, but with higher priority
 	queue <MedWinMacPacket *>MgmtBuffer;
 
@@ -111,6 +116,7 @@ class MedWinMacModule : public VirtualMacModule {
 	void timerFiredCallback(int);
 	void fromNetworkLayer(cPacket*, int);
 	void fromRadioLayer(cPacket*,double,double);
+	void finishSpecific();
 	bool isPacketForMe(MedWinMacPacket * pkt);
 	simtime_t extraGuardTime();
 	void setHeaderFields(MedWinMacPacket * pkt, AcknowledgementPolicy_type ackPolicy, Frame_type frameType, Frame_subtype frameSubtype);

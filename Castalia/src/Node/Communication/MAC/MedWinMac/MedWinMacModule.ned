@@ -34,6 +34,7 @@ simple MedWinMacModule like Node.Communication.MAC.MacGenericModule
 		// parameters related to the PHY layer. As the proposal suggests we define them independantly.
 		
 		double pTIFS = default(0.03);				//in msecs, time to start TXing a frame after you received one
+		double pTimeSleepToTX = default(0.2);		//in msecs, time to start TXing after being sleeping, NOT included in spec.
 		int phyLayerOverhead = default(6);			//in bytes
 		double phyDataRate = default(1024);			//in Kbps
 		double mClockAccuracy = default(0.0001);	//fraction, clock drift

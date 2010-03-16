@@ -52,7 +52,8 @@ enum Timers {
 	WAKEUP_FOR_BEACON = 7,
 	SYNC_INTERVAL_TIMEOUT = 8,
 	SEND_BEACON = 9,
-	HUB_SCHEDULED_ACCESS = 10
+	HUB_SCHEDULED_ACCESS = 10,
+	START_SETUP = 11
 };
 
 static int CWmin[8] = { 16, 16, 8, 8, 4, 4, 2, 1 };
@@ -86,7 +87,9 @@ class MedWinMacModule : public VirtualMacModule {
 	double contentionSlotLength;
 
 	int maxPacketRetries;
-	int currentPacketRetries;
+	int currentPacketTransmissions;
+	int currentPacketCSFails;
+
 	int CW;
 	bool CWdouble;
 	int backoffCounter;
@@ -104,7 +107,10 @@ class MedWinMacModule : public VirtualMacModule {
 	bool enhanceGuardTime;
 	bool isRadioSleeping;
 	double pTimeSleepToTX;
+
 	bool waitingForACK;
+	bool futureAttemptToTX;
+	bool attemptingToTX;
 
 	// a buffer to store Management packets that require ack and possible reTX
 	// these packets are treated like data packets, but with higher priority

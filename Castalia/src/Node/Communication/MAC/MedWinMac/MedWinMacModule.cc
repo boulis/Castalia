@@ -52,7 +52,12 @@ void MedWinMacModule::startup() {
 	backoffCounter = 0;
 
 	packetToBeSent = NULL;
+	currentPacketTransmissions = 0;
+	currentPacketCSFails = 0;
 	waitingForACK = false;
+	futureAttemptToTX = false;
+	attemptingToTX = false;
+
 	declareOutput("Data pkt breakdown");
 	declareOutput("Mgmt & Ctrl pkt breakdown");
 }
@@ -61,8 +66,11 @@ void MedWinMacModule::timerFiredCallback(int index) {
 	switch (index) {
 
 		case CARRIER_SENSING: {
-			if (!canFitTx()) break;
-
+			if (!canFitTx()) {
+				attemptingToTX = false;
+				currentPacketCSFails++;
+				break;
+			}
 			CCA_result CCAcode = radioModule->isChannelClear();
 			if (CCAcode == CLEAR) {
 				backoffCounter--;
@@ -73,14 +81,17 @@ void MedWinMacModule::timerFiredCallback(int index) {
 			} else {
 				/* spec states that we wait until the channel is not busy
 				 * we cannot simply do that, we have to have periodic checks
-				 * we arbitrarily choose 10*contention slot = 3.6msec
+				 * we arbitrarily choose 3*contention slot = 1.08 msec
+				 * The only way of failing because of repeated busy signals
+				 * is to eventually not fit in the current RAP
 				 */
-				setTimer(CARRIER_SENSING, contentionSlotLength*10.0);
+				setTimer(CARRIER_SENSING, contentionSlotLength * 3.0);
 			}
 			break;
 		}
 
 		case START_ATTEMPT_TX: {
+			futureAttemptToTX = false;
 			attemptTX();
 			break;
 		}
@@ -94,14 +105,15 @@ void MedWinMacModule::timerFiredCallback(int index) {
 			if ((CWdouble) && (CW < CWmax[priority])) CW *=2;
 
 			// check if we reached the max number and if so delete the packet
-			if (currentPacketRetries == maxPacketRetries) {
+			if (currentPacketTransmissions + currentPacketCSFails == maxPacketRetries) {
 				// collect statistics
 				if (packetToBeSent->getFrameType() == DATA)
 					collectOutput("Data pkt breakdown", "Failed, No Ack");
 				else collectOutput("Mgmt & Ctrl pkt breakdown", "Failed, No Ack");
 				cancelAndDelete(packetToBeSent);
 				packetToBeSent = NULL;
-				currentPacketRetries = 0;
+				currentPacketTransmissions = 0;
+				currentPacketCSFails = 0;
 			}
 			attemptTX();
 			break;
@@ -150,6 +162,11 @@ void MedWinMacModule::timerFiredCallback(int index) {
 			break;
 		}
 
+		case START_SETUP: {
+			macState = MAC_SETUP;
+			break;
+		}
+
 		// These timers are specific to a Hub
 		case SEND_BEACON: {
 			trace() << "BEACON SEND, next beacon in " << beaconPeriodLength * allocationSlotLength;
@@ -175,6 +192,7 @@ void MedWinMacModule::timerFiredCallback(int index) {
 
 			// read the long comment in sendPacket() to understand why we add 2*pTIFS
 			setTimer(START_ATTEMPT_TX, (TX_TIME(beaconPkt->getByteLength()) + 2*pTIFS));
+			futureAttemptToTX = true;
 			break;
 		}
 
@@ -218,13 +236,19 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 		trace() << "transmitting ACK to/from NID:" << medWinPkt->getNID();
 		toRadioLayer(ackPacket);
 		toRadioLayer(createRadioCommand(SET_STATE,TX)); isRadioSleeping = false;
+		/* Any future attempts to TX should be done AFTER we are finished TXing
+		 * the I-ACK. To ensure this we set the appropriate timer and variable.
+		 * MEDWIN_HEADER_SIZE is the size of the ack. 2*pTIFS is explained at sendPacket()
+		 */
+		setTimer(START_ATTEMPT_TX, (TX_TIME(MEDWIN_HEADER_SIZE) + 2*pTIFS) );
+		futureAttemptToTX = true;
 	}
 
 	// Handle data packets
 	if (medWinPkt->getFrameType() == DATA) {
 		toNetworkLayer(decapsulatePacket(medWinPkt));
-		// if this pkt requires a block ACK we should send it,
-		// by looking what packet we have received
+		/* if this pkt requires a block ACK we should send it,
+		 * by looking what packet we have received */
 		// NOT IMPLEMENTED
 		if (medWinPkt->getAckPolicy() == B_ACK_POLICY){
 		}
@@ -256,6 +280,10 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 			trace() << "           RAP1= " << RAP1Length << "slots, RAP ends at time: "<< endTime;
 
 			if (connectedHID == UNCONNECTED) {
+				// go into a setup phase again after this beacon's RAP
+				setTimer(START_SETUP, RAP1Length * allocationSlotLength - beaconTxTime);
+				trace() << "           (unconnected): go back in setup mode when RAP ends";
+
 				/* We will try to connect to this BAN  if our scheduled access length
 				 * is NOT set to unconnected (-1). If it is set to 0, it means we are
 				 * establishing a sleeping pattern and waking up only to hear beacons
@@ -317,12 +345,12 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 			waitingForACK = false;
 			cancelTimer(ACK_TIMEOUT);
 
-			if (packetToBeSent == NULL){
-				trace() << "WARNING: Received I-ACK with packetToBeSent being NULL!";
+			if (packetToBeSent == NULL || currentPacketTransmissions == 0){
+				trace() << "WARNING: Received I-ACK with packetToBeSent being NULL, or not TXed!";
 				break;
 			}
 			// collect statistics
-			if (currentPacketRetries == 1){
+			if (currentPacketTransmissions == 1){
 				if (packetToBeSent->getFrameType() == DATA)
 					collectOutput("Data pkt breakdown", "Success, 1st try");
 				else collectOutput("Mgmt & Ctrl pkt breakdown", "Success, 1st try");
@@ -333,7 +361,8 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 			}
 			cancelAndDelete(packetToBeSent);
 			packetToBeSent = NULL;
-			currentPacketRetries = 0;
+			currentPacketTransmissions = 0;
+			currentPacketCSFails = 0;
 			CW = CWmin[priority];
 
 			attemptTX();
@@ -348,6 +377,8 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 			cancelTimer(ACK_TIMEOUT);
 			cancelAndDelete(packetToBeSent);
 			packetToBeSent = NULL;
+			currentPacketTransmissions = 0;
+			currentPacketCSFails = 0;
 			CW = CWmin[priority];
 
 			// we need to analyze the bitmap and see if some of the LACK packets need to be retxed
@@ -415,9 +446,8 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 			}
 
 			MgmtBuffer.push(connAssignment);
-			// attempt to TX it after TXing the I-ACK to the connection req is finished
-			// the MEDWIN_HEADER_SIZE below is the size of an ACK packet
-			setTimer(START_ATTEMPT_TX, (TX_TIME(MEDWIN_HEADER_SIZE) + 2*pTIFS) );
+			// transmission will be attempted after we are done sending the I-ACK
+
 			trace() << "Conn assgnmnt created, wait for " << (TX_TIME(MEDWIN_HEADER_SIZE) + 2*pTIFS) << " to attempTX";
 			break;
 		}
@@ -472,15 +502,36 @@ bool MedWinMacModule::isPacketForMe(MedWinMacPacket *pkt) {
 		if ((connectedNID == pktNID) || (pktNID == BROADCAST_NID)) return true;
 	} else if ((connectedHID == UNCONNECTED) &&
 		   ((unconnectedNID == pktNID) || (pktNID == UNCONNECTED_BROADCAST_NID) || (pktNID == BROADCAST_NID))){
+		/* We need to check all cases of packets types. It is tricky because when unconnected
+		 * two or more nodes can have the same NID. Some packets have a Recipient Address
+		 * to distinguish the real destination. Others can be filtered just by type. Some
+		 * like I-ACK we have to do more tests and still cannot be sure
+		 */
 		if (pkt->getFrameSubtype() == CONNECTION_ASSIGNMENT) {
 			MedWinConnectionAssignmentPacket *connAssignment = check_and_cast<MedWinConnectionAssignmentPacket*>(pkt);
 			if (connAssignment->getRecipientAddress() != SELF_MAC_ADDRESS) {
 				// the packet is not for us, but the NID is the same, so we need to choose a new one.
 				unconnectedNID = 1 + genk_intrand(0,14);
+				if (packetToBeSent) packetToBeSent->setNID(unconnectedNID);
 				trace() << "Choosing NEW unconnectedNID = " << unconnectedNID;
 				return false;
 			}
 		}
+		// if we are unconnected it means that we not a hub, so we cannot process connection reqs
+		if (pkt->getFrameSubtype() == CONNECTION_REQUEST) return false;
+
+		// if we receive an ACK we need to check whether we have sent a packet to be acked.
+		if ((pkt->getFrameSubtype() == I_ACK || pkt->getFrameSubtype() == I_ACK_POLL ||
+			pkt->getFrameSubtype() == B_ACK || pkt->getFrameSubtype() == B_ACK_POLL)) {
+			if (packetToBeSent == NULL || currentPacketTransmissions == 0)	{
+				trace() << "WARNING: ACK packet received with no packet to ack, renewing NID";
+				unconnectedNID = 1 + genk_intrand(0,14);
+				if (packetToBeSent) packetToBeSent->setNID(unconnectedNID);
+				trace() << "Choosing NEW unconnectedNID = " << unconnectedNID;
+				return false;
+			}
+		}
+
 		// for all other cases of HID == UNCONNECTED, return true
 		return true;
 	}
@@ -518,6 +569,7 @@ void MedWinMacModule::attemptTxInRAP() {
 	if (backoffCounter == 0) {
 		backoffCounter = 1 + genk_intrand(0,CW);
 	}
+	attemptingToTX = true;
 	setTimer(CARRIER_SENSING,0);
 }
 
@@ -528,15 +580,33 @@ void MedWinMacModule::attemptTxInRAP() {
 void MedWinMacModule::attemptTX() {
 	// If we are not in an appropriate state, return
 	if (macState != MAC_RAP && macState != MAC_SCHEDULED_TX_ACCESS) return;
-	if (waitingForACK) return;
+	/* if we are currently attempting to TX or we have scheduled a future
+	 * attemp to TX, or waiting for an ack, return
+	 */
+	if (waitingForACK || attemptingToTX || futureAttemptToTX ) return;
 
-	if (packetToBeSent && currentPacketRetries < maxPacketRetries) {
+	if (packetToBeSent && currentPacketTransmissions + currentPacketCSFails < maxPacketRetries) {
 		if (macState == MAC_RAP) attemptTxInRAP();
 		if ((macState == MAC_SCHEDULED_TX_ACCESS) && (canFitTx())) sendPacket();
 		return;
 	}
+	/* if there is still a packet in the buffer after max tries
+	 * then delete it, reset relevant variables, and collect stats.
+	 */
+	if (packetToBeSent) {
+		trace() << "Max TX attempts reached. Last attempt was a CS fail";
+		if (currentPacketCSFails == maxPacketRetries){
+			if (packetToBeSent->getFrameType() == DATA)
+				collectOutput("Data pkt breakdown", "Failed, Channel busy");
+			else collectOutput("Mgmt & Ctrl pkt breakdown", "Failed, Channel busy");
+		}
+		cancelAndDelete(packetToBeSent);
+		packetToBeSent = NULL;
+		currentPacketTransmissions = 0;
+		currentPacketCSFails = 0;
+	}
 
-	// else try to draw a new packet from the data or Management buffers.
+	// Try to draw a new packet from the data or Management buffers.
 	if (MgmtBuffer.size() !=0) {
 		packetToBeSent = (MedWinMacPacket*)MgmtBuffer.front();  MgmtBuffer.pop();
 		if (MgmtBuffer.size() > MGMT_BUFFER_SIZE)
@@ -567,18 +637,20 @@ bool MedWinMacModule::canFitTx() {
 /* Sends a packet to the radio and either waits for an ack or restart the attemptTX process
  */
 void MedWinMacModule::sendPacket() {
+	// we are starting to TX, so we are exiting the attemptTX (sub)state.
+	attemptingToTX = false;
 
 	if (packetToBeSent->getAckPolicy() == I_ACK_POLICY || packetToBeSent->getAckPolicy() == B_ACK_POLICY) {
 		/* Need to wait for ACK. Here we explicitly take into account the clock drift, since the spec does
 		 * not mention a rule for ack timeout. In other timers, GUARD time takes care of the drift, or the
-		 * timers are just sheduled on the face value. We also take into account sleep->TX delay, which
+		 * timers are just scheduled on the face value. We also take into account sleep->TX delay, which
 		 * the MedWin spec does not mention but it is important.
 		 */
 		trace() << "TXing[" << packetToBeSent->getName() << "], ACK_TIMEOUT in " << (SLEEP2TX + TX_TIME(packetToBeSent->getByteLength()) + 2*pTIFS + TX_TIME(MEDWIN_HEADER_SIZE)) * (1 + mClockAccuracy);
 		setTimer(ACK_TIMEOUT, (SLEEP2TX + TX_TIME(packetToBeSent->getByteLength()) + 2*pTIFS + TX_TIME(MEDWIN_HEADER_SIZE)) * (1 + mClockAccuracy));
 		waitingForACK = true;
 
-		currentPacketRetries++;
+		currentPacketTransmissions++;
 		toRadioLayer(packetToBeSent->dup());
 		toRadioLayer(createRadioCommand(SET_STATE,TX));  isRadioSleeping = false;
 
@@ -597,11 +669,12 @@ void MedWinMacModule::sendPacket() {
 		 */
 		trace() << "TXing[" << packetToBeSent->getName() << "], no ACK required";
 		setTimer(START_ATTEMPT_TX, SLEEP2TX + TX_TIME(packetToBeSent->getByteLength()) + 2*pTIFS);
+		futureAttemptToTX = true;
 
 		toRadioLayer(packetToBeSent); // no need to dup() we are only sending it once
 		toRadioLayer(createRadioCommand(SET_STATE,TX));  isRadioSleeping = false;
 		packetToBeSent = NULL; // do not delete the message, just make the packetToBeSent placeholded available
-		currentPacketRetries = 0; // just a sefeguard, it should be zero.
+		currentPacketTransmissions = 0; // just a sefeguard, it should be zero.
 	}
 }
 

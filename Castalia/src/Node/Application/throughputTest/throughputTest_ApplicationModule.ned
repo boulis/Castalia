@@ -32,7 +32,7 @@ simple throughputTest_ApplicationModule like Node.Application.ApplicationGeneric
 							// have a multi-hop throughput test   
 							
         double packet_rate = default(0);		// packets per second, by default we transmit no packets
-
+		
         double latencyHistogramMax = default(200);
         int latencyHistogramBuckets = default(10);
     

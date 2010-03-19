@@ -1,163 +1,183 @@
 #!/usr/bin/python
 import os, sys, commands, getopt, re
+from datetime import date, time, datetime
 
-savedFileTypes = {}
-exceptions = []
-
-# This function will process a line from omnetpp.ini file, located at 'location' 
-# The line should contain a reference to a parameter file of type 'filetype' 
-# (filetype can be PRRMap for example). The file, pointed by 'line' will be
-# saved to test repository, and a new line, referencing the file from repository
-# (not the original file) will be returned
-def saveFile(filetype,line,location):
-    pos = line.find("=")
-    if (pos == -1): return line
-    pos = pos + 1
-    start = line[:pos]
-    file = line[pos:]
-    pos = file.find("#")
-    if (pos != -1): file = file[:pos]
-    file = file.strip(' "')
-    if (len(file) == 0): return line
-
-    if (savedFileTypes.has_key(filetype)): savedFiles = savedFileTypes[filetype]
-    else:
-	savedFiles = {}
-	savedFileTypes[filetype] = savedFiles
-
-    if (not savedFiles.has_key(file)):
-	newFile = location + "/" + filetype + str(len(savedFiles.keys())) + ".txt"
-	if (commands.getoutput("cp " + file + " " + newFile) == ""):
-	    savedFiles[file] = '"' + newFile + '"'
-	else:
-	    quit("ERROR while creating a copy of input file " + file)
-
-    return start + " " + savedFiles[file]
-
-def generateConfig(dictionary,base,interleaved):
-    result = {}
-    for c in interleaved:
-	if (c not in dictionary):
-	    quit("ERROR: no such configuration in .ini file " + c)
-	config = dictionary[c]
+def generateConfig(dictionary,base,interleaved = []):
+	result = {}
+	for c in interleaved:
+		if (c not in dictionary):
+			quit("\nERROR: no such configuration, '" + c + "'\nAvaliable configurations: " + ", ".join(dictionary.keys()) + "\n")
+		config = dictionary[c]
+		for k in config.keys():
+			if result.has_key(k):
+				quit("\nERROR: duplicate parameter '" + k + "' in interleaved congigurations\n")
+			result[k] = config[k]
 	
+	for c in base:
+		if (c not in dictionary):
+			quit("\nERROR: no such configuration, '" + c + "'\nAvaliable configurations: " + ", ".join(dictionary.keys()) + "\n")
+		config = dictionary[c]
+		for k in config.keys():
+			if (k not in result):
+				result[k] = config[k]
+
+	if ("General" not in dictionary):
+		quit("ERROR: no [General] section found")
+	config = dictionary["General"]
 	for k in config.keys():
-	    if result.has_key(k):
-		quit("ERROR: duplicate parameter in interleaved congigurations " + k)
-	    result[k] = config[k]
-	    
-    for c in base:
-	if (c not in dictionary):
-	    quit("ERROR: no such configuration in .ini file " + c)
-	config = dictionary[c]
-	
-	for k in config.keys():
-	    if (k not in result):
-		result[k] = config[k]
-    
-    if ("General" not in dictionary):
-	quit("ERROR: no General section in .ini file")
-    config = dictionary["General"]
-    for k in config.keys():
-        if (k not in result):
-            result[k] = config[k]
-                                                                            
-    return result
-    
+		if (k not in result):
+			result[k] = config[k]
+	return result
+
+def detectCPUs():
+	# Linux, Unix and MacOS:
+	if hasattr(os, "sysconf"):
+		if os.sysconf_names.has_key("SC_NPROCESSORS_ONLN"):
+			# Linux & Unix:
+			ncpus = os.sysconf("SC_NPROCESSORS_ONLN")
+			if isinstance(ncpus, int) and ncpus > 0:
+				return ncpus
+		else: # OSX:
+			return int(os.popen2("sysctl -n hw.ncpu")[1].read())
+	# Windows:
+	if os.environ.has_key("NUMBER_OF_PROCESSORS"):
+		ncpus = int(os.environ["NUMBER_OF_PROCESSORS"]);
+		if ncpus > 0:
+			return ncpus
+	return 1 # Default
+
 #initialise important paths
 pathToBin = sys.path[0]
 pathToCastalia = os.path.abspath(pathToBin + "/../")
 pathToCastaliaBin = pathToCastalia + "/CastaliaBin";
 pathToExtract = pathToBin + "/extractOmnetppINI"
 
-opts, args = getopt.getopt(sys.argv[1:], "f:c:d", ["file=", "config=", "debug"])
+opts, args = getopt.getopt(sys.argv[1:], "f:c:dr:", ["file=", "config=", "debug", "repeat="])
 file = ""
 config = "General"
+repeat = 1
+debug = 0
 for o, v in opts:
-    if o in ("-f", "--file"):
-    	file = v;
-    elif o in ("-c", "--config"):
-	config = v;
-    else:
-	quit("Unknown argument " + o);
-                                                                                
+	if o in ("-f", "--file"):
+		file = v;
+	elif o in ("-c", "--config"):
+		config = v;
+	elif o in ("-r", "--repeat"):
+		repeat = v;
+		if repeat < 1: repeat = 1
+	elif o in ("-d", "--debug"):
+		debug = 1
+	else:
+		quit("Unknown argument " + o);
 
 ini = commands.getoutput(pathToExtract + " " + file).split("\n")
 section = ""
 configDictionary = {}
+configIterations = {}
 
 for line in ini:
-    if (line == "[General]"):
-	section = "General"
-	continue
-	
-    m = re.match(r"^\[Config (\S+)\]$",line)
-    if (m):
+	if (line == "[General]"):
+		section = "General"
+		continue
+
+	m = re.match(r"^\[Config (\S+)\]$",line)
+	if (m):
 		section = m.group(1)
 		continue
-	
-    k = re.split("\s=\s",line,1)
-    if (len(k) != 2):
+
+	k = re.split("\s=\s",line,1)
+	if (len(k) != 2):
 		quit("Unexpected line in configuration file:\n" +k)
-    
-    currentConfig = {}
-    if (configDictionary.has_key(section)):
+		
+	currentConfig = {}
+	if (configDictionary.has_key(section)):
 		currentConfig = configDictionary[section]
- 	   	currentConfig[k[0]] = k[1]
-    	configDictionary[section] = currentConfig
+	currentConfig[k[0]] = k[1]
+	configDictionary[section] = currentConfig
+	if re.match(r"\$\{",k[1]):
+		if section not in configIterations:
+			configIterations[section] = len(k[1].split(","))
 
 baseConfigList = []
 interleavedConfigList = []
 
 while (config != ""):
-    m = re.match(r"^([^\[]*[^,\[]),?(.*)$",config)
-    if (m):
-	baseConfigList.extend(m.group(1).split(","))
-	config = m.group(2)
-	continue
-    
-    m = re.match(r"^\[([^\]]+)\],?(.*)$",config)
-    if (m):
-	interleavedConfigList.append(m.group(1).split(","))
-	config = m.group(2)
-	continue
-    
-    quit("Unknown configuration syntax: " + config)
+	m = re.match(r"^([^\[]*[^,\[]),?(.*)$",config)
+	if (m):
+		baseConfigList.extend(m.group(1).split(","))
+		config = m.group(2)
+		continue
+
+	m = re.match(r"^\[([^\]]+)\],?(.*)$",config)
+	if (m):
+		interleavedConfigList.append(m.group(1).split(","))
+		config = m.group(2)
+		continue
+
+	quit("Unknown configuration syntax: " + config)
 
 #print baseConfigList
 #print interleavedConfigList
 
-interleavedIndex = [0]*len(interleavedConfigList)
-increment = 0
-tmpList = []
-
-while (increment < len(interleavedIndex)):
-    tmpElement = []
-    for i in range(0,len(interleavedIndex)):
-	tmp = interleavedConfigList[i]
-	tmpElement.append(tmp[interleavedIndex[i]])
-    tmpList.append(tmpElement)
-    increment = 0
-    while (increment < len(interleavedIndex)):
-	if (interleavedIndex[increment] < len(interleavedConfigList[i]) - 1):
-	    interleavedIndex[increment] += 1
-	    break
-	else:
-	    interleavedIndex[increment] = 0;
-	    increment += 1
-
 iniList = []
-for i in range(0,len(tmpList)):
-    iniList.append(generateConfig(configDictionary,baseConfigList,tmpList[i]))
+labelList = []
 
+if len(interleavedConfigList) > 0:
+	interleavedIndex = [0]*len(interleavedConfigList)
+	increment = 0
+	tmpList = []
 
-run = 0
+	while (increment < len(interleavedIndex)):
+		tmpElement = []
+		for i in range(0,len(interleavedIndex)):
+			tmp = interleavedConfigList[i]
+			tmpElement.append(tmp[interleavedIndex[i]])
+		tmpList.append(tmpElement)
+		increment = 0
+		while (increment < len(interleavedIndex)):
+			if (interleavedIndex[increment] < len(interleavedConfigList[i]) - 1):
+				interleavedIndex[increment] += 1
+				break
+			else:
+				interleavedIndex[increment] = 0;
+				increment += 1
+
+	for i in range(0,len(tmpList)):
+		iniList.append(generateConfig(configDictionary,baseConfigList,tmpList[i]))
+		tmpList2 = []
+		for c in tmpList[i]:
+			if c not in configIterations: tmpList2.append(c)
+		labelList.append(",".join(tmpList2))
+else:
+	iniList.append(generateConfig(configDictionary,baseConfigList))
+	tmpList2 = []
+	for c in baseConfigList:
+		if c not in configIterations: tmpList2.append(c)
+	labelList.append(",".join(tmpList2))
+
+ini_num = 0
+fr = open(datetime.now().strftime("%y%m%d-%H%M%S")+".txt","w")
 for ini in iniList:
-    run += 1
-    f = open("omnetpp.tmp","w")
-    for k in sorted(ini.keys()):
-	f.write(k + " = " + ini[k] + "\n")
-    f.close();
+	ini_num += 1
+	baselabel = label = labelList.pop(0)
+	print "Running configuration", str(ini_num) + "/" + str(len(iniList))
+	f = open("omnetpp.tmp","w")
+	f.write("[General]\n")
+	f.write("repeat = " + str(repeat) + "\n")
+	for k in sorted(ini.keys()):
+		f.write(k + " = " + ini[k] + "\n")
+	f.close();
+	result = commands.getoutput(pathToCastaliaBin + " -f omnetpp.tmp").split("\n")
+	for line in result:
+		if debug: print line
+		m = re.match("Scenario:\s(.*)\$repetition=\d+$",line)
+		if (m):
+			line = m.group(1).replace("$","").strip(" ,")
+			if len(line) > 0: label = baselabel + "," + line
+			fr.write("Castalia| label:"+label+"\n")
+			continue
+		if (re.match("^Castalia|\s+(.*)$",line)): 
+			fr.write(line + "\n")
 
-
-quit(iniList)
+commands.getoutput("rm omnetpp.tmp")
+fr.close()

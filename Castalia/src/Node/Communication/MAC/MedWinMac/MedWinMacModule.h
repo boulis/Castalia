@@ -36,8 +36,8 @@ using namespace std;
 enum MacStates {
 	MAC_SETUP = 1000,
 	MAC_RAP = 1001,
-	MAC_SCHEDULED_TX_ACCESS = 1002,
-	MAC_SCHEDULED_RX_ACCESS = 1003,
+	MAC_FREE_TX_ACCESS = 1002,
+	MAC_FREE_RX_ACCESS = 1003,
 	MAC_BEACON_WAIT = 1009,
 	MAC_SLEEP = 1010
 };
@@ -53,11 +53,21 @@ enum Timers {
 	SYNC_INTERVAL_TIMEOUT = 8,
 	SEND_BEACON = 9,
 	HUB_SCHEDULED_ACCESS = 10,
-	START_SETUP = 11
+	START_SETUP = 11,
+	START_POSTED_ACCESS = 12,
+	SEND_FUTURE_POLLS = 13,
+	SEND_POLL = 14,
+	INCREMENT_SLOT = 15
 };
 
 static int CWmin[8] = { 16, 16, 8, 8, 4, 4, 2, 1 };
 static int CWmax[8] = { 64, 32, 32, 16, 16, 8, 8, 4};
+
+struct TimerInfo {
+	int NID;
+	int slotsGiven;
+	int endSlot;
+};
 
 class MedWinMacModule : public VirtualMacModule {
 	private:
@@ -69,16 +79,17 @@ class MedWinMacModule : public VirtualMacModule {
 	double allocationSlotLength;
 	int RAP1Length;
 	int beaconPeriodLength;
-	int currentScheduleAssignmentStart;
-	int currentFreeConnectedNID;
 
-	int scheduledAccessStart;
-	int scheduledAccessEnd;
+	int scheduledTxAccessStart;
+	int scheduledTxAccessEnd;
 	int scheduledAccessLength;
 	int scheduledAccessPeriod;
 
 	int scheduledRxAccessStart;
 	int scheduledRxAccessEnd;
+
+	int polledAccessEnd;
+	int postedAccessEnd;
 
 	double pTIFS;
 	int phyLayerOverhead;
@@ -86,7 +97,7 @@ class MedWinMacModule : public VirtualMacModule {
 	int priority;
 	double contentionSlotLength;
 
-	int maxPacketRetries;
+	int maxPacketTries;
 	int currentPacketTransmissions;
 	int currentPacketCSFails;
 
@@ -100,11 +111,14 @@ class MedWinMacModule : public VirtualMacModule {
 	simtime_t syncIntervalAdditionalStart;
 
 	MedWinMacPacket *packetToBeSent;
-	simtime_t endTime; // the time when our right to TX ends. Covers RAP and scheduled access
+	simtime_t endTime; // the time when our right to TX ends. Covers RAP, scheduled and polled access
+	simtime_t frameStartTime; // time the frame starts (when we receive the beacon - beacon TX time)
 
 	double SInominal;
 	double mClockAccuracy;
 	bool enhanceGuardTime;
+	bool enhanceMoreData;
+	bool pollingEnabled;
 	bool isRadioSleeping;
 	double pTimeSleepToTX;
 
@@ -112,10 +126,21 @@ class MedWinMacModule : public VirtualMacModule {
 	bool futureAttemptToTX;
 	bool attemptingToTX;
 
+	bool isPollPeriod;
+
 	// a buffer to store Management packets that require ack and possible reTX
 	// these packets are treated like data packets, but with higher priority
 	queue <MedWinMacPacket *>MgmtBuffer;
 
+	// the rest of the variables are hub, specific. They get allocated/used only for the hub
+	int currentSlot;
+	bool sendIAckPoll;
+	int currentFirstFreeSlot;
+	int currentFreeConnectedNID;
+	int futurePollsSlot;
+	int *lastTxAccessSlot;
+	int *reqToSendMoreData;
+	queue <TimerInfo> hubPollTimers;
 
 	protected:
 	void startup();
@@ -123,13 +148,16 @@ class MedWinMacModule : public VirtualMacModule {
 	void fromNetworkLayer(cPacket*, int);
 	void fromRadioLayer(cPacket*,double,double);
 	void finishSpecific();
-	bool isPacketForMe(MedWinMacPacket * pkt);
+	bool isPacketForMe(MedWinMacPacket *pkt);
 	simtime_t extraGuardTime();
-	void setHeaderFields(MedWinMacPacket * pkt, AcknowledgementPolicy_type ackPolicy, Frame_type frameType, Frame_subtype frameSubtype);
+	void setHeaderFields(MedWinMacPacket *pkt, AcknowledgementPolicy_type ackPolicy, Frame_type frameType, Frame_subtype frameSubtype);
 	void attemptTxInRAP();
 	void attemptTX();
 	bool canFitTx();
 	void sendPacket();
+	void handlePoll(MedWinMacPacket *pkt);
+	void handlePost(MedWinMacPacket *pkt);
+	void handleMoreDataAtHub(MedWinMacPacket *pkt);
 	simtime_t timeToNextBeacon(simtime_t interval, int index, int phase);
 };
 

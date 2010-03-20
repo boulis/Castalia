@@ -21,8 +21,12 @@ void MedWinMacModule::startup() {
 		currentFreeConnectedNID = 16; // start assigning connected NID from ID 16
 		allocationSlotLength = (double) par("allocationSlotLength")/1000.0; // convert msec to sec
 		beaconPeriodLength = par("beaconPeriodLength");
-		RAP1Length = currentScheduleAssignmentStart = par("RAP1Length");
+		RAP1Length = par("RAP1Length");
+		currentFirstFreeSlot = RAP1Length +1;
 		setTimer(SEND_BEACON,0);
+		lastTxAccessSlot = new int[256];
+		reqToSendMoreData = new int[256];
+		for (int i=0; i<256; i++) {lastTxAccessSlot[i]=0; reqToSendMoreData[i]=0;}
 	} else {
 		connectedHID = UNCONNECTED;
  		connectedNID = UNCONNECTED;
@@ -43,9 +47,14 @@ void MedWinMacModule::startup() {
 	priority = getParentModule()->getParentModule()->getSubmodule("nodeApplication")->par("priority");
 	mClockAccuracy = par("mClockAccuracy");
 	enhanceGuardTime = par("enhanceGuardTime");
+	enhanceMoreData = par("enhanceMoreData");
+	pollingEnabled = par("pollingEnabled");
+	sendIAckPoll = false;	// only used by Hub, but must be initialized for all
+	currentSlot = -1;		// only used by Hub
+	futurePollsSlot = -1;	// only used by Hub
 
 	contentionSlotLength = (double) par("contentionSlotLength")/1000.0; // convert msec to sec;
-	maxPacketRetries = par("maxPacketRetries");
+	maxPacketTries = par("maxPacketTries");
 
 	CW = CWmin[priority];
 	CWdouble = false;
@@ -57,9 +66,17 @@ void MedWinMacModule::startup() {
 	waitingForACK = false;
 	futureAttemptToTX = false;
 	attemptingToTX = false;
+	isPollPeriod = false;
+
+ 	scheduledTxAccessStart = UNCONNECTED;
+ 	scheduledTxAccessEnd = UNCONNECTED;
+ 	scheduledRxAccessStart = UNCONNECTED;
+ 	scheduledRxAccessEnd = UNCONNECTED;
 
 	declareOutput("Data pkt breakdown");
 	declareOutput("Mgmt & Ctrl pkt breakdown");
+	declareOutput("pkt TX state breakdown");
+	declareOutput("Polls given");
 }
 
 void MedWinMacModule::timerFiredCallback(int index) {
@@ -105,7 +122,7 @@ void MedWinMacModule::timerFiredCallback(int index) {
 			if ((CWdouble) && (CW < CWmax[priority])) CW *=2;
 
 			// check if we reached the max number and if so delete the packet
-			if (currentPacketTransmissions + currentPacketCSFails == maxPacketRetries) {
+			if (currentPacketTransmissions + currentPacketCSFails == maxPacketTries) {
 				// collect statistics
 				if (packetToBeSent->getFrameType() == DATA)
 					collectOutput("Data pkt breakdown", "Failed, No Ack");
@@ -123,29 +140,38 @@ void MedWinMacModule::timerFiredCallback(int index) {
 			trace() << "State from "<< macState << " to MAC_SLEEP";
 			macState = MAC_SLEEP;
 			toRadioLayer(createRadioCommand(SET_STATE,SLEEP));   isRadioSleeping = true;
+			isPollPeriod = false;
 			break;
 		}
 
 		case START_SCHEDULED_TX_ACCESS: {
-			trace() << "State from "<< macState << " to MAC_SCHEDULED_TX_ACCESS";
-			macState = MAC_SCHEDULED_TX_ACCESS;
-			endTime = getClock() + (scheduledAccessEnd - scheduledAccessStart) * allocationSlotLength;
-			if (beaconPeriodLength > scheduledAccessEnd)
-				setTimer(START_SLEEPING, (scheduledAccessEnd - scheduledAccessStart) * allocationSlotLength);
+			trace() << "State from "<< macState << " to MAC_FREE_TX_ACCESS (scheduled)";
+			macState = MAC_FREE_TX_ACCESS;
+			endTime = getClock() + (scheduledTxAccessEnd - scheduledTxAccessStart) * allocationSlotLength;
+			if (beaconPeriodLength > scheduledTxAccessEnd)
+				setTimer(START_SLEEPING, (scheduledTxAccessEnd - scheduledTxAccessStart) * allocationSlotLength);
 			attemptTX();
 			break;
 		}
 
-		/* this timer and corresponding state will be used for downlink traffic (sensors case)
-		 * and uplink traffic (Hub case). Currently it is not used as we only have uplink traffic,
-		 * (and the hub just uses the generic HUB_SCHEDULED_ACCESS timer).
-		 */
 		case START_SCHEDULED_RX_ACCESS: {
-			trace() << "State from "<< macState << " to MAC_SCHEDULED_RX_ACCESS";
-			macState = MAC_SCHEDULED_RX_ACCESS;
+			trace() << "State from "<< macState << " to MAC_FREE_RX_ACCESS (scheduled)";
+			macState = MAC_FREE_RX_ACCESS;
 			toRadioLayer(createRadioCommand(SET_STATE,RX));  isRadioSleeping = false;
 			if (beaconPeriodLength > scheduledRxAccessEnd)
 				setTimer(START_SLEEPING, (scheduledRxAccessEnd - scheduledRxAccessStart) * allocationSlotLength);
+			break;
+		}
+
+		case START_POSTED_ACCESS: {
+			trace() << "State from "<< macState << " to MAC_FREE_RX_ACCESS (post)";
+			macState = MAC_FREE_RX_ACCESS;
+			toRadioLayer(createRadioCommand(SET_STATE,RX));  isRadioSleeping = false;
+			// reset the timer for sleeping as needed
+			if ((postedAccessEnd-1) != beaconPeriodLength &&
+				postedAccessEnd != scheduledTxAccessStart && postedAccessEnd != scheduledRxAccessStart){
+				setTimer(START_SLEEPING, frameStartTime + (postedAccessEnd * allocationSlotLength) - getClock());
+			}else cancelTimer(START_SLEEPING);
 			break;
 		}
 
@@ -153,6 +179,7 @@ void MedWinMacModule::timerFiredCallback(int index) {
 			trace() << "State from "<< macState << " to MAC_BEACON_WAIT";
 			macState = MAC_BEACON_WAIT;
 			toRadioLayer(createRadioCommand(SET_STATE,RX));  isRadioSleeping = false;
+			isPollPeriod = false;
 			break;
 		}
 
@@ -167,7 +194,7 @@ void MedWinMacModule::timerFiredCallback(int index) {
 			break;
 		}
 
-		// These timers are specific to a Hub
+		// The rest of the timers are specific to a Hub
 		case SEND_BEACON: {
 			trace() << "BEACON SEND, next beacon in " << beaconPeriodLength * allocationSlotLength;
 			trace() << "State from "<< macState << " to MAC_RAP";
@@ -193,14 +220,94 @@ void MedWinMacModule::timerFiredCallback(int index) {
 			// read the long comment in sendPacket() to understand why we add 2*pTIFS
 			setTimer(START_ATTEMPT_TX, (TX_TIME(beaconPkt->getByteLength()) + 2*pTIFS));
 			futureAttemptToTX = true;
+
+			// keep track of the current slot
+			currentSlot = 1;
+			setTimer(INCREMENT_SLOT, allocationSlotLength);
+			futurePollsSlot = currentFirstFreeSlot;
+			if (pollingEnabled) setTimer(SEND_FUTURE_POLLS, (futurePollsSlot-1) * allocationSlotLength);
+			break;
+		}
+
+		case SEND_FUTURE_POLLS: {
+			trace() << "State from "<< macState << " to MAC_FREE_TX_ACCESS (send Future Polls)";
+			macState = MAC_FREE_TX_ACCESS;
+			// when we are in a state that we can TX, we should *always* set endTime
+			endTime = getClock() + allocationSlotLength;
+
+			// The current slot is used to TX the future polls, so we have 1 less slot available
+			int availableSlots = beaconPeriodLength - (currentSlot-1) -1;
+			if (availableSlots <= 0) break;
+
+			int totalRequests = 0;
+			// Our (immediate) polls should start one slot after the current one.
+			int nextPollStart = currentSlot +1;
+			for(int nid=0; nid<256; nid++) totalRequests += reqToSendMoreData[nid];
+			if (totalRequests == 0) break;
+
+			for(int nid=0; nid<256; nid++){
+				if (reqToSendMoreData[nid] > 0) {
+					// a very simple assignment scheme. It can leave several slots unused
+					int slotsGiven = floor(((float)reqToSendMoreData[nid]/(float)totalRequests)*availableSlots);
+					//trace() << "REQ["<<nid<<"]= "<<reqToSendMoreData[nid]<<", total REQ= "<<totalRequests<<", available slots= "<<availableSlots;
+					if (slotsGiven == 0) continue;
+					TimerInfo t; t.NID=nid; t.slotsGiven=slotsGiven; t.endSlot=nextPollStart + slotsGiven -1;
+					hubPollTimers.push(t);
+					reqToSendMoreData[nid] = 0; // reset the requested resources
+					// create the future POLL packet and buffer it
+					MedWinMacPacket *pollPkt = new MedWinMacPacket("MedWin Future Poll", MAC_LAYER_PACKET);
+					setHeaderFields(pollPkt,N_ACK_POLICY,MANAGEMENT,POLL);
+					pollPkt->setNID(nid);
+					pollPkt->setSequenceNumber(nextPollStart);
+					pollPkt->setFragmentNumber(0);
+					pollPkt->setMoreData(1);
+					pollPkt->setByteLength(MEDWIN_HEADER_SIZE);
+					trace() << "Created future POLL for NID:" << nid << ", for slot "<< nextPollStart;
+					nextPollStart += slotsGiven;
+					//collectOutput("Polls given", nid);
+					MgmtBuffer.push(pollPkt);
+				}
+			}
+			// the first poll will be send one slot after the current one.
+			setTimer(SEND_POLL, allocationSlotLength);
+			// TX all the future POLL packets created
+			attemptTX();
+			break;
+		}
+
+		case SEND_POLL: {
+			if (hubPollTimers.size() == 0) {trace() << "WARNING: timer SEND_POLL with hubPollTimers NULL"; break;}
+			trace() << "State from "<< macState << " to MAC_FREE_RX_ACCESS (Poll)";
+			macState = MAC_FREE_RX_ACCESS;
+			TimerInfo t = hubPollTimers.front();
+			int slotsGiven = t.slotsGiven;
+			MedWinMacPacket *pollPkt = new MedWinMacPacket("MedWin Immediate Poll", MAC_LAYER_PACKET);
+			setHeaderFields(pollPkt,N_ACK_POLICY,MANAGEMENT,POLL);
+			pollPkt->setNID(t.NID);
+			pollPkt->setSequenceNumber(t.endSlot);
+			pollPkt->setFragmentNumber(0);
+			pollPkt->setMoreData(0);
+			pollPkt->setByteLength(MEDWIN_HEADER_SIZE);
+
+			toRadioLayer(pollPkt);
+			toRadioLayer(createRadioCommand(SET_STATE,TX)); isRadioSleeping = false;
+			trace() << "POLL for NID: "<< t.NID <<", ending at slot: "<< t.endSlot << ", lasting: " << t.slotsGiven << " slots";
+			hubPollTimers.pop();
+			if (hubPollTimers.size() > 0) setTimer(SEND_POLL, slotsGiven * allocationSlotLength);
+			break;
+		}
+
+		case INCREMENT_SLOT: {
+			currentSlot++;
+			if (currentSlot < beaconPeriodLength) setTimer(INCREMENT_SLOT, allocationSlotLength);
 			break;
 		}
 
 		case HUB_SCHEDULED_ACCESS: {
-			trace() << "State from "<< macState << " to MAC_SCHEDULED_RX_ACCESS";
-			macState = MAC_SCHEDULED_RX_ACCESS;
+			trace() << "State from "<< macState << " to MAC_FREE_RX_ACCESS (hub)";
+			macState = MAC_FREE_RX_ACCESS;
 			// we should look at the schedule and setup timers to get in and out
-			// of MAC_SCHEDULED_RX_ACCESS MAC_SCHEDULED_TX_ACCESS and finally MAC_SLEEP
+			// of MAC_FREE_RX_ACCESS MAC_FREE_TX_ACCESS and finally MAC_SLEEP
 			break;
 		}
 	}
@@ -225,12 +332,32 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 	// filter the incoming MedWin packet
     if (!isPacketForMe(medWinPkt)) return;
 
-	// if the packet received requires an ACK, we should send it now
+	// Handle data packets
+	if (medWinPkt->getFrameType() == DATA) {
+		toNetworkLayer(decapsulatePacket(medWinPkt));
+		/* if this pkt requires a block ACK we should send it,
+		 * by looking what packet we have received */
+		// NOT IMPLEMENTED
+		if (medWinPkt->getAckPolicy() == B_ACK_POLICY){
+		}
+		if (medWinPkt->getMoreData() > 0) handlePost(medWinPkt);
+	}
+
+	/* If the packet received (Data or Mgmt) requires an ACK, we should send it now.
+	 * While processing a data packet we might have flagged the need to send an I_ACK_POLL
+	 */
 	if (medWinPkt->getAckPolicy() == I_ACK_POLICY) {
 		MedWinMacPacket * ackPacket = new MedWinMacPacket("ACK packet",MAC_LAYER_PACKET);
-		setHeaderFields(ackPacket,N_ACK_POLICY,CONTROL,I_ACK);
+		setHeaderFields(ackPacket,N_ACK_POLICY,CONTROL, (sendIAckPoll ? I_ACK_POLL : I_ACK) );
 		ackPacket->setNID(medWinPkt->getNID());
 		ackPacket->setByteLength(MEDWIN_HEADER_SIZE);
+		if (sendIAckPoll) {
+			// we are sending a future poll at the 1st slot after all the scheduled access
+			ackPacket->setMoreData(1);
+			ackPacket->setSequenceNumber(futurePollsSlot);
+			sendIAckPoll = false;
+			trace() << "Future POLL at slot " << currentFirstFreeSlot <<" inserted in ACK packet";
+		}
 		// if we are unconnected (but the packet is for us since it was not filtered) we need to set a proper HID
 		if (connectedHID == UNCONNECTED) ackPacket->setHID(medWinPkt->getHID());
 		trace() << "transmitting ACK to/from NID:" << medWinPkt->getNID();
@@ -243,23 +370,18 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 		setTimer(START_ATTEMPT_TX, (TX_TIME(MEDWIN_HEADER_SIZE) + 2*pTIFS) );
 		futureAttemptToTX = true;
 	}
+	// if this was a data packet, we have done all our processing (+ sending a possible I-ACK or I-ACK-POLL)
+	if (medWinPkt->getFrameType() == DATA) return;
 
-	// Handle data packets
-	if (medWinPkt->getFrameType() == DATA) {
-		toNetworkLayer(decapsulatePacket(medWinPkt));
-		/* if this pkt requires a block ACK we should send it,
-		 * by looking what packet we have received */
-		// NOT IMPLEMENTED
-		if (medWinPkt->getAckPolicy() == B_ACK_POLICY){
-		}
-		return;
-	}
 
 	// Handle management and control packets
 	switch(medWinPkt->getFrameSubtype()) {
 		case BEACON: {
 			MedWinBeaconPacket * medWinBeacon = check_and_cast<MedWinBeaconPacket*>(medWinPkt);
 			simtime_t beaconTxTime = TX_TIME(medWinBeacon->getByteLength()) + pTIFS;
+
+			// store the time the frame starts. Needed for polls and posts, which only reference end allocation slot
+			frameStartTime = getClock() - beaconTxTime;
 
 			// get the allocation slot length, which is used in many calculations
 			allocationSlotLength = medWinBeacon->getAllocationSlotLength() / 1000.0;
@@ -323,23 +445,25 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 
 				// if we have a schedule that does not start after RAP, or our schedule
 				// is not assigned yet, then go to sleep after RAP.
-				if ((scheduledAccessStart == UNCONNECTED && RAP1Length < beaconPeriodLength)
-								|| (scheduledAccessStart > RAP1Length)) {
+				if ((scheduledTxAccessStart == UNCONNECTED && RAP1Length < beaconPeriodLength)
+								|| (scheduledTxAccessStart-1 > RAP1Length)) {
 					setTimer(START_SLEEPING, RAP1Length * allocationSlotLength - beaconTxTime);
 					trace() << "           --- start sleeping in: " << RAP1Length * allocationSlotLength - beaconTxTime << " secs";
 				}
-				// schedule the timer to go in scheduled access
-				if ((scheduledAccessStart != UNCONNECTED) && (scheduledAccessLength > 0)) {
-					setTimer(START_SCHEDULED_TX_ACCESS, scheduledAccessStart * allocationSlotLength - beaconTxTime + GUARD_TX_TIME);
-					trace() << "           --- start scheduled TX access in: " << scheduledAccessStart * allocationSlotLength - beaconTxTime + GUARD_TX_TIME << " secs";
+				// schedule the timer to go in scheduled TX access, IF we have a valid schedule
+				if ( scheduledTxAccessEnd > scheduledTxAccessStart) {
+					setTimer(START_SCHEDULED_TX_ACCESS, (scheduledTxAccessStart-1) * allocationSlotLength - beaconTxTime + GUARD_TX_TIME);
+					trace() << "           --- start scheduled TX access in: " << (scheduledTxAccessStart-1) * allocationSlotLength - beaconTxTime + GUARD_TX_TIME << " secs";
 				}
+				// we should also handle the case when we have a scheduled RX access. This is not implemented yet.
 			}
 			attemptTX();
 			break;
 		}
 
 		case I_ACK_POLL: {
-			// handle the polling part and not use 'break' to let it roll over to the ACK part
+			handlePoll(medWinPkt);
+			// roll over to the ACK part
 		}
 		case I_ACK: {
 			waitingForACK = false;
@@ -365,12 +489,14 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 			currentPacketCSFails = 0;
 			CW = CWmin[priority];
 
+			// we could handle future posts here (if packet not I_ACK_POLL and moreData > 0)
 			attemptTX();
 			break;
 		}
 
 		case B_ACK_POLL: {
-			// handle the polling part and not use 'break' to let it roll over to the ACK part
+			handlePoll(medWinPkt);
+			// roll over to the ACK part
 		}
 		case B_ACK: {
 			waitingForACK = false;
@@ -398,9 +524,9 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 					packetToBeSent->setNID(connectedNID);
 				}
 				// set the start and end times for the schedule
-				scheduledAccessStart = connAssignment->getUplinkRequestStart();
-				scheduledAccessEnd = connAssignment->getUplinkRequestEnd();
-				trace() << "connected as NID " << connectedNID << "  --start TX access at slot: " << scheduledAccessStart << ", end at slot: " << scheduledAccessEnd;
+				scheduledTxAccessStart = connAssignment->getUplinkRequestStart();
+				scheduledTxAccessEnd = connAssignment->getUplinkRequestEnd();
+				trace() << "connected as NID " << connectedNID << "  --start TX access at slot: " << scheduledTxAccessStart << ", end at slot: " << scheduledTxAccessEnd;
 			} // else we don't need to do anything - request is rejected
 			else trace() << "Connection Request REJECTED, status code: " << connAssignment->getStatusCode();
 
@@ -432,17 +558,19 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 			connAssignment->setRecipientAddress(connRequest->getSenderAddress());
 			connAssignment->setByteLength(MEDWIN_CONNECTION_ASSIGNMENT_SIZE);
 
-			if (connRequest->getUplinkRequest() > beaconPeriodLength - currentScheduleAssignmentStart) {
+			if (connRequest->getUplinkRequest() > beaconPeriodLength - (currentFirstFreeSlot-1)) {
 				connAssignment->setStatusCode(REJ_NO_RESOURCES);
 				// can not accomodate request
 			} else if (currentFreeConnectedNID > 239) {
 				connAssignment->setStatusCode(REJ_NO_NID);
 			} else {
 				connAssignment->setStatusCode(ACCEPTED);
+				connAssignment->setUplinkRequestStart(currentFirstFreeSlot);
+				connAssignment->setUplinkRequestEnd(currentFirstFreeSlot + connRequest->getUplinkRequest());
+				currentFirstFreeSlot += connRequest->getUplinkRequest();
+				// hub keeps track of its assignments
+				lastTxAccessSlot[currentFreeConnectedNID] = currentFirstFreeSlot -1;
 				currentFreeConnectedNID++;
-				connAssignment->setUplinkRequestStart(currentScheduleAssignmentStart);
-				connAssignment->setUplinkRequestEnd(currentScheduleAssignmentStart + connRequest->getUplinkRequest());
-				currentScheduleAssignmentStart += connRequest->getUplinkRequest();
 			}
 
 			MgmtBuffer.push(connAssignment);
@@ -456,20 +584,9 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 			// just read the time values from the payload, update relevant variables
 			// and roll over to handle the POLL part (no break)
 		case POLL: {
-			// check if this is an immediate (not future) poll
-			if (medWinPkt->getMoreData() == 0){
-				setTimer(START_SCHEDULED_TX_ACCESS, 0);
-				endTime = getClock() + pTIFS + medWinPkt->getSequenceNumber() * allocationSlotLength;
-			}
-			// else treat this as a POST: a post of the polling message coming in the future
-			else {
-				// seqNum holds the num of allocation slots in the future and fragNum the num of beacon periods in the future
-				double postTime = (medWinPkt->getSequenceNumber() + medWinPkt->getFragmentNumber()* beaconPeriodLength) * allocationSlotLength ;
-				setTimer(START_SCHEDULED_RX_ACCESS, postTime);
-			}
+			handlePoll(medWinPkt);
 			break;
 		}
-
 		case ASSOCIATION:
 		case DISASSOCIATION:
 		case PTK:
@@ -488,6 +605,7 @@ void MedWinMacModule::finishSpecific(){
 		cancelAndDelete(MgmtBuffer.front());
 		MgmtBuffer.pop();
     }
+    if (isHub) {delete[] reqToSendMoreData; delete[] lastTxAccessSlot;}
 }
 
 /* A function to filter incoming MedWin packets.
@@ -559,6 +677,16 @@ void MedWinMacModule::setHeaderFields(MedWinMacPacket * pkt, AcknowledgementPoli
 	pkt->setAckPolicy(ackPolicy);
 	pkt->setFrameType(frameType);
 	pkt->setFrameSubtype(frameSubtype);
+	pkt->setMoreData(0);
+	// if this is a data packet but NOT from the Hub then set its moreData flag
+	// Hub needs to handle its moreData flag (signaling posts) separately
+	if (frameType == DATA && !isHub){
+		if (TXBuffer.size()!=0 || MgmtBuffer.size()!=0){
+			// option to enhance MedWin by sending how many more pkts we have
+			if (enhanceMoreData) pkt->setMoreData(TXBuffer.size() + MgmtBuffer.size());
+			else pkt->setMoreData(1);
+		}
+	}
 }
 
 /* TX in RAP requires contending for the channel (a carrier sensing scheme)
@@ -579,15 +707,16 @@ void MedWinMacModule::attemptTxInRAP() {
  */
 void MedWinMacModule::attemptTX() {
 	// If we are not in an appropriate state, return
-	if (macState != MAC_RAP && macState != MAC_SCHEDULED_TX_ACCESS) return;
+	if (macState != MAC_RAP && macState != MAC_FREE_TX_ACCESS) return;
 	/* if we are currently attempting to TX or we have scheduled a future
 	 * attemp to TX, or waiting for an ack, return
 	 */
 	if (waitingForACK || attemptingToTX || futureAttemptToTX ) return;
 
-	if (packetToBeSent && currentPacketTransmissions + currentPacketCSFails < maxPacketRetries) {
+	if (packetToBeSent && currentPacketTransmissions + currentPacketCSFails < maxPacketTries) {
+		trace() << "old packet [" << packetToBeSent->getName() << "]";
 		if (macState == MAC_RAP) attemptTxInRAP();
-		if ((macState == MAC_SCHEDULED_TX_ACCESS) && (canFitTx())) sendPacket();
+		if ((macState == MAC_FREE_TX_ACCESS) && (canFitTx())) sendPacket();
 		return;
 	}
 	/* if there is still a packet in the buffer after max tries
@@ -595,10 +724,14 @@ void MedWinMacModule::attemptTX() {
 	 */
 	if (packetToBeSent) {
 		trace() << "Max TX attempts reached. Last attempt was a CS fail";
-		if (currentPacketCSFails == maxPacketRetries){
+		if (currentPacketCSFails == maxPacketTries){
 			if (packetToBeSent->getFrameType() == DATA)
 				collectOutput("Data pkt breakdown", "Failed, Channel busy");
 			else collectOutput("Mgmt & Ctrl pkt breakdown", "Failed, Channel busy");
+		} else {
+			if (packetToBeSent->getFrameType() == DATA)
+				collectOutput("Data pkt breakdown", "Failed, No Ack");
+			else collectOutput("Mgmt & Ctrl pkt breakdown", "Failed, No Ack");
 		}
 		cancelAndDelete(packetToBeSent);
 		packetToBeSent = NULL;
@@ -618,7 +751,7 @@ void MedWinMacModule::attemptTX() {
 	// if we found a packet in any of the buffers, try to TX it.
 	if (packetToBeSent){
 		if (macState == MAC_RAP) attemptTxInRAP();
-		if ((macState == MAC_SCHEDULED_TX_ACCESS) && (canFitTx())) sendPacket();
+		if ((macState == MAC_FREE_TX_ACCESS) && (canFitTx())) sendPacket();
 	}
 }
 
@@ -639,6 +772,13 @@ bool MedWinMacModule::canFitTx() {
 void MedWinMacModule::sendPacket() {
 	// we are starting to TX, so we are exiting the attemptTX (sub)state.
 	attemptingToTX = false;
+
+	// collect stats about the state we are TX this packet in
+	if (macState == MAC_RAP) collectOutput("pkt TX state breakdown", "RAP");
+	else {
+		if (isPollPeriod) collectOutput("pkt TX state breakdown", "Polled");
+		else collectOutput("pkt TX state breakdown", "Scheduled");
+	}
 
 	if (packetToBeSent->getAckPolicy() == I_ACK_POLICY || packetToBeSent->getAckPolicy() == B_ACK_POLICY) {
 		/* Need to wait for ACK. Here we explicitly take into account the clock drift, since the spec does
@@ -678,6 +818,78 @@ void MedWinMacModule::sendPacket() {
 	}
 }
 
+/* Implements the polling functionality needed to handle several
+ * control packets: Poll, T-Poll, I-ACK+Poll, B-ACK+Poll
+ */
+void MedWinMacModule::handlePoll(MedWinMacPacket *pkt) {
+	// check if this is an immediate (not future) poll
+	if (pkt->getMoreData() == 0){
+		macState = MAC_FREE_TX_ACCESS;
+		trace() << "State from "<< macState << " to MAC_FREE_TX_ACCESS (poll)";
+		isPollPeriod = true;
+		int endPolledAccessSlot = pkt->getSequenceNumber();
+		/* The end of the polled access time is given as the end of an allocation
+		 * slot. We have to know the start of the whole frame to calculate it.
+		 */
+		endTime = frameStartTime + endPolledAccessSlot * allocationSlotLength;
+		// reset the timer for sleeping as needed
+		if (endPolledAccessSlot != beaconPeriodLength &&
+		   (endPolledAccessSlot+1) != scheduledTxAccessStart && (endPolledAccessSlot+1) != scheduledRxAccessStart){
+			setTimer(START_SLEEPING, endTime - getClock());
+		}else cancelTimer(START_SLEEPING);
+
+		attemptTX();
+	}
+	// else treat this as a POST: a post of the polling message coming in the future
+	else {
+		// seqNum holds the allocation slot that the post will happen and fragNum the num of beacon periods in the future
+		int postedAccessStart = pkt->getSequenceNumber();
+		trace() << "Future Poll received, postSlot= "<< postedAccessStart <<" frameStart= " << frameStartTime ;
+		postedAccessEnd = postedAccessStart + 1; // all posts last one slot (but can be renewed)
+		simtime_t postTime = frameStartTime + (postedAccessStart-1 + pkt->getFragmentNumber()* beaconPeriodLength) * allocationSlotLength;
+		setTimer(START_POSTED_ACCESS, postTime - GUARD_TIME - getClock());
+		//trace() << "Future Poll received. postTime: " << postTime << "waking up in " << postTime - GUARD_TIME - getClock();
+	}
+}
+
+// handles posts (data packets, with moreData flag == 1)
+void MedWinMacModule::handlePost(MedWinMacPacket *pkt) {
+	if (isHub) {
+		if (pollingEnabled) handleMoreDataAtHub(pkt);
+		// can we make this a separate class HubDecisionLayer:: ?? do we need too many variables from MAC?
+		return;
+	}
+	// find the current slot, this is the starting slot of the post
+	int postedAccessStart = (int)ceil(SIMTIME_DBL(getClock() - frameStartTime)/allocationSlotLength);
+	// post lasts for the current slot. This can be problematic, since we might go to sleep
+	// while receiving. We need a post timeout.
+	postedAccessEnd = postedAccessStart + 1;
+	setTimer(START_POSTED_ACCESS, 0);
+}
+
+void MedWinMacModule::handleMoreDataAtHub(MedWinMacPacket *pkt) {
+	// decide if this the last packet that node NID can send, keep how much more data it has
+	int NID = pkt->getNID();
+	// int currentSlot = (int)ceil(SIMTIME_DBL(getClock() - frameStartTime)/allocationSlotLength);
+	//trace() << "flag moreData, current slot: "<< currentSlot<< ", lastTxAccessSlot: " << lastTxAccessSlot[NID];
+	/* If the packet we received is in the node's last TX access slot (scheduled or RAP) then send a POLL.
+	 * This means that we might send multiple polls (as we may receive multiple packets in the last slot
+	 * but this is fine since all will point to the same time. Note that a node can only support one future
+	 * poll (one timer for START_POSTED_ACCESS). Sending multiple polls (especially with I_ACK+POLL which
+	 * do not cost anything extra compared to I_ACK) is beneficial bacause it increases the probability
+	 * of the poll's reception. Also note that reqToSendMoreData[NID] will have the latest info (the info
+	 * carried by the last packet with moreData received.
+	 */
+	if (currentSlot == lastTxAccessSlot[NID]){
+		trace() << "Hub handles more Data ("<< pkt->getMoreData() <<")from NID: "<< NID <<" current slot: " << currentSlot;
+		reqToSendMoreData[NID] = pkt->getMoreData();
+		// if an ack is required for the packet the poll will be sent as an I_ACK_POLL
+		if (pkt->getAckPolicy() == I_ACK_POLICY) sendIAckPoll = true;
+		else { // create a POLL message and send it.
+			// Not implemeted here since currently all the data packets require I_ACK
+		}
+	}
+}
 /* Not currently implemented. In the future useful if we implement the beacon shift sequences
  */
 simtime_t MedWinMacModule::timeToNextBeacon(simtime_t interval, int index, int phase) {

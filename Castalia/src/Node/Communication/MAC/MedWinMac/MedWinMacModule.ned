@@ -20,17 +20,19 @@ simple MedWinMacModule like Node.Communication.MAC.MacGenericModule
 		int macPacketOverhead = default(7);			//in bytes, 7 bytes is the MedWin header size
 
 		bool isHub = default(false);
-		double allocationSlotLength = default(30);	//in msecs, defines how long is a slot
+		double allocationSlotLength = default(10);	//in msecs, defines how long is a slot
 
 		int beaconPeriodLength = default(32);		//in slots, defined for the Hub
 		int RAP1Length= default(8);					//in slots, defined for the Hub
 		int scheduledAccessLength = default(0);		//in slots, asked by the sensor, default: no scheduled access
 		int scheduledAccessPeriod = default(1);		//in beacon periods, asked by the sensor, default: 1-periodic
 		
-		int maxPacketRetries = default(2);
+		int maxPacketTries = default(2);
 		double contentionSlotLength = default(0.36);	//in msecs, mini-slots used in contention 
 		bool enhanceGuardTime = default(false);
-
+		bool enhanceMoreData = default(false);
+		bool pollingEnabled = default(false);
+		
 		// parameters related to the PHY layer. As the proposal suggests we define them independantly.
 		
 		double pTIFS = default(0.03);				//in msecs, time to start TXing a frame after you received one

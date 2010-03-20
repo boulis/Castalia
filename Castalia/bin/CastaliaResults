@@ -362,13 +362,17 @@ def printOutput(name,o):
 				#check each entry for the label, in alphabetical order
 				for bl in sorted_copy(data.keys()):
 					# count the current row
-					row += 1
+					if bl in tmp_table_headers:
+						current_row = tmp_table_headers[bl]
+					else:
+						row = len(tmp_table_headers.keys()) + 1
+						tmp_table_headers[bl] = current_row = row
 					
 					# here tmp_table is simply a list of all recorded values
 					tmp_table = []
 					
 					# add a row header
-					table[""][row] = bl
+					table[""][current_row] = bl
 					
 					# aggregate data across all nodes and indexes
 					for n in range(o.min_n,o.max_n+1):
@@ -379,12 +383,12 @@ def printOutput(name,o):
 					# if atleast one entry exists, record it into the final table
 					if len(tmp_table) > 0:
 						mean,ci = mean_ci(tmp_table,o.total(bl))
-						table[l][row] = str(mean)
+						table[l][current_row] = str(mean)
 						# record confidence intervals into a separate table
 						if ci and options.confidence:
-							table_ci[""][row] = bl
+							table_ci[""][current_row] = bl
 							if l not in table_ci: table_ci[l] = {}
-							table_ci[l][row] = str(ci)
+							table_ci[l][current_row] = str(ci)
 		
 		# here we complete the task of converting tmp_table from 'pernode=true' case
 		# to the resulting table to be printed
@@ -412,10 +416,9 @@ def printOutput(name,o):
 		
 		# convert absolute values to percentage (if -p option is set)
 		if options.percentage:
-			
 			# first, calculate the sum of each row
 			sum = {}
-			for i in range (1,row+1):
+			for i in range (1,len(tmp_table_headers)+1):
 				for l in table.keys():
 					if l == "": continue
 					if i in table[l]: 
@@ -423,7 +426,7 @@ def printOutput(name,o):
 						else: sum[i] = float(table[l][i])
 			
 			# divide each cell by the sum of the whole row
-			for i in range (1,row+1):
+			for i in range (1,len(tmp_table_headers)+1):
 				for l in table.keys():
 					if l == "": continue
 					if i in table[l]: 

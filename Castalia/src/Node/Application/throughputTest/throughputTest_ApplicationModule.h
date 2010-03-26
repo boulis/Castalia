@@ -28,6 +28,7 @@ class throughputTest_ApplicationModule : public VirtualApplicationModule {
     private:
 	double packet_rate;
 	string recipientAddress;
+	double startupDelay;
 
 	float packet_spacing;
 	map <int, packet_info> packet_info_table; // this table records the number of packets received by node 0 from each other node

@@ -32,6 +32,7 @@ simple MedWinMacModule like Node.Communication.MAC.MacGenericModule
 		bool enhanceGuardTime = default(false);
 		bool enhanceMoreData = default(false);
 		bool pollingEnabled = default(false);
+		bool naivePollingScheme = default(false);
 		
 		// parameters related to the PHY layer. As the proposal suggests we define them independantly.
 		

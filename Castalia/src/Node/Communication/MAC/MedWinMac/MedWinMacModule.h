@@ -29,7 +29,7 @@
 #define SLEEP2TX (isRadioSleeping ? pTimeSleepToTX : 0.0)
 
 #define MAC_SELF_ADDRESS self
-#define MGMT_BUFFER_SIZE 16  // hold maximum of 16 management pakcets
+#define MGMT_BUFFER_SIZE 16  // hold maximum of 16 management packets
 
 using namespace std;
 
@@ -67,6 +67,17 @@ struct TimerInfo {
 	int NID;
 	int slotsGiven;
 	int endSlot;
+};
+
+struct slotAssign_t {
+	int NID;
+	int startSlot;
+	int endSlot;
+};
+
+struct AccessSlot {
+	int scheduled;
+	int polled;
 };
 
 class MedWinMacModule : public VirtualMacModule {
@@ -119,6 +130,7 @@ class MedWinMacModule : public VirtualMacModule {
 	bool enhanceGuardTime;
 	bool enhanceMoreData;
 	bool pollingEnabled;
+	bool naivePollingScheme;
 	bool isRadioSleeping;
 	double pTimeSleepToTX;
 
@@ -132,15 +144,16 @@ class MedWinMacModule : public VirtualMacModule {
 	// these packets are treated like data packets, but with higher priority
 	queue <MedWinMacPacket *>MgmtBuffer;
 
-	// the rest of the variables are hub, specific. They get allocated/used only for the hub
+	// the rest of the variables are hub-specific. They get allocated/used only for the hub
 	int currentSlot;
 	bool sendIAckPoll;
 	int currentFirstFreeSlot;
 	int currentFreeConnectedNID;
-	int futurePollsSlot;
-	int *lastTxAccessSlot;
+	int nextFuturePollSlot;
+	AccessSlot *lastTxAccessSlot;
 	int *reqToSendMoreData;
 	queue <TimerInfo> hubPollTimers;
+	map <int, slotAssign_t> slotAssignmentMap;
 
 	protected:
 	void startup();

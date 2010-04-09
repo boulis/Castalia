@@ -1,13 +1,13 @@
-/********************************************************************************
- *  Copyright: National ICT Australia, 2009, 2010				*
- *  Developed at the Networked Systems theme, ATP lab				*
- *  Author(s): Athanassios Boulis, Yuriy Tselishchev				*
- *  This file is distributed under the terms in the attached LICENSE file.	*
- *  If you do not find this file, copies can be found by writing to:		*
- *										*
- *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia			*
- *      Attention:  License Inquiry.						*
- ********************************************************************************/
+/****************************************************************************
+ *  Copyright: National ICT Australia,  2009 - 2010                         *
+ *  Developed at the ATP lab, Networked Systems theme                       *
+ *  Author(s): Athanassios Boulis, Yuri Tselishchev                         *
+ *  This file is distributed under the terms in the attached LICENSE file.  *
+ *  If you do not find this file, copies can be found by writing to:        *
+ *                                                                          *
+ *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
+ *      Attention:  License Inquiry.                                        *
+ ****************************************************************************/
 
 
 #ifndef _RADIOMODULE_H_
@@ -34,110 +34,109 @@
 using namespace std;
 
 enum Modulation_type {
-    CUSTOM = 0,
-    IDEAL = 1,
-    FSK = 2,
-    PSK = 3,
-    DIFFBPSK = 4,
-    DIFFQPSK = 5
+	CUSTOM = 0,
+	IDEAL = 1,
+	FSK = 2,
+	PSK = 3,
+	DIFFBPSK = 4,
+	DIFFQPSK = 5
 };
 
 enum CollisionModel_type {
-    NO_INTERFERENCE_NO_COLLISIONS = 0,
-    SIMPLE_COLLISION_MODEL = 1,
-    ADDITIVE_INTERFERENCE_MODEL = 2,
-    COMPLEX_INTERFERENCE_MODEL = 3
+	NO_INTERFERENCE_NO_COLLISIONS = 0,
+	SIMPLE_COLLISION_MODEL = 1,
+	ADDITIVE_INTERFERENCE_MODEL = 2,
+	COMPLEX_INTERFERENCE_MODEL = 3
 };
 
 enum Encoding_type {
-    NRZ = 0,
-    CODE_4B5B = 1,
-    MANCHESTER = 2,
-    SECDEC = 3
+	NRZ = 0,
+	CODE_4B5B = 1,
+	MANCHESTER = 2,
+	SECDEC = 3
 };
 
 
 struct RXmode_type {
-    string name;
-    double datarate;
-    int bitsPerSymbol;
-    Modulation_type modulation;
-    double sensitivity;
-    double bandwidth;
-    double noiseBandwidth;
-    double noiseFloor;
-    double power;
+	string name;
+	double datarate;
+	int bitsPerSymbol;
+	Modulation_type modulation;
+	double sensitivity;
+	double bandwidth;
+	double noiseBandwidth;
+	double noiseFloor;
+	double power;
 };
 
 struct ReceivedSignal_type {
-    int ID;			// an ID to distinguish between signals, in single radio nodes the nodeID will suffice
-    double power_dBm;		// in dBm
-    Modulation_type modulation;
-    Encoding_type encoding;
-    double currentInterference;	//in dBm
-    double maxInterference;	//in dBm
-    int bitErrors; 		// number of bits with errors
+	int ID;			// an ID to distinguish between signals, in single radio nodes the nodeID will suffice
+	double power_dBm;		// in dBm
+	Modulation_type modulation;
+	Encoding_type encoding;
+	double currentInterference;	//in dBm
+	double maxInterference;	//in dBm
+	int bitErrors; 		// number of bits with errors
 };
 
 struct TotalPowerReceived_type {
-    double power_dBm;		// in dBm
-    simtime_t startTime;
+	double power_dBm;		// in dBm
+	simtime_t startTime;
 };
 
 struct TransitionElement {
-    double delay;		// in ms
-    double power;		// in mW
+	double delay;		// in ms
+	double power;		// in mW
 };
 
 struct SleepLevel_type {
-    string name;
-    double power;
-    TransitionElement transitionUp;
-    TransitionElement transitionDown;
+	string name;
+	double power;
+	TransitionElement transitionUp;
+	TransitionElement transitionDown;
 };
 
 struct TxLevel_type {
-    double txOutputPower;	// in dBm
-    double txPowerConsumed;	// in mW
+	double txOutputPower;	// in dBm
+	double txPowerConsumed;	// in mW
 };
 
 struct CustomModulationElement {
-    float SNR;
-    float BER;
+	float SNR;
+	float BER;
 };
 
 enum CCA_result {
-    CLEAR = 1,
-    BUSY = 0,
-    CS_NOT_VALID = 101,
-    CS_NOT_VALID_YET = 102,
+	CLEAR = 1,
+	BUSY = 0,
+	CS_NOT_VALID = 101,
+	CS_NOT_VALID_YET = 102,
 };
 
 // we define an internal stats collection structure to be more computationally efficient
 struct PktBreakdown {
-    int transmissions;
-    int RxReachedNoInterference;	// packets reached
-    int RxReachedInterference;  	// packets reached despite interference
-    int RxFailedNoInterference;		// packets failed even without interference
-    int RxFailedInterference;		// packets failed with interference
-    int RxFailedSensitivity;		// packets failed, below sensitivity
-    int RxFailedModulation; 		// packets failed, wrong modulation
-    int RxFailedNoRxState;		// packets failed, radio not in RX
-    int bufferOverflow;			// packets overflown
+	int transmissions;
+	int RxReachedNoInterference;	// packets reached
+	int RxReachedInterference;  	// packets reached despite interference
+	int RxFailedNoInterference;		// packets failed even without interference
+	int RxFailedInterference;		// packets failed with interference
+	int RxFailedSensitivity;		// packets failed, below sensitivity
+	int RxFailedModulation; 		// packets failed, wrong modulation
+	int RxFailedNoRxState;		// packets failed, radio not in RX
+	int bufferOverflow;			// packets overflown
 
 	/* initialize the struct (C++ syntax)*/
-    PktBreakdown() : transmissions(0), RxReachedNoInterference(0), RxReachedInterference(0),
+	PktBreakdown() : transmissions(0), RxReachedNoInterference(0), RxReachedInterference(0),
 	RxFailedNoInterference(0), RxFailedInterference(0), RxFailedSensitivity(0),
 	RxFailedModulation(0), RxFailedNoRxState(0), bufferOverflow(0) {}
 };
 
 class RadioModule : public VirtualCastaliaModule {
-    private:
-    // parameters and variables
+	private:
 
-	/*--- class member variables that are derived from module parameters
-	      (either in RadioParametersFile or .ini file ---*/
-
+	/* class member variables that are derived from module parameters
+	 * (either in RadioParametersFile or .ini file
+	 */
 	list <TxLevel_type> TxLevelList;
 	list <RXmode_type> RXmodeList;
 	list <SleepLevel_type> sleepLevelList;
@@ -162,7 +161,7 @@ class RadioModule : public VirtualCastaliaModule {
 	int PhyFrameOverhead;
 	int bufferSize;		//in kbytes
 
-	/*--- class member variables used internally ---*/
+	/* class member variables used internally */
 	int self;		// the node's ID. Can be considered as a full MAC address
 
 	queue <MacGenericPacket *> radioBuffer;
@@ -187,7 +186,7 @@ class RadioModule : public VirtualCastaliaModule {
 	// pointer to message that carries a future carrier sense interrupt
 	RadioControlMessage *CSinterruptMsg;
 	simtime_t latestCSinterruptTime;
-	
+
 	// pointer to self message to complete state transition
 	cMessage *stateTxCompleteMsg;
 

@@ -1,6 +1,48 @@
 #!/usr/bin/python
 import os, sys, commands, getopt, re
 from datetime import date, time, datetime
+from optparse import OptionParser
+
+#initialise important paths
+pathToBin = sys.path[0]
+pathToCastalia = os.path.abspath(pathToBin + "/../")
+pathToCastaliaBin = pathToCastalia + "/CastaliaBin";
+pathToExtract = pathToBin + "/extractOmnetppINI"
+
+if len(sys.argv) == 1:
+	has_header = 0
+	for file in os.listdir('./'):
+		if not os.path.isfile(file): continue
+		if not re.search(r"\.ini$",file): continue
+		lines = commands.getoutput(pathToExtract + " " + file).split("\n")
+		if len(lines) < 2: continue
+		has_general = 0;
+		list = []
+		for line in lines:
+			m = re.match(r"\[General\]", line)
+			if m: 
+				if not has_general: list.append("General")
+				has_general = 1
+				continue
+			m = re.match(r"^\[Config (\S+)\]$",line)
+			if m: list.append(m.group(1))
+		if has_general:
+			if not has_header:
+				has_header = 1
+				print "\nList of available input files and configurations:"
+			print "\n*   "+file
+			print "    "+",".join(list)
+	if not has_header:
+		print "\nNo castalia input files found in this directory\n"
+	else: print ""
+	quit()
+	
+parser = OptionParser(usage="usage: %prog [options]")
+parser.add_option("-c","--config", dest="config", type="string", help="A list of configuration names to use, comma separated configurations will be joined together, configurations listed in brackets will be interleaved")
+parser.add_option("-i","--input", dest="input", type="string", default="omnetpp.ini", metavar="FILE", help="Select input configuration file, default is omnetpp.ini")
+parser.add_option("-d","--debug", dest="debug", default=False, action="store_true", help="Debug mode, will display results from each CastaliaBin execution")
+parser.add_option("-r","--repeat", dest="repeat", type="int", metavar="N", default=1, help="Number of repetitions for each unique scenario")
+(options,args) = parser.parse_args()
 
 def generateConfig(dictionary,base,interleaved = []):
 	result = {}
@@ -46,31 +88,9 @@ def detectCPUs():
 			return ncpus
 	return 1 # Default
 
-#initialise important paths
-pathToBin = sys.path[0]
-pathToCastalia = os.path.abspath(pathToBin + "/../")
-pathToCastaliaBin = pathToCastalia + "/CastaliaBin";
-pathToExtract = pathToBin + "/extractOmnetppINI"
+ini = commands.getoutput(pathToExtract + " " + options.input).split("\n")
+if len(ini) < 2: quit("Unable to read configuration")
 
-opts, args = getopt.getopt(sys.argv[1:], "f:c:dr:", ["file=", "config=", "debug", "repeat="])
-file = ""
-config = "General"
-repeat = 1
-debug = 0
-for o, v in opts:
-	if o in ("-f", "--file"):
-		file = v;
-	elif o in ("-c", "--config"):
-		config = v;
-	elif o in ("-r", "--repeat"):
-		repeat = v;
-		if repeat < 1: repeat = 1
-	elif o in ("-d", "--debug"):
-		debug = 1
-	else:
-		quit("Unknown argument " + o);
-
-ini = commands.getoutput(pathToExtract + " " + file).split("\n")
 section = ""
 configDictionary = {}
 configIterations = {}
@@ -87,7 +107,7 @@ for line in ini:
 
 	k = re.split("\s=\s",line,1)
 	if (len(k) != 2):
-		quit("Unexpected line in configuration file:\n" +k)
+		quit("Unexpected line in configuration file:\n" + line)
 		
 	currentConfig = {}
 	if (configDictionary.has_key(section)):
@@ -100,6 +120,7 @@ for line in ini:
 
 baseConfigList = []
 interleavedConfigList = []
+config = options.config
 
 while (config != ""):
 	m = re.match(r"^([^\[]*[^,\[]),?(.*)$",config)
@@ -157,27 +178,37 @@ else:
 
 ini_num = 0
 fr = open(datetime.now().strftime("%y%m%d-%H%M%S")+".txt","w")
+fr.write("Castalia| what:" + options.config + "\n")
+fr.write("Castalia| when:" + datetime.now().strftime("%Y-%m-%d %H:%M") + "\n")
 for ini in iniList:
 	ini_num += 1
 	baselabel = label = labelList.pop(0)
 	print "Running configuration", str(ini_num) + "/" + str(len(iniList))
 	f = open("omnetpp.tmp","w")
 	f.write("[General]\n")
-	f.write("repeat = " + str(repeat) + "\n")
+	f.write("repeat = " + str(options.repeat) + "\n")
 	for k in sorted(ini.keys()):
 		f.write(k + " = " + ini[k] + "\n")
 	f.close();
-	result = commands.getoutput(pathToCastaliaBin + " -f omnetpp.tmp").split("\n")
-	for line in result:
-		if debug: print line
+	has_result = 0
+	result = commands.getoutput(pathToCastaliaBin + " -f omnetpp.tmp");
+	if options.debug: print result
+	raw_result = []
+	for line in result.split("\n"):
 		m = re.match("Scenario:\s(.*)\$repetition=\d+$",line)
 		if (m):
+			raw_result = []
+			has_result = 0
 			line = m.group(1).replace("$","").strip(" ,")
 			if len(line) > 0: label = baselabel + "," + line
 			fr.write("Castalia| label:"+label+"\n")
 			continue
-		if (re.match("^Castalia|\s+(.*)$",line)): 
+		if (re.match("^Castalia|\s+(.*)$",line)):
 			fr.write(line + "\n")
+			has_result = 1
+		else:
+			raw_result.append(line)
+	if not has_result: fr.write("\n".join(raw_result))
 
-commands.getoutput("rm omnetpp.tmp")
+if not options.debug: commands.getoutput("rm omnetpp.tmp")
 fr.close()

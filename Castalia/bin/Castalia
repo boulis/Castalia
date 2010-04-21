@@ -24,14 +24,14 @@ if len(sys.argv) == 1:
 				if not has_general: list.append("General")
 				has_general = 1
 				continue
-			m = re.match(r"^\[Config (\S+)\]$",line)
+			m = re.match(r"^\[Config (\S+)\]",line)
 			if m: list.append(m.group(1))
 		if has_general:
 			if not has_header:
 				has_header = 1
 				print "\nList of available input files and configurations:"
-			print "\n*   "+file
-			print "    "+",".join(list)
+			print "\n* "+file
+			print "\t"+"\n\t".join(list)
 	if not has_header:
 		print "\nNo castalia input files found in this directory\n"
 	else: print ""
@@ -51,17 +51,22 @@ def generateConfig(dictionary,base,interleaved = []):
 			quit("\nERROR: no such configuration, '" + c + "'\nAvaliable configurations: " + ", ".join(dictionary.keys()) + "\n")
 		config = dictionary[c]
 		for k in config.keys():
-			if result.has_key(k):
-				quit("\nERROR: duplicate parameter '" + k + "' in interleaved congigurations\n")
+			if result.has_key(k) and result[k] != config[k]:
+				quit("\nERROR: conflicting values for parameter '" + k + "' in interleaved congigurations: '"+ result[k] +"' and '"+ config[k] +"'\n")
 			result[k] = config[k]
 	
+	result2 = {}
 	for c in base:
 		if (c not in dictionary):
 			quit("\nERROR: no such configuration, '" + c + "'\nAvaliable configurations: " + ", ".join(dictionary.keys()) + "\n")
 		config = dictionary[c]
 		for k in config.keys():
-			if (k not in result):
-				result[k] = config[k]
+			if result2.has_key(k) and result2[k] != config[k]:
+				quit("\nERROR: conflicting values for parameter '" + k + "' in base congigurations: '"+ result2[k] +"' and '"+ config[k] +"'\n")
+			result2[k] = config[k]
+	
+	for k in result2.keys():
+		if k not in result: result[k] = result2[k]
 
 	if ("General" not in dictionary):
 		quit("ERROR: no [General] section found")

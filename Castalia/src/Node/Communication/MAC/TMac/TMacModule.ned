@@ -14,8 +14,8 @@ package Node.Communication.MAC.TMac;
 simple TMacModule like Node.Communication.MAC.MacGenericModule {
     parameters:
 	//debug parameters
-	bool collectTraceInfo = default(true);
-	bool printStateTransitions = default(true);
+	bool collectTraceInfo = default(false);
+	bool printStateTransitions = default(false);
 
 	//mac layer packet sizes, these parameters are described in TMacFrame.msg file
 	int ackPacketSize = default(11);
@@ -37,13 +37,13 @@ simple TMacModule like Node.Communication.MAC.MacGenericModule {
 	bool conservativeTA = default(true);		//conservative activation timeout - will always stay awake for 
 							//atleast 15 ms after any activity on the radio
 
-	double resyncTime = default(40);		// timer for re-sending SYNC msg, in seconds
+	double resyncTime = default(6);		// timer for re-sending SYNC msg, in seconds
 	double contentionPeriod = default(10);		// 10 ms
 	double listenTimeout = default(15);		// 15 ms, is the timeout TA (Activation event)
 	double waitTimeout = default(5);		// timeout for expecting a reply to DATA or RTS packet
 	double frameTime = default(610);		// frame time (standard = 610ms)
 
-	int collisionResolution = default(1);		// collision resolution mechanism, choose from 
+	int collisionResolution = default(0);		// collision resolution mechanism, choose from 
 							//	0 - immediate retry (low collision avoidance)
 							//	1 - based on overhearing (default)
 							//	2 - retry next frame (aggressive collision avoidance)

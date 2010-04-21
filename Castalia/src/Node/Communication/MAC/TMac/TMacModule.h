@@ -28,8 +28,6 @@ enum MacStates {
 
     MAC_CARRIER_SENSE_FOR_TX_RTS = 110,    //These states are used to distinguish whether we are trying to TX
     MAC_CARRIER_SENSE_FOR_TX_DATA = 111,   // Data OR Cts OR Rts OR Ack
-    MAC_CARRIER_SENSE_FOR_TX_CTS = 112,
-    MAC_CARRIER_SENSE_FOR_TX_ACK = 113,
     MAC_CARRIER_SENSE_FOR_TX_SYNC = 114,
     MAC_CARRIER_SENSE_BEFORE_SLEEP = 115,
 
@@ -130,6 +128,7 @@ class TMacModule : public VirtualMacModule
 	void setMacState(int newState, const char *descr = NULL);
 	void createPrimarySchedule();
 	void scheduleSyncPacket(simtime_t when);
+	void sendDataPacket();
 	void processMacPacket(TMacPacket *);
 	void carrierIsClear();
 	void carrierIsBusy();

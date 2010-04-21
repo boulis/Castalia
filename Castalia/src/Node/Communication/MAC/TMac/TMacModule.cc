@@ -47,8 +47,6 @@ void TMacModule::startup() {
         stateDescr[104] = "MAC_STATE_IN_TX";
         stateDescr[110] = "MAC_CARRIER_SENSE_FOR_TX_RTS";
         stateDescr[111] = "MAC_CARRIER_SENSE_FOR_TX_DATA";
-        stateDescr[112] = "MAC_CARRIER_SENSE_FOR_TX_CTS";
-        stateDescr[113] = "MAC_CARRIER_SENSE_FOR_TX_ACK";
         stateDescr[114] = "MAC_CARRIER_SENSE_FOR_TX_SYNC";
         stateDescr[115] = "MAC_CARRIER_SENSE_BEFORE_SLEEP";
         stateDescr[120] = "MAC_STATE_WAIT_FOR_DATA";
@@ -82,8 +80,8 @@ void TMacModule::startup() {
 
     declareOutput("Sent packets breakdown");
 
-    if (isSink && allowSinkSync) createPrimarySchedule();
-    else setTimer(SYNC_SETUP,allowSinkSync ? 2*frameTime : 0);
+    if (isSink && allowSinkSync) setTimer(SYNC_CREATE,0.1);
+    else setTimer(SYNC_SETUP,allowSinkSync ? 3*frameTime : 0.1);
     
     toRadioLayer(createRadioCommand(SET_CS_INTERRUPT_ON));
 }
@@ -199,14 +197,13 @@ void TMacModule::timerFiredCallback(int timer) {
 	    if(macState == MAC_STATE_ACTIVE_SILENT || macState == MAC_STATE_SLEEP) break;
 
 	    // At this stage MAC can only be in one of the states MAC_CARRIER_SENSE_...
-	    if(macState != MAC_CARRIER_SENSE_FOR_TX_RTS && macState != MAC_CARRIER_SENSE_FOR_TX_CTS &&
-		    macState != MAC_CARRIER_SENSE_FOR_TX_SYNC && macState != MAC_CARRIER_SENSE_FOR_TX_DATA &&
-		    macState != MAC_CARRIER_SENSE_FOR_TX_ACK && macState != MAC_CARRIER_SENSE_BEFORE_SLEEP) {
+	    if(macState != MAC_CARRIER_SENSE_FOR_TX_RTS && macState != MAC_CARRIER_SENSE_FOR_TX_SYNC && 
+	    	macState != MAC_CARRIER_SENSE_FOR_TX_DATA && macState != MAC_CARRIER_SENSE_BEFORE_SLEEP) {
 		trace() << "WARNING: bad MAC state for MAC_SELF_PERFORM_CARRIER_SENSE";
 		break;
 	    }
 	    
-	    switch (radioModule->isChannelClear()) {	    
+	    switch (radioModule->isChannelClear()) {
 	
 		case CLEAR: {
 		    carrierIsClear();
@@ -503,7 +500,20 @@ void TMacModule::fromRadioLayer(cPacket *pkt, double RSSI, double LQI) {
 	    ctsPacket->setDestination(source);
 	    ctsPacket->setNav(nav - TX_TIME(ctsPacketSize));
 	    ctsPacket->setByteLength(ctsPacketSize);
-	    performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_CTS);
+	
+		// Send CTS packet to radio
+		toRadioLayer(ctsPacket);
+		toRadioLayer(createRadioCommand(SET_STATE,TX));
+		
+		packetsSent["CTS"]++;
+		collectOutput("Sent packets breakdown","CTS");
+		ctsPacket = NULL;
+
+		// update MAC state
+		setMacState(MAC_STATE_WAIT_FOR_DATA,"sent CTS packet");
+
+		// create a timeout for expecting a DATA packet reply
+		setTimer(TRANSMISSION_TIMEOUT,TX_TIME(ctsPacketSize) + waitTimeout);
 	    break;
 	}
 
@@ -515,7 +525,7 @@ void TMacModule::fromRadioLayer(cPacket *pkt, double RSSI, double LQI) {
 		    resetDefaultState("invalid state while buffer is empty");
 		} else if(source == txAddr) {
 		    cancelTimer(TRANSMISSION_TIMEOUT);
-		    performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_DATA);
+		    sendDataPacket();
 		} else {
 		    trace() << "WARNING: recieved unexpected CTS from " << source;
 		    resetDefaultState("unexpected CTS");
@@ -543,7 +553,22 @@ void TMacModule::fromRadioLayer(cPacket *pkt, double RSSI, double LQI) {
 	    ackPacket->setType(ACK_TMAC_PACKET);
 	    ackPacket->setByteLength(ackPacketSize);
 	    ackPacket->setSequenceNumber(macPkt->getSequenceNumber());
-	    performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_ACK);
+	
+		// Send ACK packet to the radio
+		toRadioLayer(ackPacket);
+		toRadioLayer(createRadioCommand(SET_STATE,TX));
+		
+		packetsSent["ACK"]++;
+		collectOutput("Sent packets breakdown","ACK");
+		ackPacket = NULL;
+
+		// update MAC state
+		setMacState(MAC_STATE_IN_TX,"transmitting ACK packet");
+
+		// create a timeout for this transmission - nothing is expected in reply
+		// so MAC is only waiting for the RADIO to finish the packet transmission
+		setTimer(TRANSMISSION_TIMEOUT,TX_TIME(ackPacketSize));
+		extendActivePeriod(TX_TIME(ackPacketSize));
 	    break;
 	}
 
@@ -582,7 +607,6 @@ void TMacModule::carrierIsBusy() {
     if (!disableTAextension) extendActivePeriod();
     if (collisionResolution == 0) {
 	if (macState == MAC_CARRIER_SENSE_FOR_TX_RTS || macState == MAC_CARRIER_SENSE_FOR_TX_DATA ||
-	    macState == MAC_CARRIER_SENSE_FOR_TX_CTS || macState == MAC_CARRIER_SENSE_FOR_TX_ACK ||
 	    macState == MAC_CARRIER_SENSE_FOR_TX_SYNC || macState == MAC_CARRIER_SENSE_BEFORE_SLEEP) {
 		resetDefaultState("sensed carrier");
 	}
@@ -662,96 +686,9 @@ void TMacModule::carrierIsClear() {
 	    break;
 	}
 
-	/* MAC requested carrier sense to transmit a CTS packet */
-	case MAC_CARRIER_SENSE_FOR_TX_CTS: {
-	    // CTS packet was created when RTS was received
-	    if (ctsPacket != NULL) {
-		// Send CTS packet to radio
-		toRadioLayer(ctsPacket);
-		toRadioLayer(createRadioCommand(SET_STATE,TX));
-				
-		packetsSent["CTS"]++;
-		collectOutput("Sent packets breakdown","CTS");
-		ctsPacket = NULL;
-
-		// update MAC state
-		setMacState(MAC_STATE_WAIT_FOR_DATA,"sent CTS packet");
-
-		// create a timeout for expecting a DATA packet reply
-		setTimer(TRANSMISSION_TIMEOUT,TX_TIME(ctsPacketSize) + waitTimeout);
-
-	    } else {
-		trace() << "WARNING: Invalid MAC_CARRIER_SENSE_FOR_TX_CTS while ctsPacket undefined";
-		resetDefaultState("invalid state, no CTS packet found");
-	    }
-	    break;
-	}
-
 	/* MAC requested carrier sense to transmit DATA packet */
 	case MAC_CARRIER_SENSE_FOR_TX_DATA: {
-	    if (TXBuffer.empty()) {
-		trace() << "WARNING: Invalid MAC_CARRIER_SENSE_FOR_TX_DATA while TX buffer is empty";
-		resetDefaultState("empty transmission buffer");
-		break;
-	    }
-
-
-	    // create a copy of first message in the TX buffer and send it to the radio
-	    toRadioLayer(TXBuffer.front()->dup());
-	    packetsSent["DATA"]++;
-	    collectOutput("Sent packets breakdown","DATA");
-
-	    //update MAC state based on transmission time and destination address
-	    double txTime = TX_TIME(TXBuffer.front()->getByteLength());
-
-	    if (txAddr == BROADCAST_MAC_ADDRESS) {
-		// This packet is broadcast, so no reply will be received
-		// The packet can be cleared from transmission buffer
-		// and MAC timeout is only to allow RADIO to finish the transmission
-		popTxBuffer();
-		setMacState(MAC_STATE_IN_TX,"sent DATA packet to BROADCAST address");
-		setTimer(TRANSMISSION_TIMEOUT,txTime);
-	    } else {
-		// This packet is unicast, so MAC will be expecting an ACK
-		// packet in reply, so the timeout is longer
-		// If we are not using RTS/CTS exchange, then this attempt
-		// also decreases the txRetries counter 
-		// (NOTE: with RTS/CTS exchange sending RTS packet decrements counter)
-		if (!useRtsCts) txRetries--;
-	        setMacState(MAC_STATE_WAIT_FOR_ACK,"sent DATA packet to UNICAST address");
-	        setTimer(TRANSMISSION_TIMEOUT,txTime + waitTimeout);
-	    }
-
-	    extendActivePeriod(txTime);
-
-	    //update RADIO state
-	    toRadioLayer(createRadioCommand(SET_STATE,TX));
-	    break;
-	}
-
-	/* MAC requested carrier sense to transmit ACK packet */
-	case MAC_CARRIER_SENSE_FOR_TX_ACK: {
-	    // ACK packet was created when MAC received a DATA packet.
-	    if(ackPacket != NULL) {
-		// Send ACK packet to the radio
-		toRadioLayer(ackPacket);
-		toRadioLayer(createRadioCommand(SET_STATE,TX));
-				
-		packetsSent["ACK"]++;
-		collectOutput("Sent packets breakdown","ACK");
-		ackPacket = NULL;
-
-		// update MAC state
-		setMacState(MAC_STATE_IN_TX,"transmitting ACK packet");
-
-		// create a timeout for this transmission - nothing is expected in reply
-		// so MAC is only waiting for the RADIO to finish the packet transmission
-		setTimer(TRANSMISSION_TIMEOUT,TX_TIME(ackPacketSize));
-		extendActivePeriod(TX_TIME(ackPacketSize));
-	    } else {
-		trace() << "WARNING: Invalid MAC_STATE_WAIT_FOR_ACK while ackPacket undefined";
-		resetDefaultState("invalid state, no ACK packet found");
-	    }
+		sendDataPacket();
 	    break;
 	}
 
@@ -767,6 +704,44 @@ void TMacModule::carrierIsClear() {
 	    break;
 	}
     }
+}
+
+void TMacModule::sendDataPacket() {
+	if (TXBuffer.empty()) {
+		trace() << "WARNING: Invalid MAC_CARRIER_SENSE_FOR_TX_DATA while TX buffer is empty";
+		resetDefaultState("empty transmission buffer");
+		return;
+	}
+	
+	// create a copy of first message in the TX buffer and send it to the radio
+	toRadioLayer(TXBuffer.front()->dup());
+	packetsSent["DATA"]++;
+	collectOutput("Sent packets breakdown","DATA");
+
+	//update MAC state based on transmission time and destination address
+	double txTime = TX_TIME(TXBuffer.front()->getByteLength());
+
+	if (txAddr == BROADCAST_MAC_ADDRESS) {
+		// This packet is broadcast, so no reply will be received
+		// The packet can be cleared from transmission buffer
+		// and MAC timeout is only to allow RADIO to finish the transmission
+		popTxBuffer();
+		setMacState(MAC_STATE_IN_TX,"sent DATA packet to BROADCAST address");
+		setTimer(TRANSMISSION_TIMEOUT,txTime);
+	} else {
+		// This packet is unicast, so MAC will be expecting an ACK
+		// packet in reply, so the timeout is longer
+		// If we are not using RTS/CTS exchange, then this attempt
+		// also decreases the txRetries counter 
+		// (NOTE: with RTS/CTS exchange sending RTS packet decrements counter)
+		if (!useRtsCts) txRetries--;
+		setMacState(MAC_STATE_WAIT_FOR_ACK,"sent DATA packet to UNICAST address");
+		setTimer(TRANSMISSION_TIMEOUT,txTime + waitTimeout);
+	}
+	extendActivePeriod(txTime);
+	
+	//update RADIO state
+	toRadioLayer(createRadioCommand(SET_STATE,TX));
 }
 
 /* This function will set a timer to perform carrier sense.

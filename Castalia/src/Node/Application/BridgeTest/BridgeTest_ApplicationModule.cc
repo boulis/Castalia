@@ -30,7 +30,7 @@ void BridgeTest_ApplicationModule::startup() {
     outOfEnergy = 0;
     currentSampleAccumulated = 0;
 
-    maxPayload = (int)par("maxAppPacketSize")-(int)par("packetHeaderOverhead");
+    maxPayload = par("maxPayloadPacketSize");
     div_t tmp_div = div(reprogramPayload,maxPayload);
     totalVersionPackets = tmp_div.rem > 0 ? tmp_div.quot + 1 : tmp_div.quot;
     tmp_div = div(maxPayload,sampleSize);

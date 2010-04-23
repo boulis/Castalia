@@ -3,6 +3,3 @@
 chmod u+x ./makemake
 chmod u+x Tests/runTests
 chmod u+x bin/extractOmnetppINI
-
-chmod u+x Simulations/BridgeTest/bridgeTestRun
-chmod u+x Simulations/simpleAggregation/runTest.sh

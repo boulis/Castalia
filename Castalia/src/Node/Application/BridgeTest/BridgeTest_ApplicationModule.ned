@@ -29,7 +29,7 @@ simple BridgeTest_ApplicationModule like Node.Application.ApplicationGenericModu
         bool isSink = default(false);
 
 //      bool broadcastReports = default(false);
-	string reportDestination = default("SINK");	//this can also be set to "-1" for broadcast
+	string reportDestination = default("0");	//this can also be set to "-1" for broadcast
 							// or to a specific node's address (e.g "0")
 
         double reportTreshold = default(10);
@@ -38,6 +38,7 @@ simple BridgeTest_ApplicationModule like Node.Application.ApplicationGenericModu
         int reprogramInterval = default(86400); 	// in seconds
         int reprogramPacketDelay = default(500); 	// in ms
         int reprogramPayload = default(5120);		// in bytes
+        int maxPayloadPacketSize = default(128);	// in bytes
 
 
     gates:

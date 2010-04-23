@@ -40,7 +40,7 @@ void BridgeTest_ApplicationModule::startup() {
     report_info_table.clear();
     
     if (isSink) {
-	setTimer(REPROGRAM_NODES,10); //add initial delay parameter
+	setTimer(REPROGRAM_NODES,1); //add initial delay parameter
     } else {
 	setTimer(REQUEST_SAMPLE,sampleInterval);
     }
@@ -66,6 +66,7 @@ void BridgeTest_ApplicationModule::timerFiredCallback(int timer) {
 	case SEND_REPROGRAM_PACKET: {
 	    ApplicationGenericDataPacket *newPkt = createGenericDataPacket(currentVersion,currentVersionPacket,maxPayload);
 	    newPkt->setName(REPROGRAM_PACKET_NAME);
+	    trace() << "Sending reprogram packet, version " << currentVersion << ", sequence " << currentVersionPacket;
 	    toNetworkLayer(newPkt,BROADCAST_NETWORK_ADDRESS);
 	    currentVersionPacket++;
 	    if (currentVersionPacket < totalVersionPackets) setTimer(SEND_REPROGRAM_PACKET,reprogramPacketDelay);

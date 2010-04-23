@@ -36,7 +36,7 @@ simple BypassRoutingModule like Node.Communication.Network.NetworkGenericModule
 {
     parameters:
         bool collectTraceInfo = default(false);
-        int maxNetFrameSize = default(84);	// bytes
+        int maxNetFrameSize = default(0);	// bytes
         int netDataFrameOverhead = default(10);	// bytes
         int netBufferSize = default(32);	// number of messages
 

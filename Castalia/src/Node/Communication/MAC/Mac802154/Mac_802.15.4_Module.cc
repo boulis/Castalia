@@ -229,14 +229,9 @@ void Mac802154Module::timerFiredCallback(int index) {
  * be done separately for each transmission attempt
  */
 void Mac802154Module::fromNetworkLayer(cPacket *pkt, int dstMacAddress) {
-    //debug start
-    stringstream out;
-    out << "MAC data packet " << simTime();
-    //debug end
-           
-    Mac802154Packet *macPacket = new Mac802154Packet(out.str().c_str(),MAC_LAYER_PACKET); //"802.15.4 MAC data packet", MAC_LAYER_PACKET);
+    Mac802154Packet *macPacket = new Mac802154Packet("802.15.4 MAC data packet", MAC_LAYER_PACKET);
     macPacket->setSrcID(SELF_MAC_ADDRESS);	//if we are connected, we would have short MAC address assigned, 
-						//but we are not using short addresses in this model
+											//but we are not using short addresses in this model
     macPacket->setDstID(dstMacAddress);
     macPacket->setMac802154PacketType(MAC_802154_DATA_PACKET);
     encapsulatePacket(macPacket,pkt);
@@ -470,26 +465,27 @@ void Mac802154Module::fromRadioLayer(cPacket * pkt, double rssi, double lqi) {
 	    for (int i = 0; i < (int)GTSlist.size(); i++) {
 	        if (GTSlist[i].owner == rcvPacket->getSrcID()) {
 	    	    if (GTSlist[i].length == rcvPacket->getGTSlength()) {
-	    		ackPacket->setGTSlength(GTSlist[i].length);
+	    			ackPacket->setGTSlength(GTSlist[i].length);
 	    	    } else {
-	    		CAPlength += GTSlist[i].length;
-	    		GTSlist[i].length = 0;
-	    		index = i;
+	    	    	CAPlength += GTSlist[i].length;
+	    			GTSlist[i].length = 0;
+	    			index = i;
 	    	    }
 	        }
 	    }
 	
 	    if (ackPacket->getGTSlength() == 0) {
-		if ((CAPlength - rcvPacket->getGTSlength()) * baseSlotDuration * ( 1 << frameOrder) < minCAPLength) {
-		    trace() << "GTS request from " << rcvPacket->getSrcID() << " cannot be acocmodated";
-		} else if (index != -1) {
-		    GTSlist[index].length = ackPacket->getGTSlength();
-		} else {
-		    GTSspec newGTSspec;
-		    newGTSspec.length = ackPacket->getGTSlength();
-		    newGTSspec.owner = ackPacket->getSrcID();
-		    GTSlist.push_back(newGTSspec);
-		}
+			if ((CAPlength - rcvPacket->getGTSlength()) * baseSlotDuration * ( 1 << frameOrder) < minCAPLength) {
+			    trace() << "GTS request from " << rcvPacket->getSrcID() << " cannot be acocmodated";
+			} else if (index != -1) {
+			    GTSlist[index].length = rcvPacket->getGTSlength();
+			    ackPacket->setGTSlength(GTSlist[index].length);
+			} else {
+			    GTSspec newGTSspec;
+		    	newGTSspec.length = rcvPacket->getGTSlength();
+			    newGTSspec.owner = rcvPacket->getSrcID();
+			    GTSlist.push_back(newGTSspec);
+			}
 	    }
 	
 	    toRadioLayer(ackPacket);

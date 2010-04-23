@@ -287,7 +287,6 @@ def mean_ci(list,amt=None):
 # this function will print a list of all modules that were added to the 'modules' 
 # dictionary. For each module a list of outputs is displayed, and for each output - it's dimensions
 def printModules():
-	print ""
 	table = Table(1,"")		# first argument(1) will enforce visual format output
 							# second argument("") will replace missing cells with empty string
 	
@@ -479,7 +478,7 @@ def printOutputs(pattern):
 # read data from inputfile
 def readFile(file):
 	if not os.path.exists(options.input) or not os.path.isfile(options.input):
-		print("Warning: no such file " + file)
+		print("WARNING: no such file " + file)
 		return
 	f = open(options.input,"r")
 	lines = f.readlines()
@@ -595,17 +594,19 @@ def findFiles():
 				table.addCell(file,"Date",when)
 				row += 1
 	if row > 1:
-		print "\nCastalia output files in current directory:"
+		print "Castalia output files in current directory:"
 		table.printTable()
 		print ""
-	else: print "\nNo castalia output files found in current directory\n"
+	else: print "No castalia output files found in current directory\n"
 
+print ""
 # if input is specified, read and display it, otherwise search for files
 if (options.input):
 	files = options.input.split(",")
 	for file in files: readFile(file)
 	# if filter is specified, print outputs
 	# otherwise print the list of avaliable outputs to choose from
+	if len(modules.keys()) == 0: quit("ERROR: nothing to display\n")
 	if (options.filter): printOutputs(options.filter)
 	else: printModules()
 else:

@@ -169,7 +169,6 @@ if len(interleavedConfigList) > 0:
 			else:
 				interleavedIndex[increment] = 0
 				increment += 1
-	quit(tmpList)
 	for i in range(0,len(tmpList)):
 		iniList.append(generateConfig(configDictionary,baseConfigList,tmpList[i]))
 		tmpList2 = []

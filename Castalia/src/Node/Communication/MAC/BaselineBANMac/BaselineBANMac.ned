@@ -9,15 +9,15 @@
 //*      Attention:  License Inquiry.
 //***************************************************************************/
 
-package Node.Communication.MAC.MedWinMac;
+package Node.Communication.MAC.BaselineBANMac;
 
-simple MedWinMacModule like Node.Communication.MAC.MacGenericModule
+simple BaselineBANMac like Node.Communication.MAC.MacGenericModule
 {
 	parameters:
 		bool collectTraceInfo = default(false);
 		int macMaxPacketSize = default(1000);
 		int macBufferSize = default(32);
-		int macPacketOverhead = default(7);			//in bytes, 7 bytes is the MedWin header size
+		int macPacketOverhead = default(7);			//in bytes, 7 bytes is the BaselineBAN header size
 
 		bool isHub = default(false);
 		double allocationSlotLength = default(10);	//in msecs, defines how long is a slot

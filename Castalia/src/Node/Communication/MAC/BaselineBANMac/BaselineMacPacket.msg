@@ -13,10 +13,10 @@
 cplusplus {{
 #include "MacGenericPacket_m.h"
 
-#define MEDWIN_HEADER_SIZE 7
-#define MEDWIN_BEACON_SIZE 17 + 7
-#define MEDWIN_CONNECTION_REQUEST_SIZE 28 + 7
-#define MEDWIN_CONNECTION_ASSIGNMENT_SIZE 29 + 7
+#define BASELINEBAN_HEADER_SIZE 7
+#define BASELINEBAN_BEACON_SIZE 17 + 7
+#define BASELINEBAN_CONNECTION_REQUEST_SIZE 28 + 7
+#define BASELINEBAN_CONNECTION_ASSIGNMENT_SIZE 29 + 7
 
 #define BROADCAST_NID 255
 #define UNCONNECTED_BROADCAST_NID 0
@@ -74,43 +74,43 @@ enum statusCode_type {
     MODIFIED = 7;
 }
 
-packet MedWinMacPacket extends MacGenericPacket {
+packet BaselineMacPacket extends MacGenericPacket {
     //MAC Header fields
-    int HID;						//2 bytes, 2 last bytes of full MAC address
-    int NID;						//1 byte, short MAC address
+    int HID;										//2 bytes, 2 last bytes of full MAC address
+    int NID;										//1 byte, short MAC address
     //MAC header control fields
-    int protocolVersion;				//2 bits	
+    int protocolVersion;							//2 bits
     int securityLevel enum(SecurityLevel_type);		//2 bits
-    int TKindex;					//1 bit
-    int retry;						//1 bit
+    int TKindex;									//1 bit
+    int retry;										//1 bit
     int ackPolicy enum(AcknowledgementPolicy_type);	//2 bits	total: 1 byte
-    int frameType enum(Frame_type);			//2 bits
-    int frameSubtype enum(Frame_subtype);		//2 bits
-    int moreData;					//1 bit
-    int firstFrame;					//1 bit		total: 2 bytes
-    int sequenceNumber;					//1 byte
-    int fragmentNumber; 				//3 bits
-    //reserved 5 bits							total: 4 bytes
-							//		total header: 7 bytes
+    int frameType enum(Frame_type);					//2 bits
+    int frameSubtype enum(Frame_subtype);			//2 bits
+    int moreData;									//1 bit
+    int firstFrame;									//1 bit		total: 2 bytes
+    int sequenceNumber;								//1 byte
+    int fragmentNumber; 							//3 bits
+    //reserved 5 bits											total: 4 bytes
+													//			total header: 7 bytes
 }
 
 // We define all different packet types that carry extra information on their 
-// packet body, as separate packets. All derived from MedWinPacket.
+// packet body, as separate packets. All derived from BaselinePacket.
 
-packet MedWinBeaconPacket extends MedWinMacPacket {
+packet BaselineBeaconPacket extends BaselineMacPacket {
     //Beacon payload fields
-    int senderAddress;					//6 bytes
+    int senderAddress;							//6 bytes
     int beaconShiftingSequenceIndex; 			//1 byte
     int beaconShiftingSequencePhase;			
-    int beaconPeriodLength;				//1 byte
-    int allocationSlotLength;				//1 byte
-    int RAP1Length;					//1 byte
-    int RAP2Length;					//1 byte
+    int beaconPeriodLength;						//1 byte
+    int allocationSlotLength;					//1 byte
+    int RAP1Length;								//1 byte
+    int RAP2Length;								//1 byte
     // 6 more bytes for capabilites and channel hopping state
-							//		total: 17 bytes + 7 bytes in header
+												//		total: 17 bytes + 7 bytes in header
 }
 
-packet MedWinConnectionRequestPacket extends MedWinMacPacket {
+packet BaselineConnectionRequestPacket extends BaselineMacPacket {
     int recipientAddress;						//6 bytes
     int senderAddress;							//6 bytes
     int formerHubAddress;						//6 bytes
@@ -125,7 +125,7 @@ packet MedWinConnectionRequestPacket extends MedWinMacPacket {
 												//    		total: 28 bytes + 7 bytes in header
 }
 
-packet MedWinConnectionAssignmentPacket extends MedWinMacPacket {
+packet BaselineConnectionAssignmentPacket extends BaselineMacPacket {
     int recipientAddress;                       //6 bytes
     int senderAddress;                          //6 bytes
     int channelDwellLength;						//1 byte
@@ -133,7 +133,7 @@ packet MedWinConnectionAssignmentPacket extends MedWinMacPacket {
     int minRAPlength;							//1 byte
     int statusCode enum(statusCode_type);		//1 byte
     //4 bytes for capabilities and security
-    int assignedNID;									//1 byte
+    int assignedNID;							//1 byte
     int changeIndication;                       //1 byte
     int nextWakeup;								//1 byte
     int wakeupinterval;							//1 byte
@@ -142,25 +142,25 @@ packet MedWinConnectionAssignmentPacket extends MedWinMacPacket {
     int uplinkRequestEnd;						//7 bytes length, here we will simplify them
     int downlinkRequestStart;					//by saying that this particular number of slots assigned
     int downlinkRequestEnd;
-    int bilinkRequestStart;						
+    int bilinkRequestStart;
     int bilinkRequestEnd;
 												//		total: 29 bytes + 7 bytes in header
 }
 
-packet MedWinBAckPacket extends MedWinMacPacket {
+packet BaselineBAckPacket extends BaselineMacPacket {
     int nextBlockSize;							//1 byte
     int oldestFrameExpected;					//1 byte
     int frameStatusBitmap;						//1 byte
 												//		total: 3 bytes + 7 bytes in header
 }
 
-packet MedWinTPollPacket extends MedWinMacPacket {
+packet BaselineTPollPacket extends BaselineMacPacket {
     int currentBeaconPeriod;				//1 byte
     int currentAllocationSlot;				//1 byte
-    int currentSlotOffset;				//2 byte
+    int currentSlotOffset;					//2 byte
     //the next two fields present only if NIC == UnconnectedBroadcast
-    int beaconPeriodLength;				//1 byte
+    int beaconPeriodLength;					//1 byte
     int allocationSlotLength;				//1 byte
-							//if connected,	total: 4 bytes + 7 bytes in header
-							//unconnected, 	total: 6 bytes + 7 bytes in header
+											//if connected,	total: 4 bytes + 7 bytes in header
+											//unconnected, 	total: 6 bytes + 7 bytes in header
 }

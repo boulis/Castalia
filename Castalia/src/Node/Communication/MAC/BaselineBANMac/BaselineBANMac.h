@@ -9,11 +9,11 @@
  *      Attention:  License Inquiry.											*
  ********************************************************************************/
 
-#ifndef MEDWIN_MAC_MODULE_H
-#define MEDWIN_MAC_MODULE_H
+#ifndef BaselineBAN_MAC_MODULE_H
+#define BaselineBAN_MAC_MODULE_H
 
 #include "VirtualMacModule.h"
-#include "MedWinMacPacket_m.h"
+#include "BaselineMacPacket_m.h"
 
 #define TX_TIME(x) (phyLayerOverhead + x)*1/(1000*phyDataRate/8.0) //x are in BYTES
 #define UNCONNECTED -1
@@ -80,7 +80,7 @@ struct AccessSlot {
 	int polled;
 };
 
-class MedWinMacModule : public VirtualMacModule {
+class BaselineBANMac : public VirtualMacModule {
 	private:
 	bool isHub;
 	int connectedHID;
@@ -121,7 +121,7 @@ class MedWinMacModule : public VirtualMacModule {
 	bool pastSyncIntervalNominal;
 	simtime_t syncIntervalAdditionalStart;
 
-	MedWinMacPacket *packetToBeSent;
+	BaselineMacPacket *packetToBeSent;
 	simtime_t endTime; // the time when our right to TX ends. Covers RAP, scheduled and polled access
 	simtime_t frameStartTime; // time the frame starts (when we receive the beacon - beacon TX time)
 
@@ -142,7 +142,7 @@ class MedWinMacModule : public VirtualMacModule {
 
 	// a buffer to store Management packets that require ack and possible reTX
 	// these packets are treated like data packets, but with higher priority
-	queue <MedWinMacPacket *>MgmtBuffer;
+	queue <BaselineMacPacket *>MgmtBuffer;
 
 	// the rest of the variables are hub-specific. They get allocated/used only for the hub
 	int currentSlot;
@@ -161,17 +161,17 @@ class MedWinMacModule : public VirtualMacModule {
 	void fromNetworkLayer(cPacket*, int);
 	void fromRadioLayer(cPacket*,double,double);
 	void finishSpecific();
-	bool isPacketForMe(MedWinMacPacket *pkt);
+	bool isPacketForMe(BaselineMacPacket *pkt);
 	simtime_t extraGuardTime();
-	void setHeaderFields(MedWinMacPacket *pkt, AcknowledgementPolicy_type ackPolicy, Frame_type frameType, Frame_subtype frameSubtype);
+	void setHeaderFields(BaselineMacPacket *pkt, AcknowledgementPolicy_type ackPolicy, Frame_type frameType, Frame_subtype frameSubtype);
 	void attemptTxInRAP();
 	void attemptTX();
 	bool canFitTx();
 	void sendPacket();
-	void handlePoll(MedWinMacPacket *pkt);
-	void handlePost(MedWinMacPacket *pkt);
-	void handleMoreDataAtHub(MedWinMacPacket *pkt);
+	void handlePoll(BaselineMacPacket *pkt);
+	void handlePost(BaselineMacPacket *pkt);
+	void handleMoreDataAtHub(BaselineMacPacket *pkt);
 	simtime_t timeToNextBeacon(simtime_t interval, int index, int phase);
 };
 
-#endif // MEDWIN_MAC_MODULE_H
+#endif // BaselineBAN_MAC_MODULE_H

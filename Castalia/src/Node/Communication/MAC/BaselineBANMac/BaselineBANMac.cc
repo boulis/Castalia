@@ -9,11 +9,11 @@
  *      Attention:  License Inquiry.                                            *
  ********************************************************************************/
 
-#include "MedWinMacModule.h"
+#include "BaselineBANMac.h"
 
-Define_Module(MedWinMacModule);
+Define_Module(BaselineBANMac);
 
-void MedWinMacModule::startup() {
+void BaselineBANMac::startup() {
 	isHub = par("isHub");
 	if (isHub) {
 		connectedHID = SELF_MAC_ADDRESS % (2<<16); // keep the 16 LS bits as a short address
@@ -80,7 +80,7 @@ void MedWinMacModule::startup() {
 	declareOutput("var stats");
 }
 
-void MedWinMacModule::timerFiredCallback(int index) {
+void BaselineBANMac::timerFiredCallback(int index) {
 	switch (index) {
 
 		case CARRIER_SENSING: {
@@ -210,14 +210,14 @@ void MedWinMacModule::timerFiredCallback(int index) {
 			// the hub has to set its own endTime
 			endTime = getClock() + RAP1Length * allocationSlotLength;
 
-			MedWinBeaconPacket * beaconPkt = new MedWinBeaconPacket("MedWin beacon",MAC_LAYER_PACKET);
+			BaselineBeaconPacket * beaconPkt = new BaselineBeaconPacket("BaselineBAN beacon",MAC_LAYER_PACKET);
 			setHeaderFields(beaconPkt,N_ACK_POLICY,MANAGEMENT,BEACON);
 			beaconPkt->setNID(BROADCAST_NID);
 
 			beaconPkt->setAllocationSlotLength((int)(allocationSlotLength*1000));
 			beaconPkt->setBeaconPeriodLength(beaconPeriodLength);
 			beaconPkt->setRAP1Length(RAP1Length);
-			beaconPkt->setByteLength(MEDWIN_BEACON_SIZE);
+			beaconPkt->setByteLength(BASELINEBAN_BEACON_SIZE);
 
 			toRadioLayer(beaconPkt);
 			toRadioLayer(createRadioCommand(SET_STATE,TX));  isRadioSleeping = false;
@@ -265,13 +265,13 @@ void MedWinMacModule::timerFiredCallback(int index) {
 					hubPollTimers.push(t);
 					reqToSendMoreData[nid] = 0; // reset the requested resources
 					// create the future POLL packet and buffer it
-					MedWinMacPacket *pollPkt = new MedWinMacPacket("MedWin Future Poll", MAC_LAYER_PACKET);
+					BaselineMacPacket *pollPkt = new BaselineMacPacket("BaselineBAN Future Poll", MAC_LAYER_PACKET);
 					setHeaderFields(pollPkt,N_ACK_POLICY,MANAGEMENT,POLL);
 					pollPkt->setNID(nid);
 					pollPkt->setSequenceNumber(nextPollStart);
 					pollPkt->setFragmentNumber(0);
 					pollPkt->setMoreData(1);
-					pollPkt->setByteLength(MEDWIN_HEADER_SIZE);
+					pollPkt->setByteLength(BASELINEBAN_HEADER_SIZE);
 					trace() << "Created future POLL for NID:" << nid << ", for slot "<< nextPollStart;
 					nextPollStart += slotsGiven;
 					//collectOutput("Polls given", nid);
@@ -292,13 +292,13 @@ void MedWinMacModule::timerFiredCallback(int index) {
 			// we set the state to RX but we also need to send the POLL message.
 			TimerInfo t = hubPollTimers.front();
 			int slotsGiven = t.slotsGiven;
-			MedWinMacPacket *pollPkt = new MedWinMacPacket("MedWin Immediate Poll", MAC_LAYER_PACKET);
+			BaselineMacPacket *pollPkt = new BaselineMacPacket("BaselineBAN Immediate Poll", MAC_LAYER_PACKET);
 			setHeaderFields(pollPkt,N_ACK_POLICY,MANAGEMENT,POLL);
 			pollPkt->setNID(t.NID);
 			pollPkt->setSequenceNumber(t.endSlot);
 			pollPkt->setFragmentNumber(0);
 			pollPkt->setMoreData(0);
-			pollPkt->setByteLength(MEDWIN_HEADER_SIZE);
+			pollPkt->setByteLength(BASELINEBAN_HEADER_SIZE);
 			toRadioLayer(pollPkt);
 			toRadioLayer(createRadioCommand(SET_STATE,TX)); isRadioSleeping = false;
 
@@ -326,46 +326,46 @@ void MedWinMacModule::timerFiredCallback(int index) {
 	}
 }
 
-void MedWinMacModule::fromNetworkLayer(cPacket *pkt, int dst) {
-	MedWinMacPacket *medWinDataPkt = new MedWinMacPacket("MedWin data packet",MAC_LAYER_PACKET);
-	encapsulatePacket(medWinDataPkt,pkt);
-	if (bufferPacket(medWinDataPkt)) {
+void BaselineBANMac::fromNetworkLayer(cPacket *pkt, int dst) {
+	BaselineMacPacket *BaselineBANDataPkt = new BaselineMacPacket("BaselineBAN data packet",MAC_LAYER_PACKET);
+	encapsulatePacket(BaselineBANDataPkt,pkt);
+	if (bufferPacket(BaselineBANDataPkt)) {
 		attemptTX();
 	} else {
-		trace() << "WARNING MedWin MAC buffer overflow";
+		trace() << "WARNING BaselineBAN MAC buffer overflow";
 		collectOutput("Data pkt breakdown", "Fail, buffer overflow");
 	}
 }
 
-void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
-	// if the incoming packet is not MedWin, return (VirtualMAC will delete it)
-	MedWinMacPacket * medWinPkt = dynamic_cast<MedWinMacPacket*>(pkt);
-	if (medWinPkt == NULL) return;
+void BaselineBANMac::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
+	// if the incoming packet is not BaselineBAN, return (VirtualMAC will delete it)
+	BaselineMacPacket * BaselineBANPkt = dynamic_cast<BaselineMacPacket*>(pkt);
+	if (BaselineBANPkt == NULL) return;
 
-	// filter the incoming MedWin packet
-    if (!isPacketForMe(medWinPkt)) return;
+	// filter the incoming BaselineBAN packet
+    if (!isPacketForMe(BaselineBANPkt)) return;
 
 	/* Handle data packets */
-	if (medWinPkt->getFrameType() == DATA) {
-		toNetworkLayer(decapsulatePacket(medWinPkt));
+	if (BaselineBANPkt->getFrameType() == DATA) {
+		toNetworkLayer(decapsulatePacket(BaselineBANPkt));
 		/* if this pkt requires a block ACK we should send it,
 		 * by looking what packet we have received */
 		// NOT IMPLEMENTED
-		if (medWinPkt->getAckPolicy() == B_ACK_POLICY){
+		if (BaselineBANPkt->getAckPolicy() == B_ACK_POLICY){
 		}
-		if (medWinPkt->getMoreData() > 0) handlePost(medWinPkt);
+		if (BaselineBANPkt->getMoreData() > 0) handlePost(BaselineBANPkt);
 	}
 
 	/* If the packet received (Data or Mgmt) requires an ACK, we should send it now.
 	 * While processing a data packet we might have flagged the need to send an I_ACK_POLL
 	 */
-	if (medWinPkt->getAckPolicy() == I_ACK_POLICY) {
-		MedWinMacPacket * ackPacket = new MedWinMacPacket("ACK packet",MAC_LAYER_PACKET);
+	if (BaselineBANPkt->getAckPolicy() == I_ACK_POLICY) {
+		BaselineMacPacket * ackPacket = new BaselineMacPacket("ACK packet",MAC_LAYER_PACKET);
 		setHeaderFields(ackPacket,N_ACK_POLICY,CONTROL, (sendIAckPoll ? I_ACK_POLL : I_ACK) );
-		ackPacket->setNID(medWinPkt->getNID());
-		ackPacket->setByteLength(MEDWIN_HEADER_SIZE);
+		ackPacket->setNID(BaselineBANPkt->getNID());
+		ackPacket->setByteLength(BASELINEBAN_HEADER_SIZE);
 		// if we are unconnected set a proper HID(the packet is for us since it was not filtered)
-		if (connectedHID == UNCONNECTED) ackPacket->setHID(medWinPkt->getHID());
+		if (connectedHID == UNCONNECTED) ackPacket->setHID(BaselineBANPkt->getHID());
 		// set the appropriate fields if this an I_ACK_POLL
 		if (sendIAckPoll) {
 			// we are sending a future poll
@@ -376,11 +376,11 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 				 * and nextFuturePollSlot. Also if the hubPollTimers is empty, schedule the
 				 * timer to send this first POLL [the one that the (future)I_ACK_POLL points to]
 				 */
-				if (hubPollTimers.empty() || hubPollTimers.back().NID != medWinPkt->getNID() ) {
+				if (hubPollTimers.empty() || hubPollTimers.back().NID != BaselineBANPkt->getNID() ) {
 					trace() << "TEST: frameStartTime= "<<frameStartTime<<" poll from start= "<<(nextFuturePollSlot-1)*allocationSlotLength<<" timer= "<<frameStartTime + (nextFuturePollSlot-1)*allocationSlotLength - getClock();
 					if (hubPollTimers.empty())
 						setTimer(SEND_POLL, frameStartTime + (nextFuturePollSlot-1)*allocationSlotLength - getClock());
-					TimerInfo t; t.NID=medWinPkt->getNID(); t.slotsGiven=1; t.endSlot=nextFuturePollSlot;
+					TimerInfo t; t.NID=BaselineBANPkt->getNID(); t.slotsGiven=1; t.endSlot=nextFuturePollSlot;
 					hubPollTimers.push(t);
 					nextFuturePollSlot++;
 					trace() << "TEST: nextFuturePollSlot= " << nextFuturePollSlot;
@@ -391,40 +391,40 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 			trace() << "Future POLL at slot " << futurePollSlot <<" inserted in ACK packet";
 			ackPacket->setSequenceNumber(futurePollSlot);
 		}
-		trace() << "transmitting ACK to/from NID:" << medWinPkt->getNID();
+		trace() << "transmitting ACK to/from NID:" << BaselineBANPkt->getNID();
 		toRadioLayer(ackPacket);
 		toRadioLayer(createRadioCommand(SET_STATE,TX)); isRadioSleeping = false;
 		/* Any future attempts to TX should be done AFTER we are finished TXing
 		 * the I-ACK. To ensure this we set the appropriate timer and variable.
-		 * MEDWIN_HEADER_SIZE is the size of the ack. 2*pTIFS is explained at sendPacket()
+		 * BASELINEBAN_HEADER_SIZE is the size of the ack. 2*pTIFS is explained at sendPacket()
 		 */
-		setTimer(START_ATTEMPT_TX, (TX_TIME(MEDWIN_HEADER_SIZE) + 2*pTIFS) );
+		setTimer(START_ATTEMPT_TX, (TX_TIME(BASELINEBAN_HEADER_SIZE) + 2*pTIFS) );
 		futureAttemptToTX = true;
 	}
 
 	/* If this was a data packet, we have done all our processing
 	 * (+ sending a possible I-ACK or I-ACK-POLL), so just return.
 	 */
-	if (medWinPkt->getFrameType() == DATA) return;
+	if (BaselineBANPkt->getFrameType() == DATA) return;
 
 	/* Handle management and control packets */
-	switch(medWinPkt->getFrameSubtype()) {
+	switch(BaselineBANPkt->getFrameSubtype()) {
 		case BEACON: {
-			MedWinBeaconPacket * medWinBeacon = check_and_cast<MedWinBeaconPacket*>(medWinPkt);
-			simtime_t beaconTxTime = TX_TIME(medWinBeacon->getByteLength()) + pTIFS;
+			BaselineBeaconPacket * BaselineBANBeacon = check_and_cast<BaselineBeaconPacket*>(BaselineBANPkt);
+			simtime_t beaconTxTime = TX_TIME(BaselineBANBeacon->getByteLength()) + pTIFS;
 
 			// store the time the frame starts. Needed for polls and posts, which only reference end allocation slot
 			frameStartTime = getClock() - beaconTxTime;
 
 			// get the allocation slot length, which is used in many calculations
-			allocationSlotLength = medWinBeacon->getAllocationSlotLength() / 1000.0;
+			allocationSlotLength = BaselineBANBeacon->getAllocationSlotLength() / 1000.0;
 			SInominal = (allocationSlotLength/10.0 - pTIFS) / (2*mClockAccuracy);
 
 			// a beacon is our synchronization event. Update relevant timer
 			setTimer(SYNC_INTERVAL_TIMEOUT, SInominal);
 
-			beaconPeriodLength = medWinBeacon->getBeaconPeriodLength();
-			RAP1Length = medWinBeacon->getRAP1Length();
+			beaconPeriodLength = BaselineBANBeacon->getBeaconPeriodLength();
+			RAP1Length = BaselineBANBeacon->getRAP1Length();
 			if (RAP1Length > 0) {
 				trace() << "State from "<< macState << " to MAC_RAP";
 				macState = MAC_RAP;
@@ -462,23 +462,23 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 				if (scheduledAccessLength >= 0) {
 					// we are unconnected, and we need to connect to obtain scheduled access
 					// we will create and send a connection request
-					MedWinConnectionRequestPacket *connectionRequest = new MedWinConnectionRequestPacket("MedWin connection request packet",MAC_LAYER_PACKET);
+					BaselineConnectionRequestPacket *connectionRequest = new BaselineConnectionRequestPacket("BaselineBAN connection request packet",MAC_LAYER_PACKET);
 
 					// This block takes care of general header fields
 					setHeaderFields(connectionRequest,I_ACK_POLICY,MANAGEMENT,CONNECTION_REQUEST);
 					// while setHeaderFields should take care of the HID field, we are currently unconnected.
 					// We want to keep this state, yet send the request to the right hub.
-					connectionRequest->setHID(medWinBeacon->getHID());
+					connectionRequest->setHID(BaselineBANBeacon->getHID());
 
 					// This block takes care of connection request specific fields
-					connectionRequest->setRecipientAddress(medWinBeacon->getSenderAddress());
+					connectionRequest->setRecipientAddress(BaselineBANBeacon->getSenderAddress());
 					connectionRequest->setSenderAddress(SELF_MAC_ADDRESS);
 					// in this implementation our schedule always starts from the next beacon
-					connectionRequest->setNextWakeup(medWinBeacon->getSequenceNumber() + 1);
+					connectionRequest->setNextWakeup(BaselineBANBeacon->getSequenceNumber() + 1);
 					connectionRequest->setWakeupInterval(scheduledAccessPeriod);
 					//uplink request is simplified in this implementation to only ask for a number of slots needed
 					connectionRequest->setUplinkRequest(scheduledAccessLength);
-					connectionRequest->setByteLength(MEDWIN_CONNECTION_REQUEST_SIZE);
+					connectionRequest->setByteLength(BASELINEBAN_CONNECTION_REQUEST_SIZE);
 
 					// Management packets go in their own buffer, and handled by attemptTX() with priority
 					MgmtBuffer.push(connectionRequest);
@@ -510,7 +510,7 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 		}
 
 		case I_ACK_POLL: {
-			handlePoll(medWinPkt);
+			handlePoll(BaselineBANPkt);
 			// roll over to the ACK part
 		}
 		case I_ACK: {
@@ -543,7 +543,7 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 		}
 
 		case B_ACK_POLL: {
-			handlePoll(medWinPkt);
+			handlePoll(BaselineBANPkt);
 			// roll over to the ACK part
 		}
 		case B_ACK: {
@@ -562,7 +562,7 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 		}
 
 		case CONNECTION_ASSIGNMENT: {
-			MedWinConnectionAssignmentPacket *connAssignment = check_and_cast<MedWinConnectionAssignmentPacket*>(medWinPkt);
+			BaselineConnectionAssignmentPacket *connAssignment = check_and_cast<BaselineConnectionAssignmentPacket*>(BaselineBANPkt);
 			if (connAssignment->getStatusCode() == ACCEPTED || connAssignment->getStatusCode() == MODIFIED) {
 				connectedHID = connAssignment->getHID();
 				connectedNID = connAssignment->getAssignedNID();
@@ -588,20 +588,20 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 		}
 
 		case CONNECTION_REQUEST: {
-			MedWinConnectionRequestPacket *connRequest = check_and_cast<MedWinConnectionRequestPacket*>(medWinPkt);
+			BaselineConnectionRequestPacket *connRequest = check_and_cast<BaselineConnectionRequestPacket*>(BaselineBANPkt);
 			/* The ACK for the connection req packet is handled by the general code.
 			 * Here we need to create the connection assignment packet and decide
 			 * when to send it. We treat management packets that need ack, similar
 			 * to data packets, but with higher priority. They have their own buffer.
 			 */
-			MedWinConnectionAssignmentPacket *connAssignment = new MedWinConnectionAssignmentPacket("MedWin connection assignment",MAC_LAYER_PACKET);
+			BaselineConnectionAssignmentPacket *connAssignment = new BaselineConnectionAssignmentPacket("BaselineBAN connection assignment",MAC_LAYER_PACKET);
 			setHeaderFields(connAssignment,I_ACK_POLICY,MANAGEMENT,CONNECTION_ASSIGNMENT);
 			// this is the unconnected NID that goes in the header. Used for addressing
 			connAssignment->setNID(connRequest->getNID());
 			// the full ID of the requesting node needs to be included in the assigmment
 			int fullAddress = connRequest->getSenderAddress();
 			connAssignment->setRecipientAddress(fullAddress);
-			connAssignment->setByteLength(MEDWIN_CONNECTION_ASSIGNMENT_SIZE);
+			connAssignment->setByteLength(BASELINEBAN_CONNECTION_ASSIGNMENT_SIZE);
 
 			/* Check if the request is on an already active assignment. If a node misses the
 			 * connection assignment packet, it will eventually send another request.
@@ -650,7 +650,7 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 			MgmtBuffer.push(connAssignment);
 
 			// transmission will be attempted after we are done sending the I-ACK
-			trace() << "Conn assgnmnt created, wait for " << (TX_TIME(MEDWIN_HEADER_SIZE) + 2*pTIFS) << " to attempTX";
+			trace() << "Conn assgnmnt created, wait for " << (TX_TIME(BASELINEBAN_HEADER_SIZE) + 2*pTIFS) << " to attempTX";
 			break;
 		}
 
@@ -658,22 +658,22 @@ void MedWinMacModule::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 			// just read the time values from the payload, update relevant variables
 			// and roll over to handle the POLL part (no break)
 		case POLL: {
-			handlePoll(medWinPkt);
+			handlePoll(BaselineBANPkt);
 			break;
 		}
 		case ASSOCIATION:
 		case DISASSOCIATION:
 		case PTK:
 		case GTK: {
-			trace() << "WARNING: unimplemented packet subtype in [" << medWinPkt->getName() << "]";
+			trace() << "WARNING: unimplemented packet subtype in [" << BaselineBANPkt->getName() << "]";
 			break;
 		}
 	}
 }
 
-/* The specific finish function for MedWinMAC does needed cleanup when simulation ends
+/* The specific finish function for BaselineBANMAC does needed cleanup when simulation ends
  */
-void MedWinMacModule::finishSpecific(){
+void BaselineBANMac::finishSpecific(){
 	if (packetToBeSent != NULL) cancelAndDelete(packetToBeSent);
 	while(!MgmtBuffer.empty()) {
 		cancelAndDelete(MgmtBuffer.front());
@@ -682,10 +682,10 @@ void MedWinMacModule::finishSpecific(){
     if (isHub) {delete[] reqToSendMoreData; delete[] lastTxAccessSlot;}
 }
 
-/* A function to filter incoming MedWin packets.
+/* A function to filter incoming BaselineBAN packets.
  * Works for both hub or sensor as a receiver.
  */
-bool MedWinMacModule::isPacketForMe(MedWinMacPacket *pkt) {
+bool BaselineBANMac::isPacketForMe(BaselineMacPacket *pkt) {
 	int pktHID = pkt->getHID();
 	int pktNID = pkt->getNID();
 	// trace() << "pktHID=" << pktHID << ", pktNID=" << pktNID << ", connectedHID=" << connectedHID << ", unconnectedNID=" << unconnectedNID;
@@ -700,7 +700,7 @@ bool MedWinMacModule::isPacketForMe(MedWinMacPacket *pkt) {
 		 * like I-ACK we have to do more tests and still cannot be sure
 		 */
 		if (pkt->getFrameSubtype() == CONNECTION_ASSIGNMENT) {
-			MedWinConnectionAssignmentPacket *connAssignment = check_and_cast<MedWinConnectionAssignmentPacket*>(pkt);
+			BaselineConnectionAssignmentPacket *connAssignment = check_and_cast<BaselineConnectionAssignmentPacket*>(pkt);
 			if (connAssignment->getRecipientAddress() != SELF_MAC_ADDRESS) {
 				// the packet is not for us, but the NID is the same, so we need to choose a new one.
 				unconnectedNID = 1 + genk_intrand(0,14);
@@ -734,14 +734,14 @@ bool MedWinMacModule::isPacketForMe(MedWinMacPacket *pkt) {
 
 /* A function to calculate the extra guard time, if we are past the Sync time nominal.
  */
-simtime_t MedWinMacModule::extraGuardTime() {
+simtime_t BaselineBANMac::extraGuardTime() {
 	return (simtime_t) (getClock() - syncIntervalAdditionalStart) * mClockAccuracy;
 }
 
 /* A function to set the header fields of a packet.
  * It works with both hub- and sensor-created packets
  */
-void MedWinMacModule::setHeaderFields(MedWinMacPacket * pkt, AcknowledgementPolicy_type ackPolicy, Frame_type frameType, Frame_subtype frameSubtype) {
+void BaselineBANMac::setHeaderFields(BaselineMacPacket * pkt, AcknowledgementPolicy_type ackPolicy, Frame_type frameType, Frame_subtype frameSubtype) {
 	pkt->setHID(connectedHID);
 	if (connectedNID != UNCONNECTED)
 		pkt->setNID(connectedNID);
@@ -756,7 +756,7 @@ void MedWinMacModule::setHeaderFields(MedWinMacPacket * pkt, AcknowledgementPoli
 	// Hub needs to handle its moreData flag (signaling posts) separately
 	if (frameType == DATA && !isHub){
 		if (TXBuffer.size()!=0 || MgmtBuffer.size()!=0){
-			// option to enhance MedWin by sending how many more pkts we have
+			// option to enhance BaselineBAN by sending how many more pkts we have
 			if (enhanceMoreData) pkt->setMoreData(TXBuffer.size() + MgmtBuffer.size());
 			else pkt->setMoreData(1);
 		}
@@ -767,7 +767,7 @@ void MedWinMacModule::setHeaderFields(MedWinMacPacket * pkt, AcknowledgementPoli
  * this function prepares an important variable and starts the process.
  * It is used by the more generic attemptTX() function.
  */
-void MedWinMacModule::attemptTxInRAP() {
+void BaselineBANMac::attemptTxInRAP() {
 	if (backoffCounter == 0) {
 		backoffCounter = 1 + genk_intrand(0,CW);
 	}
@@ -779,7 +779,7 @@ void MedWinMacModule::attemptTxInRAP() {
  * It will check whether we need to retransmit the current packet, or prepare
  * a new packet from the MAC data buffer or the Management buffer to be sent.
  */
-void MedWinMacModule::attemptTX() {
+void BaselineBANMac::attemptTX() {
 	// If we are not in an appropriate state, return
 	if (macState != MAC_RAP && macState != MAC_FREE_TX_ACCESS) return;
 	/* if we are currently attempting to TX or we have scheduled a future
@@ -814,11 +814,11 @@ void MedWinMacModule::attemptTX() {
 
 	// Try to draw a new packet from the data or Management buffers.
 	if (MgmtBuffer.size() !=0) {
-		packetToBeSent = (MedWinMacPacket*)MgmtBuffer.front();  MgmtBuffer.pop();
+		packetToBeSent = (BaselineMacPacket*)MgmtBuffer.front();  MgmtBuffer.pop();
 		if (MgmtBuffer.size() > MGMT_BUFFER_SIZE)
 			trace() << "WARNING: Management buffer reached a size of " << MgmtBuffer.size();
 	} else if (TXBuffer.size() != 0){
-		packetToBeSent = (MedWinMacPacket*)TXBuffer.front();   TXBuffer.pop();
+		packetToBeSent = (BaselineMacPacket*)TXBuffer.front();   TXBuffer.pop();
 		setHeaderFields(packetToBeSent, I_ACK_POLICY, DATA, RESERVED);
 	}
 	// if we found a packet in any of the buffers, try to TX it.
@@ -833,7 +833,7 @@ void MedWinMacModule::attemptTX() {
  * Sleeping is handled at the timer code, which does not take into account the guard times.
  * In fact if we TX once then we'll stay awake for the whole duration of the scheduled slot.
  */
-bool MedWinMacModule::canFitTx() {
+bool BaselineBANMac::canFitTx() {
 	if (!packetToBeSent) return false;
 	if ( endTime - getClock() - (GUARD_FACTOR * GUARD_TIME) - TX_TIME(packetToBeSent->getByteLength()) - pTIFS > 0) return true;
 	return false;
@@ -842,7 +842,7 @@ bool MedWinMacModule::canFitTx() {
 
 /* Sends a packet to the radio and either waits for an ack or restart the attemptTX process
  */
-void MedWinMacModule::sendPacket() {
+void BaselineBANMac::sendPacket() {
 	// we are starting to TX, so we are exiting the attemptingToTX (sub)state.
 	attemptingToTX = false;
 
@@ -859,10 +859,10 @@ void MedWinMacModule::sendPacket() {
 		/* Need to wait for ACK. Here we explicitly take into account the clock drift, since the spec does
 		 * not mention a rule for ack timeout. In other timers, GUARD time takes care of the drift, or the
 		 * timers are just scheduled on the face value. We also take into account sleep->TX delay, which
-		 * the MedWin spec does not mention but it is important.
+		 * the BaselineBAN spec does not mention but it is important.
 		 */
-		trace() << "TXing[" << packetToBeSent->getName() << "], ACK_TIMEOUT in " << (SLEEP2TX + TX_TIME(packetToBeSent->getByteLength()) + 2*pTIFS + TX_TIME(MEDWIN_HEADER_SIZE)) * (1 + mClockAccuracy);
-		setTimer(ACK_TIMEOUT, (SLEEP2TX + TX_TIME(packetToBeSent->getByteLength()) + 2*pTIFS + TX_TIME(MEDWIN_HEADER_SIZE)) * (1 + mClockAccuracy));
+		trace() << "TXing[" << packetToBeSent->getName() << "], ACK_TIMEOUT in " << (SLEEP2TX + TX_TIME(packetToBeSent->getByteLength()) + 2*pTIFS + TX_TIME(BASELINEBAN_HEADER_SIZE)) * (1 + mClockAccuracy);
+		setTimer(ACK_TIMEOUT, (SLEEP2TX + TX_TIME(packetToBeSent->getByteLength()) + 2*pTIFS + TX_TIME(BASELINEBAN_HEADER_SIZE)) * (1 + mClockAccuracy));
 		waitingForACK = true;
 
 		currentPacketTransmissions++;
@@ -896,7 +896,7 @@ void MedWinMacModule::sendPacket() {
 /* Implements the polling functionality needed to handle several
  * control packets: Poll, T-Poll, I-ACK+Poll, B-ACK+Poll
  */
-void MedWinMacModule::handlePoll(MedWinMacPacket *pkt) {
+void BaselineBANMac::handlePoll(BaselineMacPacket *pkt) {
 	// check if this is an immediate (not future) poll
 	if (pkt->getMoreData() == 0){
 		macState = MAC_FREE_TX_ACCESS;
@@ -935,7 +935,7 @@ void MedWinMacModule::handlePoll(MedWinMacPacket *pkt) {
 }
 
 // handles posts (data packets, with moreData flag == 1)
-void MedWinMacModule::handlePost(MedWinMacPacket *pkt) {
+void BaselineBANMac::handlePost(BaselineMacPacket *pkt) {
 	if (isHub) {
 		if (pollingEnabled) handleMoreDataAtHub(pkt);
 		// can we make this a separate class HubDecisionLayer:: ?? do we need too many variables from MAC?
@@ -949,7 +949,7 @@ void MedWinMacModule::handlePost(MedWinMacPacket *pkt) {
 	setTimer(START_POSTED_ACCESS, 0);
 }
 
-void MedWinMacModule::handleMoreDataAtHub(MedWinMacPacket *pkt) {
+void BaselineBANMac::handleMoreDataAtHub(BaselineMacPacket *pkt) {
 	// decide if this the last packet that node NID can send, keep how much more data it has
 	int NID = pkt->getNID();
 	/* If the packet we received is in the node's last TX access slot (scheduled or polled) then send a POLL.
@@ -976,6 +976,6 @@ void MedWinMacModule::handleMoreDataAtHub(MedWinMacPacket *pkt) {
 }
 /* Not currently implemented. In the future useful if we implement the beacon shift sequences
  */
-simtime_t MedWinMacModule::timeToNextBeacon(simtime_t interval, int index, int phase) {
+simtime_t BaselineBANMac::timeToNextBeacon(simtime_t interval, int index, int phase) {
 	return interval;
 }

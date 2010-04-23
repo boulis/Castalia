@@ -729,7 +729,7 @@ double RadioModule::SNR2BER(double SNR_dB) {
 		}
 
 		case IDEAL:
-			return (SNR_dB > IDEAL_MODULATION_THRESHOLD? 1.0:0.0);
+			return (SNR_dB < IDEAL_MODULATION_THRESHOLD? 1.0:0.0);
 
 		default:
 			opp_error("Modulation type not defined");

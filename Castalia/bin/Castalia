@@ -95,6 +95,8 @@ def detectCPUs():
 
 ini = commands.getoutput(pathToExtract + " " + options.input).split("\n")
 if len(ini) < 2: quit("Unable to read configuration")
+if not os.path.exists(pathToCastaliaBin) or not os.path.isfile(pathToCastaliaBin):
+	quit("CastaliaBin not found (need to run make?)")
 
 section = ""
 configDictionary = {}
@@ -143,7 +145,7 @@ while (config != ""):
 	quit("Unknown configuration syntax: " + config)
 
 #print baseConfigList
-print interleavedConfigList
+#print interleavedConfigList
 
 iniList = []
 labelList = []

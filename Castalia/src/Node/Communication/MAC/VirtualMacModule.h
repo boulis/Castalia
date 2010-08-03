@@ -1,15 +1,14 @@
 //***************************************************************************************
-//*  Copyright: National ICT Australia, 2009, 2010					*
-//*  Developed at the Networks and Pervasive Computing program				*
-//*  Author(s): Yuriy Tselishchev							*
-//*  This file is distributed under the terms in the attached LICENSE file.		*
-//*  If you do not find this file, copies can be found by writing to:			*
-//*											*
-//*      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia			*
-//*      Attention:  License Inquiry.							*
-//*											*
+//*  Copyright: National ICT Australia, 2009, 2010                                      *
+//*  Developed at the Networks and Pervasive Computing program                          *
+//*  Author(s): Yuriy Tselishchev                                                       *
+//*  This file is distributed under the terms in the attached LICENSE file.             *
+//*  If you do not find this file, copies can be found by writing to:                   *
+//*                                                                                     *
+//*      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia                        *
+//*      Attention:  License Inquiry.                                                   *
+//*                                                                                     *
 //***************************************************************************************
-
 
 #ifndef VIRTUALMACMODULE
 #define VIRTUALMACMODULE
@@ -31,39 +30,44 @@
 
 using namespace std;
 
-class VirtualMacModule : public VirtualCastaliaModule, public TimerModule
-{
-    private:
+class VirtualMacModule:public VirtualCastaliaModule, public TimerModule {
+ private:
 	int disabled;
 	int macBufferSize;
 	int macMaxFrameSize;
 	int macFrameOverhead;
-	
-	void createAndSendRadioControlCommand(RadioControlCommand_type, double, const char *, BasicState_type);
 
-    protected:
-	int self;				// the node's ID
-	RadioModule *radioModule;		//a pointer to the object of the Radio Module (used for direct method calls)
-	ResourceGenericManager *resMgrModule;	//a pointer to the object of the Resource Manager Module (used for direct method calls)
-	queue <cPacket *> TXBuffer;
-		
+	void createAndSendRadioControlCommand(
+			RadioControlCommand_type, double, const char *, BasicState_type);
+
+ protected:
+	int self;		// the node's ID
+	
+	//a pointer to the object of the Radio Module (used for direct method calls)
+	RadioModule *radioModule;
+	
+	//a pointer to the object of the Resource Manager Module (used for direct method calls)
+	ResourceGenericManager *resMgrModule;	
+	
+	queue<cPacket*> TXBuffer;
+
 	void initialize();
-	void handleMessage(cMessage *msg);
+	void handleMessage(cMessage * msg);
 	void finish();
 	virtual void finishSpecific() {}
 	virtual void startup() {}
-	
+
 	void toNetworkLayer(cMessage *);
 	void toRadioLayer(cMessage *);
-	virtual void fromNetworkLayer(cPacket*, int) = 0;
-	virtual void fromRadioLayer(cPacket*,double,double) = 0;
-	int bufferPacket(cPacket*);
-	
-	virtual int handleControlCommand(cMessage *msg);
-	virtual int handleRadioControlMessage(cMessage *msg);
-	
+	virtual void fromNetworkLayer(cPacket *, int) = 0;
+	virtual void fromRadioLayer(cPacket *, double, double) = 0;
+	int bufferPacket(cPacket *);
+
+	virtual int handleControlCommand(cMessage * msg);
+	virtual int handleRadioControlMessage(cMessage * msg);
+
 	void encapsulatePacket(cPacket *, cPacket *);
 	cPacket *decapsulatePacket(cPacket *);
 };
 
-#endif 
+#endif

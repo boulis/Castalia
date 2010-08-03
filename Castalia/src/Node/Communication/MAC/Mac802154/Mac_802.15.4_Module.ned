@@ -1,5 +1,5 @@
 //***************************************************************************
-//*  Copyright: National ICT Australia,  2009
+//*  Copyright: National ICT Australia,  2009 - 2010
 //*  Developed at the ATP lab, Networked Systems theme
 //*  Author(s): Athanassios Boulis, Yuri Tselishchev
 //*  This file is distributed under the terms in the attached LICENSE file.
@@ -11,57 +11,52 @@
 
 package Node.Communication.MAC.Mac802154;
 
-simple Mac802154Module like Node.Communication.MAC.MacGenericModule
+simple Mac802154Module like Node.Communication.MAC.MacGenericModule {
+ parameters:
+    //debug parameters
+	bool collectTraceInfo = default (false);
+	bool printStateTransitions = default (false);
 
-{
-    parameters:
-        //debug parameters
-        bool collectTraceInfo = default(false);
-        bool printStateTransitions = default(false);
+	//mac layer parameters
+	int macMaxPacketSize = default (0);
+	int macPacketOverhead = default (14);
+	int macBufferSize = default (32);
 
-        //mac layer parameters
-        int macMaxPacketSize = default(0);
-        int macPacketOverhead = default(14);
-        int macBufferSize = default(32);
+	bool enableSlottedCSMA = default (true);
+	bool enableCAP = default (true);
+	bool isFFD = default (false);
+	bool isPANCoordinator = default (false);
+	bool batteryLifeExtention = default (false);
 
-        bool enableSlottedCSMA = default(true);
-        bool enableCAP = default(true);
-        bool isFFD = default(false);
-        bool isPANCoordinator = default(false);
-        bool batteryLifeExtention = default(false);
+	int frameOrder = default (4);
+	int beaconOrder = default (6);
+	int unitBackoffPeriod = default (20);
+	int baseSlotDuration = default (60);
 
-        int frameOrder = default(4);
-        int beaconOrder = default(6);
-        int unitBackoffPeriod = default(20); 
-        int baseSlotDuration = default(60);
+	int numSuperframeSlots = default (16);
+	int macMinBE = default (5);
+	int macMaxBE = default (7);
+	int macMaxCSMABackoffs = default (4);
+	int macMaxFrameRetries = default (2);
+	int maxLostBeacons = default (4);
+	int minCAPLength = default (440);
+	int requestGTS = default (0);
 
-        int numSuperframeSlots = default(16);
-        int macMinBE = default(5);
-        int macMaxBE = default(7);
-        int macMaxCSMABackoffs = default(4);
-        int macMaxFrameRetries = default(2);
-        int maxLostBeacons = default(4);
-        int minCAPLength = default(440);
-        int requestGTS = default(0);
+	//parameters dependent on physical layer
+	double phyDelayForValidCS = default (0.128);
+	double phyDataRate = default (250);
+	double phyDelayRx2Tx = default (0.02);	//in ms
+	int phyFrameOverhead = default (6);
+	int phyBitsPerSymbol = default (2);
 
-        //parameters dependent on physical layer
-	double phyDelayForValidCS = default(0.128);
-	double phyDataRate = default(250);
-	double phyDelayRx2Tx = default(0.02); //in ms
-	int phyFrameOverhead = default(6);
-	int phyBitsPerSymbol = default(2);
-	
-	
 	//reception guard time, in ms
-	double guardTime = default(1);
+	double guardTime = default (1);
 
-    gates:
-
-        output toNetworkModule;
-        output toRadioModule;
-        input fromNetworkModule;
-        input fromRadioModule;
-        input fromCommModuleResourceMgr;
-
-
+ gates:
+	output toNetworkModule;
+	output toRadioModule;
+	input fromNetworkModule;
+	input fromRadioModule;
+	input fromCommModuleResourceMgr;
 }
+

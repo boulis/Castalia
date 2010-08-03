@@ -1,29 +1,29 @@
 //***************************************************************************************
-//*  Copyright: National ICT Australia,  2007, 2008, 2009				*
-//*  Developed at the Networks and Pervasive Computing program				*
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis				*
-//*  This file is distributed under the terms in the attached LICENSE file.		*
-//*  If you do not find this file, copies can be found by writing to:			*
-//*											*
-//*      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia			*
-//*      Attention:  License Inquiry.							*
-//*											*
+//*  Copyright: National ICT Australia,  2007, 2008, 2009                               *
+//*  Developed at the Networks and Pervasive Computing program                          *
+//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis                            *
+//*  This file is distributed under the terms in the attached LICENSE file.             *
+//*  If you do not find this file, copies can be found by writing to:                   *
+//*                                                                                     *
+//*      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia                        *
+//*      Attention:  License Inquiry.                                                   *
+//*                                                                                     *
 //***************************************************************************************
 
 package Node.Communication.MAC.BypassMac;
 
-simple BypassMacModule like Node.Communication.MAC.MacGenericModule
-{
-    parameters:
-	bool collectTraceInfo = default(false);
-        int macMaxPacketSize = default(0);	//BypassMac does not limit packet size
-        int macPacketOverhead = default(8); 	//only 2 fields are added in simple MAC frame, 8 bytes in total
-        int macBufferSize = default(0);		//BypassMac does not use buffers
+simple BypassMacModule like Node.Communication.MAC.MacGenericModule {
+ parameters:
+	bool collectTraceInfo = default (false);
+	int macMaxPacketSize = default (0);		//BypassMac does not limit packet size
+	int macPacketOverhead = default (8);	//only 2 fields are added in simple MAC frame, 8 bytes in total
+	int macBufferSize = default (0);		//BypassMac does not use buffers
 
-    gates:
-        output toNetworkModule;
-        output toRadioModule;
-        input fromNetworkModule;
-        input fromRadioModule;
-        input fromCommModuleResourceMgr;
+ gates:
+	output toNetworkModule;
+	output toRadioModule;
+	input fromNetworkModule;
+	input fromRadioModule;
+	input fromCommModuleResourceMgr;
 }
+

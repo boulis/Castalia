@@ -13,52 +13,61 @@
 
 Define_Module(valuePropagation_ApplicationModule);
 
-void valuePropagation_ApplicationModule::startup() {
+void valuePropagation_ApplicationModule::startup()
+{
 	tempTreshold = par("tempTreshold");
 	totalPackets = 0;
 	currMaxReceivedValue = -1.0;
 	currMaxSensedValue = -1.0;
 	sentOnce = 0;
 	theValue = 0;
-	setTimer(REQUEST_SAMPLE,0);
+	setTimer(REQUEST_SAMPLE, 0);
 }
 
-void valuePropagation_ApplicationModule::timerFiredCallback(int index) {
+void valuePropagation_ApplicationModule::timerFiredCallback(int index)
+{
 	switch (index) {
-		case REQUEST_SAMPLE: {
+		case REQUEST_SAMPLE:{
 			requestSensorReading();
 			break;
 		}
 	}
 }
 
-void valuePropagation_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket* rcvPacket, const char *source, double rssi, double lqi) {
+void valuePropagation_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
+		const char *source, double rssi, double lqi)
+{
 	double receivedData = rcvPacket->getData();
 
 	totalPackets++;
-	if(receivedData > currMaxReceivedValue) currMaxReceivedValue = receivedData;
+	if (receivedData > currMaxReceivedValue)
+		currMaxReceivedValue = receivedData;
 
 	if (receivedData > tempTreshold && !sentOnce) {
 		theValue = receivedData;
-		toNetworkLayer(createGenericDataPacket(receivedData,1),BROADCAST_NETWORK_ADDRESS);
+		toNetworkLayer(createGenericDataPacket(receivedData, 1), BROADCAST_NETWORK_ADDRESS);
 		sentOnce = 1;
 		trace() << "Got the value: " << theValue;
 	}
 }
 
-void valuePropagation_ApplicationModule::handleSensorReading(SensorReadingGenericMessage *rcvReading) {
+void valuePropagation_ApplicationModule::handleSensorReading(SensorReadingGenericMessage * rcvReading)
+{
 	double sensedValue = rcvReading->getSensedValue();
 
-	if(sensedValue > currMaxSensedValue) currMaxSensedValue = sensedValue;
+	if (sensedValue > currMaxSensedValue)
+		currMaxSensedValue = sensedValue;
 
-	if(sensedValue > tempTreshold && !sentOnce) {
+	if (sensedValue > tempTreshold && !sentOnce) {
 		theValue = sensedValue;
-		toNetworkLayer(createGenericDataPacket(sensedValue,1),BROADCAST_NETWORK_ADDRESS);
+		toNetworkLayer(createGenericDataPacket(sensedValue, 1), BROADCAST_NETWORK_ADDRESS);
 		sentOnce = 1;
 	}
 }
 
-void valuePropagation_ApplicationModule::finishSpecific() {
-    declareOutput("Value");
-    collectOutput("Value", "Celcius", theValue);
+void valuePropagation_ApplicationModule::finishSpecific()
+{
+	declareOutput("Value");
+	collectOutput("Value", "Celcius", theValue);
 }
+

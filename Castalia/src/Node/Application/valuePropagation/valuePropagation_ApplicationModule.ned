@@ -1,13 +1,13 @@
 //***************************************************************************************
-//*  Copyright: National ICT Australia,  2007, 2008, 2009				*
-//*  Developed at the Networks and Pervasive Computing program				*
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis				*
-//*  This file is distributed under the terms in the attached LICENSE file.		*
-//*  If you do not find this file, copies can be found by writing to:			*
-//*											*
-//*      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia			*
-//*      Attention:  License Inquiry.							*
-//*											*
+//*  Copyright: National ICT Australia,  2007, 2008, 2009                               *
+//*  Developed at the Networks and Pervasive Computing program                          *
+//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis                            *
+//*  This file is distributed under the terms in the attached LICENSE file.             *
+//*  If you do not find this file, copies can be found by writing to:                   *
+//*                                                                                     *
+//*      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia                        *
+//*      Attention:  License Inquiry.                                                   *
+//*                                                                                     *
 //***************************************************************************************
 
 package Node.Application.valuePropagation;
@@ -15,23 +15,21 @@ package Node.Application.valuePropagation;
 // The sensor node module. Connects to the wireless channel in order to communicate 
 // with other nodes. Connects to psysical processes so it can sample them.
 
-simple valuePropagation_ApplicationModule like Node.Application.ApplicationGenericModule
+simple valuePropagation_ApplicationModule like Node.Application.ApplicationGenericModule {
+ parameters:
+ 	string applicationID = default ("ValProp");
+	bool collectTraceInfo = default (true);
+	int priority = default (1);
+	int maxAppPacketSize = default (30);	// in bytes
+	int packetHeaderOverhead = default (8);	// in bytes
+	int constantDataPayload = default (2);	// in bytes
+	double tempTreshold = default (15.0);
 
-{
-    parameters:
-        string applicationID = default("ValProp");
-        bool collectTraceInfo = default(true);
-        int priority = default(1);
-        int maxAppPacketSize = default(30); 	// in bytes
-        int packetHeaderOverhead = default(8); 	// in bytes
-        int constantDataPayload = default(2);	// in bytes
-        double tempTreshold = default(15.0);
-
-    gates:
-        output toCommunicationModule;
-        output toSensorDeviceManager;
-        input fromCommunicationModule;
-        input fromSensorDeviceManager;
-        input fromResourceManager;
-
+ gates:
+ 	output toCommunicationModule;
+	output toSensorDeviceManager;
+	input fromCommunicationModule;
+	input fromSensorDeviceManager;
+	input fromResourceManager;
 }
+

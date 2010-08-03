@@ -13,8 +13,9 @@
 
 Define_Module(connectivityMap_ApplicationModule);
 
-void connectivityMap_ApplicationModule::startup() {
-	packetSpacing = (double)par("packetSpacing")/1000.0;
+void connectivityMap_ApplicationModule::startup()
+{
+	packetSpacing = (double)par("packetSpacing") / 1000.0;
 	packetsPerNode = par("packetsPerNode");
 	packetSize = par("packetSize");
 
@@ -25,58 +26,68 @@ void connectivityMap_ApplicationModule::startup() {
 	txInterval_perNode = packetsPerNode * packetSpacing;
 	txInterval_total = (txInterval_perNode * totalSNnodes);
 
-	if (strtod(ev.getConfig()->getConfigValue("sim-time-limit"),NULL) < txInterval_total) {
+	if (strtod(ev.getConfig()->getConfigValue("sim-time-limit"), NULL) < txInterval_total) {
 		trace() << "ERROR: Total sim time should be at least = " << txInterval_total;
 		opp_error("\nError: simulation time not large enough for the conectivity map application\n");
 	}
 
 	double startTxTime = txInterval_perNode * self;
-	setTimer(SEND_PACKET,startTxTime);
+	setTimer(SEND_PACKET, startTxTime);
 }
 
-void connectivityMap_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket* rcvPacket, const char * source, double rssi, double lqi) {
-	updateNeighborTable(atoi(source),rcvPacket->getSequenceNumber());
+void connectivityMap_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
+			const char *source, double rssi, double lqi)
+{
+	updateNeighborTable(atoi(source), rcvPacket->getSequenceNumber());
 }
 
-void connectivityMap_ApplicationModule::timerFiredCallback(int timerIndex) {
+void connectivityMap_ApplicationModule::timerFiredCallback(int timerIndex)
+{
 	switch (timerIndex) {
-		case SEND_PACKET: {
-			if (packetsSent >= packetsPerNode) break;
-			toNetworkLayer(createGenericDataPacket(0.0,packetsSent,packetSize),BROADCAST_NETWORK_ADDRESS);
+
+		case SEND_PACKET:{
+			if (packetsSent >= packetsPerNode)
+				break;
+			toNetworkLayer(createGenericDataPacket(0.0, packetsSent, packetSize), BROADCAST_NETWORK_ADDRESS);
 			packetsSent++;
-			setTimer(SEND_PACKET,packetSpacing);
+			setTimer(SEND_PACKET, packetSpacing);
 			break;
 		}
 	}
 }
 
-void connectivityMap_ApplicationModule::finishSpecific() {
-	for(int i=0; i < (int)neighborTable.size(); i++) {
-		declareOutput("Packets received",neighborTable[i].id);
-		collectOutput("Packets received",neighborTable[i].id,"Success",neighborTable[i].receivedPackets);
+void connectivityMap_ApplicationModule::finishSpecific()
+{
+	for (int i = 0; i < (int)neighborTable.size(); i++) {
+		declareOutput("Packets received", neighborTable[i].id);
+		collectOutput("Packets received", neighborTable[i].id,
+			      "Success", neighborTable[i].receivedPackets);
 	}
 }
 
-void connectivityMap_ApplicationModule::updateNeighborTable(int nodeID, int serialNum) {
-	int i=0, pos = -1;
+void connectivityMap_ApplicationModule::updateNeighborTable(int nodeID, int serialNum)
+{
+	int i = 0, pos = -1;
 	int tblSize = (int)neighborTable.size();
 
-	for(i=0; i < tblSize; i++)
-		if(neighborTable[i].id == nodeID) pos = i;
+	for (i = 0; i < tblSize; i++)
+		if (neighborTable[i].id == nodeID)
+			pos = i;
 
-		if(pos == -1) {
-			neighborRecord newRec;
-			newRec.id = nodeID;
-			newRec.timesRx = 1;
+	if (pos == -1) {
+		neighborRecord newRec;
+		newRec.id = nodeID;
+		newRec.timesRx = 1;
 
-			if( (serialNum >= 0) && (serialNum < packetsPerNode) )
-				newRec.receivedPackets = 1;
+		if ((serialNum >= 0) && (serialNum < packetsPerNode))
+			newRec.receivedPackets = 1;
 
-			neighborTable.push_back(newRec);
-		} else {
-			neighborTable[pos].timesRx++;
+		neighborTable.push_back(newRec);
+	} else {
+		neighborTable[pos].timesRx++;
 
-			if( (serialNum >= 0) && (serialNum < packetsPerNode) )
-				neighborTable[pos].receivedPackets++;
+		if ((serialNum >= 0) && (serialNum < packetsPerNode))
+			neighborTable[pos].receivedPackets++;
 	}
 }
+

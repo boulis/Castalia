@@ -10,9 +10,9 @@
 // *                    CASTALIA 2.0                                                    *
 // **************************************************************************************/
 
-cplusplus { {
+cplusplus {{
 #include "MacGenericPacket_m.h"
-} }
+}}
 
 class MacGenericPacket;
 

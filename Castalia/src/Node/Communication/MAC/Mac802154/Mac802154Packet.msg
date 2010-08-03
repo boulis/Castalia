@@ -10,9 +10,9 @@
 // *                                                                                    *
 // **************************************************************************************/
 
-cplusplus { {
+cplusplus {{
 #include "MacGenericPacket_m.h"
-} }
+}}
 
 class MacGenericPacket;
 

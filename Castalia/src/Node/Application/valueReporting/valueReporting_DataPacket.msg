@@ -10,9 +10,9 @@
 //*                                                                                     *
 //***************************************************************************************
 
-cplusplus { {
+cplusplus {{
 #include "ApplicationGenericPacket_m.h"
-} }
+}}
 
 class ApplicationGenericDataPacket;
 

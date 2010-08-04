@@ -97,7 +97,23 @@ void RadioModule::handleMessage(cMessage *msg) {
 			newSignal.power_dBm = wcMsg->getPower_dBm();
 			newSignal.modulation = (Modulation_type)wcMsg->getModulationType();
 			newSignal.encoding = (Encoding_type)wcMsg->getEncodingType();
-			newSignal.currentInterference = totalPowerReceived.front().power_dBm;
+			switch (collisionModel) {
+				case ADDITIVE_INTERFERENCE_MODEL: // the default mode
+					newSignal.currentInterference = totalPowerReceived.front().power_dBm;
+					break;
+				case NO_INTERFERENCE_NO_COLLISIONS: 
+					newSignal.currentInterference = -200.0; 
+					break;
+				case SIMPLE_COLLISION_MODEL:
+					// if other received signals are 6dBm below RX sensitivity or more
+					// this is considered catastrophic interference. 
+					if (totalPowerReceived.front().power_dBm > RXmode->sensitivity - 6.0) 
+						newSignal.currentInterference = 0.0;
+					else 	newSignal.currentInterference = -200.0;
+					break;
+				case COMPLEX_INTERFERENCE_MODEL: // not implemented yet
+					newSignal.currentInterference = -200.0; break;
+			}
 			newSignal.maxInterference = newSignal.currentInterference;
 			if ((RXmode->modulation == newSignal.modulation) && (newSignal.power_dBm >= RXmode->sensitivity))
 				newSignal.bitErrors = 0;
@@ -135,12 +151,13 @@ void RadioModule::handleMessage(cMessage *msg) {
 				if (endingSignal->ID == signalID) break;
 			}
 
-			/* We should always find a corresponding received signal in the list
+			/* If we do not find the signal ID in our list of received signals
+			 * this means that the list was flushed, probably due to a carrier
+			 * frequency change. We can ignore the signal.
 			 */
-			if (endingSignal == receivedSignals.end())
-			opp_error("No matching received signal entry for message WC_SIGNAL_END");
+			if (endingSignal == receivedSignals.end()) break; // exit case WC_SIGNAL_END
 
-			/* if we are not in RX state or we are changing state, then just
+			/* If we are not in RX state or we are changing state, then just
 			 * delete the corresponding signal from the received signals list
 			 */
 			if ((state != RX) || (changingToState != -1)) {
@@ -490,7 +507,7 @@ void RadioModule::finishSpecific() {
 	receivedSignals.clear();
 	totalPowerReceived.clear();
 
-	if (stats.transmissions>0) collectOutput("TXed pkts", stats.transmissions);
+	if (stats.transmissions>0) collectOutput("TXed pkts", "TX pkts", stats.transmissions);
 
 	if (stats.RxReachedNoInterference>0) collectOutput("RX pkt breakdown", "Received with NO interference",stats.RxReachedNoInterference);
 	if (stats.RxReachedInterference>0) collectOutput("RX pkt breakdown", "Received despite interference", stats.RxReachedInterference);
@@ -593,7 +610,7 @@ void RadioModule::updateInterference(list <ReceivedSignal_type>::iterator it1, W
 		case NO_INTERFERENCE_NO_COLLISIONS: { return; } // nothing, this signal will not affect other signals
 
 		case SIMPLE_COLLISION_MODEL: {
-			if (wcMsg->getPower_dBm() > RXmode->sensitivity) {
+			if (wcMsg->getPower_dBm() > RXmode->sensitivity - 6.0) {
 				it1->bitErrors = maxErrorsAllowed(it1->encoding) + 1; // corrupt the signal
 				it1->maxInterference = 0.0;  // a big interference value in dBm
 			}

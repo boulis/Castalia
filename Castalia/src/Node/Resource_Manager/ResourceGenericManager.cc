@@ -13,7 +13,8 @@
 
 Define_Module(ResourceGenericManager);
 
-void ResourceGenericManager::initialize() {
+void ResourceGenericManager::initialize()
+{
 	sigmaCPUClockDrift = par("sigmaCPUClockDrift");
 	//using the "0" rng generator of the ResourceGenericManager module
 	cpuClockDrift = normal(0, sigmaCPUClockDrift);
@@ -24,15 +25,18 @@ void ResourceGenericManager::initialize() {
 	 * is actually realistic, since usually there is some kind of quality
 	 * control on quartz crystals or the boards that use them (sensor node)
 	 */
-	if (cpuClockDrift > 3*sigmaCPUClockDrift) cpuClockDrift = 3*sigmaCPUClockDrift;
-	if (cpuClockDrift < -3*sigmaCPUClockDrift) cpuClockDrift = -3*sigmaCPUClockDrift;
+	if (cpuClockDrift > 3 * sigmaCPUClockDrift)
+		cpuClockDrift = 3 * sigmaCPUClockDrift;
+	if (cpuClockDrift < -3 * sigmaCPUClockDrift)
+		cpuClockDrift = -3 * sigmaCPUClockDrift;
 
 	initialEnergy = par("initialEnergy");
 	ramSize = par("ramSize");
 	baselineNodePower = par("baselineNodePower");
-	periodicEnergyCalculationInterval = (double)par("periodicEnergyCalculationInterval")/1000;
+	periodicEnergyCalculationInterval = (double)par("periodicEnergyCalculationInterval") / 1000;
 
-	if (baselineNodePower < 0 || periodicEnergyCalculationInterval < 0) opp_error("Illegal values for baselineNodePower and/or periodicEnergyCalculationInterval in resource manager module");
+	if (baselineNodePower < 0 || periodicEnergyCalculationInterval < 0)
+		opp_error("Illegal values for baselineNodePower and/or periodicEnergyCalculationInterval in resource manager module");
 
 	currentNodePower = baselineNodePower;
 	remainingEnergy = initialEnergy;
@@ -43,9 +47,11 @@ void ResourceGenericManager::initialize() {
 	scheduleAt(simTime() + periodicEnergyCalculationInterval, energyMsg);
 }
 
-void ResourceGenericManager::calculateEnergySpent() {
+void ResourceGenericManager::calculateEnergySpent()
+{
 	simtime_t timePassed = simTime() - timeOfLastCalculation;
-	trace() << "energy consumed in the last " << timePassed << "s is " << (timePassed * currentNodePower);
+	trace() << "energy consumed in the last " << timePassed << 
+			"s is " <<(timePassed * currentNodePower);
 	consumeEnergy(SIMTIME_DBL(timePassed * currentNodePower / 1000.0));
 	timeOfLastCalculation = simTime();
 	if (remainingEnergy > 0) {
@@ -54,69 +60,74 @@ void ResourceGenericManager::calculateEnergySpent() {
 	}
 }
 
-
 /* The ResourceGenericManager module is not connected with other modules. They use instead its public methods.
  * The only possible message is periodic energy consumption. There is no message object associated to that message kind.
  */
-void ResourceGenericManager::handleMessage(cMessage *msg) {
+void ResourceGenericManager::handleMessage(cMessage * msg)
+{
 	switch (msg->getKind()) {
-		case TIMER_SERVICE: {
+	
+		case TIMER_SERVICE:{
 			calculateEnergySpent();
 			return;
 		}
 
-		case RESOURCE_MANAGER_DRAW_POWER: {
+		case RESOURCE_MANAGER_DRAW_POWER:{
 			ResourceManagerMessage *resMsg = check_and_cast<ResourceManagerMessage*>(msg);
 			int id = resMsg->getSenderModuleId();
 			double oldPower = storedPowerConsumptions[id];
-			trace() << "New power consumption, id = " << id << ", oldPower = " << currentNodePower << ", newPower = " << currentNodePower - oldPower + resMsg->getPowerConsumed();
+			trace() << "New power consumption, id = " << id << ", oldPower = " << 
+					currentNodePower << ", newPower = " << 
+					currentNodePower - oldPower + resMsg->getPowerConsumed();
 			calculateEnergySpent();
 			currentNodePower = currentNodePower - oldPower + resMsg->getPowerConsumed();
 			storedPowerConsumptions[id] = resMsg->getPowerConsumed();
 			break;
 		}
 
-		default: {
-			opp_error("ERROR: Unexpected message received by resource manager: %s",msg->getKind());
+		default:{
+			opp_error("ERROR: Unexpected message received by resource manager: %s", msg->getKind());
 		}
-    }
-    delete msg;
+	}
+	delete msg;
 }
 
-void ResourceGenericManager::finishSpecific() {
+void ResourceGenericManager::finishSpecific()
+{
 	calculateEnergySpent();
 	declareOutput("Consumed Energy");
-	collectOutput("Consumed Energy","",getSpentEnergy());
+	collectOutput("Consumed Energy", "", getSpentEnergy());
 }
 
-double ResourceGenericManager::getSpentEnergy(void) {
+double ResourceGenericManager::getSpentEnergy(void)
+{
 	Enter_Method("getSpentEnergy()");
 	return (initialEnergy - remainingEnergy);
 }
 
-
-double ResourceGenericManager::getCPUClockDrift(void) {
+double ResourceGenericManager::getCPUClockDrift(void)
+{
 	Enter_Method("getCPUClockDrift(void)");
-	return (1.0f+cpuClockDrift);
+	return (1.0f + cpuClockDrift);
 }
 
-
-void ResourceGenericManager::consumeEnergy(double amount) {
+void ResourceGenericManager::consumeEnergy(double amount)
+{
 	Enter_Method("consumeEnergy(double amount)");
 
-	if(remainingEnergy < amount) {
+	if (remainingEnergy < amount) {
 		remainingEnergy = 0;
 		send(new cMessage("Destroy node message", DESTROY_NODE), "toSensorDevManager");
 		send(new cMessage("Destroy node message", DESTROY_NODE), "toApplication");
 		send(new cMessage("Destroy node message", DESTROY_NODE), "toNetwork");
 		send(new cMessage("Destroy node message", DESTROY_NODE), "toMac");
 		send(new cMessage("Destroy node message", DESTROY_NODE), "toRadio");
-	}
-	else remainingEnergy -= amount;
+	} else
+		remainingEnergy -= amount;
 }
 
-
-void ResourceGenericManager::destroyNode(void) {
+void ResourceGenericManager::destroyNode(void)
+{
 	Enter_Method("destroyNode(void)");
 
 	send(new cMessage("Destroy node message", DESTROY_NODE), "toSensorDevManager");
@@ -126,22 +137,24 @@ void ResourceGenericManager::destroyNode(void) {
 	send(new cMessage("Destroy node message", DESTROY_NODE), "toRadio");
 }
 
-
-int ResourceGenericManager::RamStore(int numBytes) {
+int ResourceGenericManager::RamStore(int numBytes)
+{
 	Enter_Method("RamStore(int numBytes)");
 
-	int ramHasSpace = ((totalRamData+numBytes) <= ramSize)?1:0;
-	if(!ramHasSpace) {
-		trace() << "\n[Resource Manager] t= " << simTime() << ": WARNING: Data not stored to Ram. Not enough space to store them.";
+	int ramHasSpace = ((totalRamData + numBytes) <= ramSize) ? 1 : 0;
+	if (!ramHasSpace) {
+		trace() << "\n[Resource Manager] t= " << simTime() <<
+				": WARNING: Data not stored to Ram. Not enough space to store them.";
 		return 0;
-	}
-	else totalRamData += numBytes;
+	} else
+		totalRamData += numBytes;
 	return 1;
 }
 
-
-void ResourceGenericManager::RamFree(int numBytes) {
+void ResourceGenericManager::RamFree(int numBytes)
+{
 	Enter_Method("RamFree(int numBytes)");
 	totalRamData -= numBytes;
-	totalRamData = (totalRamData < 0)?0:totalRamData;
+	totalRamData = (totalRamData < 0) ? 0 : totalRamData;
 }
+

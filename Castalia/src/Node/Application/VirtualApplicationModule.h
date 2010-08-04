@@ -33,12 +33,13 @@ class VirtualApplicationModule:public VirtualCastaliaModule, public TimerModule 
  protected:
 	/*--- The .ned file's parameters ---*/
 	string applicationID;
-	bool printDebugInfo;
 	int priority;
 	int maxAppPacketSize;
 	int packetHeaderOverhead;
 	int constantDataPayload;
 	bool isSink;
+	double latencyMax;
+	int latencyBuckets;
 
 	/*--- Custom class parameters ---*/
 	int self;				// the node's ID

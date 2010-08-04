@@ -62,9 +62,14 @@ void VirtualApplicationModule::initialize()
 	scheduleAt(simTime() + cpuClockDrift * random_startup_delay,
 		   new cMessage("App [STARTUP]", NODE_STARTUP));
 
-	double latencyMax = par("latencyHistogramMax");
-	int latencyBuckets = par("latencyHistogramBuckets");
-	declareHistogram("Application level latency, in ms", 0, latencyMax, latencyBuckets);
+	/* Latency measurement is optional. An application can not define the 
+	 * following two parameters. If they are not defined then the
+	 * declareHistogram and collectHistogram statement are not called.
+	 */
+	latencyMax = hasPar("latencyHistogramMax") ? par("latencyHistogramMax") : 0;
+	latencyBuckets = hasPar("latencyHistogramBuckets") ? par("latencyHistogramBuckets") : 0;
+	if (latencyMax > 0 && latencyBuckets > 0)
+		declareHistogram("Application level latency, in ms", 0, latencyMax, latencyBuckets);
 }
 
 void VirtualApplicationModule::handleMessage(cMessage * msg)
@@ -92,8 +97,9 @@ void VirtualApplicationModule::handleMessage(cMessage * msg)
 			rcvPacket = check_and_cast <ApplicationGenericDataPacket*>(msg);
 			ApplicationInteractionControl_type control = rcvPacket->getApplicationInteractionControl();
 			if (applicationID.compare(control.applicationID.c_str()) == 0) {
-				collectHistogram("Application level latency, in ms",
-				     1000 * SIMTIME_DBL(simTime() - control.timestamp));
+				if (latencyMax > 0 && latencyBuckets > 0)
+					collectHistogram("Application level latency, in ms",
+					1000 * SIMTIME_DBL(simTime() - control.timestamp));
 				fromNetworkLayer(rcvPacket, control.source.c_str(), control.RSSI, control.LQI);
 			}
 			break;
@@ -202,19 +208,5 @@ void VirtualApplicationModule::toNetworkLayer(cPacket * pkt, const char *dst)
 	appPkt->getApplicationInteractionControl().applicationID = applicationID;
 	appPkt->getApplicationInteractionControl().timestamp = simTime();
 	send(appPkt, "toCommunicationModule");
-}
-
-void VirtualApplicationModule::handleRadioControlMessage(RadioControlMessage *radioMsg)
-{
-	switch (radioMsg->getRadioControlMessageKind()) {
-	
-		case CARRIER_SENSE_INTERRUPT:
-		{
-			trace() <<
-			    "CS Interrupt received! current RSSI value is: " <<
-			    radioModule->readRSSI();
-			break;
-		}
-	}
 }
 

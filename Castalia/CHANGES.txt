@@ -1,4 +1,45 @@
 
+Castalia 3.0: Major changes from 2.3
+------------------------------------------
+- Porting to OMNeT++ 4.x
+
+- Major restructuring of input and output
+  1) Standard way to create output and trace files
+  2) Introduced Castalia script to assist in
+     creating complex simulation scenarios without
+     the need for custom scripting solutions 
+  3) Introduced CastaliaResults script to assist
+     in processing the output easily without the
+     need for custom scripting solutions
+
+- Created virtual classes for app, net, and MAC.
+  New apps or protocols can be easily derived
+  from these classes, which provide considerable
+  abstraction tools and services.
+
+- Independent service of timers to be used with 
+  the app routing and MAC modules
+
+- Complete redefinition of Radio module
+  1) Radio receives signals from the channel.
+     Reception/interference calculations done
+     in radio now (instead of channel)
+  2) More accurate interference calculation
+     (dynamic intereference accounted not just max)
+  3) Ability to calculate number of bit errors
+     in a packet (not just 0/1)
+  4) Multiple RX modes (with different power consumed,
+     datarate, modulation) that can change dynamically
+  5) Multiple sleep levels.
+  6) Transition times and power easily defined
+  7) Multiple carrier frequencies, than ca change dynamically
+  8) RSSI calculation is modeled more accurately taking 
+     into account the history of signals a radio experiences
+
+- Implementation of the Baseline BAN MAC as described
+  in the IEEE 802.15 Task Group 6 proposal.
+ 
+
 Castalia 2.3: Changes from ver 2.2
 ------------------------------------------
 - Implemented GTS mode in 802.15.4 MAC,

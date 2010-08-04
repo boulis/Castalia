@@ -59,7 +59,7 @@ void throughputTest_ApplicationModule::timerFiredCallback(int index)
 	}
 }
 
-// this method updates the number of packets received by node 0 from other nodes
+// This method updates the number of packets received by node 0 from other nodes
 void throughputTest_ApplicationModule::update_packets_received(int srcID, int SN)
 {
 	map < int, packet_info >::iterator i = packet_info_table.find(srcID);
@@ -68,5 +68,17 @@ void throughputTest_ApplicationModule::update_packets_received(int srcID, int SN
 	packet_info_table[srcID].packets_received[SN]++;
 	if (packet_info_table[srcID].packets_received[SN] == 1)
 		collectOutput("Packets received", srcID);
+}
+
+
+// This method processes a received carrier sense interupt. Used only for demo purposes
+// in some simulation. Feel free to comment out the trace command.  
+void VirtualApplicationModule::handleRadioControlMessage(RadioControlMessage *radioMsg)
+{
+	switch (radioMsg->getRadioControlMessageKind()) {
+		case CARRIER_SENSE_INTERRUPT:
+			trace() << "CS Interrupt received! current RSSI value is: " << radioModule->readRSSI();
+                        break;
+	}
 }
 

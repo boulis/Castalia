@@ -1,5 +1,5 @@
 //***************************************************************************************
-//*  Copyright: National ICT Australia,  2007, 2008, 2009                               *
+//*  Copyright: National ICT Australia, 2007 - 2010                                     *
 //*  Developed at the Networks and Pervasive Computing program                          *
 //*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis                            *
 //*  This file is distributed under the terms in the attached LICENSE file.             *

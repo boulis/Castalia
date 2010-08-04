@@ -13,14 +13,15 @@
 
 Define_Module(RadioModule);
 
-void RadioModule::initialize() {
+void RadioModule::initialize()
+{
 	// self can be used as a full MAC address
 	self = getParentModule()->getParentModule()->getIndex();
 	readIniFileParameters();
 	disabled = 0;
 
 	rssiIntegrationTime = symbolsForRSSI * RXmode->bitsPerSymbol / RXmode->datarate;
-	timeOfLastSignalChange = 0.0;  // even if left uninitialized, it should not matter.
+	timeOfLastSignalChange = 0.0;	// even if left uninitialized, it should not matter.
 
 	TotalPowerReceived_type initialTotalPower;
 	initialTotalPower.power_dBm = -200.0;
@@ -36,9 +37,10 @@ void RadioModule::initialize() {
 	declareOutput("Buffer overflow");
 }
 
-void RadioModule::handleMessage(cMessage *msg) {
+void RadioModule::handleMessage(cMessage * msg)
+{
 
-	if(disabled) {
+	if (disabled) {
 		delete msg;
 		return;
 	}
@@ -48,7 +50,7 @@ void RadioModule::handleMessage(cMessage *msg) {
 		/*********************************************
 		 * New signal message from wireless channel.
 		 *********************************************/
-		case WC_SIGNAL_START: {
+		case WC_SIGNAL_START:{
 
 			WirelessChannelSignalBegin *wcMsg = check_and_cast<WirelessChannelSignalBegin*>(msg);
 
@@ -56,7 +58,8 @@ void RadioModule::handleMessage(cMessage *msg) {
 			 * In the future, depending on carrierFreq and bandwidth, we can decide to include
 			 * the signal in the received signals list with reduced (spill over) power
 			 */
-			if (wcMsg->getCarrierFreq() != carrierFreq) break;
+			if (wcMsg->getCarrierFreq() != carrierFreq)
+				break;
 
 			/* if we are not in RX state or we are changing state, then process the
 			 * signal minimally. We still need to keep a list of signals because when
@@ -70,20 +73,21 @@ void RadioModule::handleMessage(cMessage *msg) {
 				newSignal.bitErrors = ALL_ERRORS;
 				receivedSignals.push_front(newSignal);
 				stats.RxFailedNoRxState++;
-				break;  // exit case WC_SIGNAL_START
+				break;	// exit case WC_SIGNAL_START
 			}
 
 			/* If we are in RX state, go throught the list of received signals and update
 			 * bitErrors and currentInterference
 			 */
-			list <ReceivedSignal_type>::iterator it1;
+			list<ReceivedSignal_type>::iterator it1;
 			for (it1 = receivedSignals.begin(); it1 != receivedSignals.end(); it1++) {
 
 				// no need to update bitErrors for an element which will not be received
-				if (it1->bitErrors == ALL_ERRORS || it1->bitErrors > maxErrorsAllowed(it1->encoding)) continue;
+				if (it1->bitErrors == ALL_ERRORS || it1->bitErrors > maxErrorsAllowed(it1->encoding))
+					continue;
 
 				// calculate bit errors for the last segment of unchanged signal conditions
-				int numOfBits = (int)ceil(RXmode->datarate*SIMTIME_DBL(simTime() - timeOfLastSignalChange));
+				int numOfBits = (int)ceil(RXmode->datarate * SIMTIME_DBL(simTime() - timeOfLastSignalChange));
 				double BER = SNR2BER(it1->power_dBm - addPower_dBm(it1->currentInterference, RXmode->noiseFloor));
 				it1->bitErrors += bitErrors(BER, numOfBits, maxErrorsAllowed(it1->encoding) - it1->bitErrors);
 
@@ -95,31 +99,39 @@ void RadioModule::handleMessage(cMessage *msg) {
 			ReceivedSignal_type newSignal;
 			newSignal.ID = wcMsg->getNodeID();
 			newSignal.power_dBm = wcMsg->getPower_dBm();
-			newSignal.modulation = (Modulation_type)wcMsg->getModulationType();
-			newSignal.encoding = (Encoding_type)wcMsg->getEncodingType();
+			newSignal.modulation = (Modulation_type) wcMsg->getModulationType();
+			newSignal.encoding = (Encoding_type) wcMsg->getEncodingType();
+
 			switch (collisionModel) {
-				case ADDITIVE_INTERFERENCE_MODEL: // the default mode
+				
+				case ADDITIVE_INTERFERENCE_MODEL:	// the default mode
 					newSignal.currentInterference = totalPowerReceived.front().power_dBm;
 					break;
-				case NO_INTERFERENCE_NO_COLLISIONS: 
-					newSignal.currentInterference = -200.0; 
+				
+				case NO_INTERFERENCE_NO_COLLISIONS:
+					newSignal.currentInterference = -200.0;
 					break;
+				
 				case SIMPLE_COLLISION_MODEL:
 					// if other received signals are 6dBm below RX sensitivity or more
 					// this is considered catastrophic interference. 
-					if (totalPowerReceived.front().power_dBm > RXmode->sensitivity - 6.0) 
+					if (totalPowerReceived.front().power_dBm > RXmode->sensitivity - 6.0)
 						newSignal.currentInterference = 0.0;
-					else 	newSignal.currentInterference = -200.0;
+					else
+						newSignal.currentInterference = -200.0;
 					break;
-				case COMPLEX_INTERFERENCE_MODEL: // not implemented yet
-					newSignal.currentInterference = -200.0; break;
+				
+				case COMPLEX_INTERFERENCE_MODEL:	// not implemented yet
+					newSignal.currentInterference = -200.0;
+					break;
 			}
+			
 			newSignal.maxInterference = newSignal.currentInterference;
 			if ((RXmode->modulation == newSignal.modulation) && (newSignal.power_dBm >= RXmode->sensitivity))
 				newSignal.bitErrors = 0;
 			else {
 				// ALL_ERRORS signals are kept only for interference and RSSI calculations
-				newSignal.bitErrors = ALL_ERRORS ;
+				newSignal.bitErrors = ALL_ERRORS;
 				// collect stats
 				if (newSignal.power_dBm < RXmode->sensitivity)
 					stats.RxFailedSensitivity++;
@@ -141,47 +153,52 @@ void RadioModule::handleMessage(cMessage *msg) {
 		/***************************************************
 		 * End signal message from wireless channel.
 		 ***************************************************/
-		case WC_SIGNAL_END: {
+		case WC_SIGNAL_END:{
 
 			WirelessChannelSignalEnd *wcMsg = check_and_cast<WirelessChannelSignalEnd*>(msg);
 			int signalID = wcMsg->getNodeID();
 
-			list <ReceivedSignal_type>::iterator endingSignal;
+			list<ReceivedSignal_type>::iterator endingSignal;
 			for (endingSignal = receivedSignals.begin(); endingSignal != receivedSignals.end(); endingSignal++) {
-				if (endingSignal->ID == signalID) break;
+				if (endingSignal->ID == signalID)
+					break;
 			}
 
 			/* If we do not find the signal ID in our list of received signals
 			 * this means that the list was flushed, probably due to a carrier
 			 * frequency change. We can ignore the signal.
 			 */
-			if (endingSignal == receivedSignals.end()) break; // exit case WC_SIGNAL_END
+			if (endingSignal == receivedSignals.end())
+				break;	// exit case WC_SIGNAL_END
 
 			/* If we are not in RX state or we are changing state, then just
 			 * delete the corresponding signal from the received signals list
 			 */
 			if ((state != RX) || (changingToState != -1)) {
-				if (endingSignal->bitErrors != ALL_ERRORS) stats.RxFailedNoRxState++;
+				if (endingSignal->bitErrors != ALL_ERRORS)
+					stats.RxFailedNoRxState++;
 				receivedSignals.erase(endingSignal);
-				break; // exit case WC_SIGNAL_END
+				break;	// exit case WC_SIGNAL_END
 			}
 
 			/* If we are in RX state, go throught the list of received signals and update
 			 * bitErrors and currentInterference, just as we did with start signal.
 			 */
-			list <ReceivedSignal_type>::iterator it1;
+			list<ReceivedSignal_type>::iterator it1;
 			for (it1 = receivedSignals.begin(); it1 != receivedSignals.end(); it1++) {
 				// no need to update bitErrors for an element which will not be received
-				if (it1->bitErrors == ALL_ERRORS || it1->bitErrors > maxErrorsAllowed(it1->encoding)) continue;
+				if (it1->bitErrors == ALL_ERRORS || it1->bitErrors > maxErrorsAllowed(it1->encoding))
+					continue;
 
 				//calculate bit errors for the last segment of unchanged signal conditions
-				int numOfBits = (int)ceil(RXmode->datarate*SIMTIME_DBL(simTime()- timeOfLastSignalChange));
+				int numOfBits = (int)ceil(RXmode->datarate * SIMTIME_DBL(simTime() - timeOfLastSignalChange));
 				double BER = SNR2BER(it1->power_dBm - addPower_dBm(it1->currentInterference, RXmode->noiseFloor));
 				it1->bitErrors += bitErrors(BER, numOfBits, maxErrorsAllowed(it1->encoding) - it1->bitErrors);
 
 				//update currentInterference in the received signal structure (*it)
 				// only if this is NOT the ending signal
-				if (it1 != endingSignal) updateInterference(it1, endingSignal);
+				if (it1 != endingSignal)
+					updateInterference(it1, endingSignal);
 			}
 
 			updateTotalPowerReceived(endingSignal);
@@ -193,8 +210,9 @@ void RadioModule::handleMessage(cMessage *msg) {
 					// decapsulate the packet and add the RSSI and LQI fields
 					MacGenericPacket *macPkt = check_and_cast<MacGenericPacket*>(wcMsg->decapsulate());
 					macPkt->getMacInteractionControl().RSSI = readRSSI();
-					macPkt->getMacInteractionControl().LQI = endingSignal->power_dBm - addPower_dBm(endingSignal->maxInterference, RXmode->noiseFloor);
-					sendDelayed(macPkt,PROCESSING_DELAY,"toMacModule");
+					macPkt->getMacInteractionControl().LQI = endingSignal->power_dBm - 
+							addPower_dBm(endingSignal->maxInterference, RXmode->noiseFloor);
+					sendDelayed(macPkt, PROCESSING_DELAY, "toMacModule");
 					// collect stats
 					if (endingSignal->maxInterference == -200.0)
 						stats.RxReachedNoInterference++;
@@ -207,7 +225,7 @@ void RadioModule::handleMessage(cMessage *msg) {
 					else
 						stats.RxFailedInterference++;
 				}
-	    	}
+			}
 
 			receivedSignals.erase(endingSignal);
 
@@ -217,7 +235,7 @@ void RadioModule::handleMessage(cMessage *msg) {
 		/*********************************************
 		 * Control Command from any layer above
 		 *********************************************/
-		case RADIO_CONTROL_COMMAND: {
+		case RADIO_CONTROL_COMMAND:{
 			RadioControlCommand *radioCmd = check_and_cast<RadioControlCommand*>(msg);
 			handleRadioControlCommand(radioCmd);
 			break;
@@ -226,8 +244,9 @@ void RadioModule::handleMessage(cMessage *msg) {
 		/***********************************************************
 		 * Radio self message to complete the transition to a state
 		 ***********************************************************/
-		case RADIO_ENTER_STATE: {
-			if (stateTxCompleteMsg == msg) stateTxCompleteMsg = NULL;
+		case RADIO_ENTER_STATE:{
+			if (stateTxCompleteMsg == msg)
+				stateTxCompleteMsg = NULL;
 			completeStateTransition();
 			break;
 		}
@@ -235,24 +254,27 @@ void RadioModule::handleMessage(cMessage *msg) {
 		/**************************************************************
 		 * Packet from MAC level arrived. Buffer it, if there is space
 		 **************************************************************/
-		case MAC_LAYER_PACKET: {
+		case MAC_LAYER_PACKET:{
 			MacGenericPacket *macPkt = check_and_cast<MacGenericPacket*>(msg);
 
 			int totalSize = macPkt->getByteLength() + PhyFrameOverhead;
 			if (maxPhyFrameSize != 0 && totalSize > maxPhyFrameSize) {
-				trace() << "WARNING: MAC sent to Radio an oversized packet ("<< macPkt->getByteLength()+PhyFrameOverhead <<" bytes) packet dropped";
+				trace() << "WARNING: MAC sent to Radio an oversized packet (" << 
+					macPkt->getByteLength() + PhyFrameOverhead << " bytes) packet dropped";
 				break;
-	    	}
+			}
 
-			if((int)radioBuffer.size() < bufferSize) {
-			trace() << "Buffered [" << macPkt->getName() << "] from MAC layer";
-			radioBuffer.push(macPkt);
-			// we use return instead of break that leads to message deletion at the end
-			// to avoid unnecessary message duplication
-			return;
+			if ((int)radioBuffer.size() < bufferSize) {
+				trace() << "Buffered [" << macPkt->getName() << "] from MAC layer";
+				radioBuffer.push(macPkt);
+				// we use return instead of break that leads to message deletion at the end
+				// to avoid unnecessary message duplication
+				return;
 			} else {
-				trace() << "WARNING: discarding [" << macPkt->getName() << "] from MAC layer because Radio buffer is full";
-				RadioControlMessage *fullBuffMsg = new RadioControlMessage("Radio buffer full", RADIO_CONTROL_MESSAGE);
+				trace() << "WARNING: discarding [" << macPkt->getName() <<
+				    "] from MAC layer because Radio buffer is full";
+				RadioControlMessage *fullBuffMsg = 
+						new RadioControlMessage("Radio buffer full", RADIO_CONTROL_MESSAGE);
 				fullBuffMsg->setRadioControlMessageKind(RADIO_BUFFER_FULL);
 				sendDelayed(fullBuffMsg, PROCESSING_DELAY, "toMacModule");
 				stats.bufferOverflow++;
@@ -263,13 +285,13 @@ void RadioModule::handleMessage(cMessage *msg) {
 		/***************************************************
 		 * Two kinds of messages to disable the radio
 		 ***************************************************/
-		case OUT_OF_ENERGY: {
+		case OUT_OF_ENERGY:{
 			trace() << "Radio disabled: Out of energy";
 			disabled = 1;
 			break;
 		}
 
-		case DESTROY_NODE: {
+		case DESTROY_NODE:{
 			trace() << "Radio disabled: Destroyed node";
 			disabled = 1;
 			break;
@@ -285,13 +307,14 @@ void RadioModule::handleMessage(cMessage *msg) {
 		 * the message can just be forwarded to MAC. NOTE the 'return'
 		 * to avoid message deletion in the end;
 		 ******************************************************************/
-		case RADIO_CONTROL_MESSAGE: {
-			send(msg,"toMacModule");
+		case RADIO_CONTROL_MESSAGE:{
+			send(msg, "toMacModule");
 			return;
 		}
 
-		default: {
-			opp_error("\n[Radio_%d] t= %f: ERROR: received message [%s] of unknown type.\n", self, SIMTIME_DBL(simTime()), msg->getName());
+		default:{
+			opp_error("\n[Radio_%d] t= %f: ERROR: received message [%s] of unknown type.\n",
+				     self, SIMTIME_DBL(simTime()), msg->getName());
 			break;
 		}
 	}
@@ -299,8 +322,8 @@ void RadioModule::handleMessage(cMessage *msg) {
 	msg = NULL;		// safeguard
 }
 
-
-void RadioModule::handleRadioControlCommand(RadioControlCommand *radioCmd) {
+void RadioModule::handleRadioControlCommand(RadioControlCommand * radioCmd)
+{
 	switch (radioCmd->getRadioControlCommandKind()) {
 
 		/* The command changes the basic state of the radio. Because of
@@ -310,10 +333,11 @@ void RadioModule::handleRadioControlCommand(RadioControlCommand *radioCmd) {
 		 * acts both as a flag that we are in the midst of changing states and
 		 * as a place to hold the next state value.
 		 */
-		case SET_STATE: {
-		    // if we are asked to change to the current state, do nothing
-		    if (state == radioCmd->getState() || changingToState == radioCmd->getState()) break;
-		    changingToState = radioCmd->getState();
+		case SET_STATE:{
+			// if we are asked to change to the current state, do nothing
+			if (state == radioCmd->getState() || changingToState == radioCmd->getState())
+				break;
+			changingToState = radioCmd->getState();
 
 			double transitionDelay = transition[state][changingToState].delay;
 			double avgDrawnTransitionPower = transition[state][changingToState].power;
@@ -328,29 +352,31 @@ void RadioModule::handleRadioControlCommand(RadioControlCommand *radioCmd) {
 			 * (very fast state changes), but cleaner in implementation.
 			 */
 			if (state == SLEEP) {
-				list <SleepLevel_type>::iterator it1 = sleepLevel;
+				list<SleepLevel_type>::iterator it1 = sleepLevel;
 				while (it1 != sleepLevelList.begin()) {
 					double levelDelay = it1->transitionUp.delay;
 					double levelPower = it1->transitionUp.power;
-					avgDrawnTransitionPower = ((avgDrawnTransitionPower*transitionDelay)+ levelPower*levelDelay)/(transitionDelay+levelDelay);
+					avgDrawnTransitionPower = ((avgDrawnTransitionPower * transitionDelay) +
+							levelPower * levelDelay) / (transitionDelay + levelDelay);
 					transitionDelay += levelDelay;
 					it1--;
 				}
 			} else if (changingToState == SLEEP) {
-				list <SleepLevel_type>::iterator it1 = sleepLevelList.begin();
-				while (it1 != sleepLevel ) {
+				list<SleepLevel_type>::iterator it1 = sleepLevelList.begin();
+				while (it1 != sleepLevel) {
 					double levelDelay = it1->transitionDown.delay;
 					double levelPower = it1->transitionDown.power;
-					avgDrawnTransitionPower = ((avgDrawnTransitionPower*transitionDelay)+ levelPower*levelDelay)/(transitionDelay+levelDelay);
+					avgDrawnTransitionPower = ((avgDrawnTransitionPower * transitionDelay) +
+							levelPower * levelDelay) / (transitionDelay + levelDelay);
 					transitionDelay += levelDelay;
 					it1++;
 				}
 			}
 
 			powerDrawn(avgDrawnTransitionPower);
-			trace() << "SET STATE to " <<
-				(changingToState == TX ? "TX" : (changingToState == RX ? "RX" : "SLEEP" )) <<
-				", delay=" << transitionDelay << ", power=" << avgDrawnTransitionPower;
+			trace() << "SET STATE to " << (changingToState == TX ? "TX" : 
+					(changingToState == RX ? "RX" : "SLEEP")) << ", delay=" << 
+					transitionDelay << ", power=" << avgDrawnTransitionPower;
 
 			delayStateTransition(transitionDelay);
 			break;
@@ -367,7 +393,7 @@ void RadioModule::handleRadioControlCommand(RadioControlCommand *radioCmd) {
 		 * receiving currently received signals as with the old mode. We could go and
 		 * make all bitErrors = ALL_ERRORS, but not worth the trouble I think.
 		 */
-		case SET_MODE: {
+		case SET_MODE:{
 			// get the mode name from the command
 			string modeName(radioCmd->getName());
 			RXmode = parseRxMode(modeName);
@@ -377,24 +403,26 @@ void RadioModule::handleRadioControlCommand(RadioControlCommand *radioCmd) {
 			rssiIntegrationTime = symbolsForRSSI * RXmode->bitsPerSymbol / RXmode->datarate;
 
 			// if we are in RX state then we should change our drawn power
-			if (state == RX) powerDrawn(RXmode->power);
+			if (state == RX)
+				powerDrawn(RXmode->power);
 			break;
 		}
 
-		case SET_TX_OUTPUT: {
+		case SET_TX_OUTPUT:{
 			TxLevel = parseTxLevel(radioCmd->getParameter());
-			trace() << "Changed TX power output to " << TxLevel->txOutputPower << " dBm, consuming " << TxLevel->txPowerConsumed << " mW";
+			trace() << "Changed TX power output to " << TxLevel->txOutputPower << 
+					" dBm, consuming " << TxLevel->txPowerConsumed << " mW";
 			break;
 		}
 
-		case SET_SLEEP_LEVEL: {
+		case SET_SLEEP_LEVEL:{
 			string sleepLevelName(radioCmd->getName());
 			sleepLevel = parseSleepLevel(sleepLevelName);
 			trace() << "Changed default sleep level to " << sleepLevel->name;
 			break;
 		}
 
-		case SET_CARRIER_FREQ: {
+		case SET_CARRIER_FREQ:{
 			carrierFreq = radioCmd->getParameter();
 			trace() << "Changed carrier frequency to " << carrierFreq << " MHz";
 			/* The only measure we take is to clear the receivedSignals list,
@@ -405,25 +433,25 @@ void RadioModule::handleRadioControlCommand(RadioControlCommand *radioCmd) {
 			break;
 		}
 
-		case SET_CCA_THRESHOLD: {
+		case SET_CCA_THRESHOLD:{
 			CCAthreshold = radioCmd->getParameter();
 			trace() << "Changed CCA threshold to " << CCAthreshold << " dBm";
 			break;
 		}
 
-		case SET_CS_INTERRUPT_ON: {
+		case SET_CS_INTERRUPT_ON:{
 			carrierSenseInterruptEnabled = true;
 			trace() << "CS interrupt tunrned ON";
 			break;
 		}
 
-		case SET_CS_INTERRUPT_OFF: {
+		case SET_CS_INTERRUPT_OFF:{
 			carrierSenseInterruptEnabled = false;
 			trace() << "CS interrupt tunrned OFF";
 			break;
 		}
 
-		case SET_ENCODING: {
+		case SET_ENCODING:{
 			encoding = parseEncodingType(radioCmd->getName());
 			break;
 		}
@@ -433,7 +461,8 @@ void RadioModule::handleRadioControlCommand(RadioControlCommand *radioCmd) {
 /* The function handles the messages to delay the transition to another state.
  * The possibility of a state change before the previous one is completed is also taken care of.
  */
-void RadioModule::delayStateTransition(simtime_t delay) {
+void RadioModule::delayStateTransition(simtime_t delay)
+{
 	if (stateTxCompleteMsg) {
 		trace() << "WARNING: command to change to a new state was received before previous state transition was completed";
 		cancelAndDelete(stateTxCompleteMsg);
@@ -442,16 +471,18 @@ void RadioModule::delayStateTransition(simtime_t delay) {
 	scheduleAt(simTime() + delay, stateTxCompleteMsg);
 }
 
-
 /* The function handles the actions needed when entering a new state.
  */
-void RadioModule::completeStateTransition() {
-	state = (BasicState_type)changingToState;
-	trace() << "completing transition to " << state << " (" << (state == TX ? "TX" : (state == RX ? "RX" : "SLEEP" )) << ")";
+void RadioModule::completeStateTransition()
+{
+	state = (BasicState_type) changingToState;
+	trace() << "completing transition to " << state << " (" << 
+			(state == TX ? "TX" : (state == RX ? "RX" : "SLEEP")) << ")";
 	changingToState = -1;
 
 	switch (state) {
-		case TX: {
+	
+		case TX:{
 			if (!radioBuffer.empty()) {
 				double timeToTxPacket = popAndSendToWirelessChannel();
 				powerDrawn(TxLevel->txPowerConsumed);
@@ -472,7 +503,7 @@ void RadioModule::completeStateTransition() {
 			break;
 		}
 
-		case RX: {
+		case RX:{
 			powerDrawn(RXmode->power);
 			/* Our total received power history was flushed before
 			 * we need to recalculated it, adding all currently received signals
@@ -481,22 +512,23 @@ void RadioModule::completeStateTransition() {
 			break;
 		}
 
-		case SLEEP: {
+		case SLEEP:{
 			powerDrawn(sleepLevel->power);
 			// flush the total received power history
 			totalPowerReceived.clear();
 			break;
 		}
 
-		default: {
+		default:{
 			opp_error("Internal Radio module error: bad state transition requested\n");
 		}
 	}
 }
 
-void RadioModule::finishSpecific() {
+void RadioModule::finishSpecific()
+{
 	MacGenericPacket *macPkt;
-	while(!radioBuffer.empty()) {
+	while (!radioBuffer.empty()) {
 		macPkt = radioBuffer.front();
 		radioBuffer.pop();
 		cancelAndDelete(macPkt);
@@ -507,30 +539,38 @@ void RadioModule::finishSpecific() {
 	receivedSignals.clear();
 	totalPowerReceived.clear();
 
-	if (stats.transmissions>0) collectOutput("TXed pkts", "TX pkts", stats.transmissions);
+	if (stats.transmissions > 0)
+		collectOutput("TXed pkts", "TX pkts", stats.transmissions);
 
-	if (stats.RxReachedNoInterference>0) collectOutput("RX pkt breakdown", "Received with NO interference",stats.RxReachedNoInterference);
-	if (stats.RxReachedInterference>0) collectOutput("RX pkt breakdown", "Received despite interference", stats.RxReachedInterference);
-	if (stats.RxFailedNoInterference>0) collectOutput("RX pkt breakdown", "Failed with NO interference", stats.RxFailedNoInterference);
-	if (stats.RxFailedInterference>0) collectOutput("RX pkt breakdown", "Failed with interference", stats.RxFailedInterference);
-
-	if (stats.RxFailedNoRxState>0) collectOutput("RX pkt breakdown", "Failed, non RX state", stats.RxFailedNoRxState);
-	if (stats.RxFailedSensitivity>0) collectOutput("RX pkt breakdown", "Failed, below sensitivity", stats.RxFailedSensitivity);
-	if (stats.RxFailedModulation>0) collectOutput("RX pkt breakdown", "Failed, wrong modulation", stats.RxFailedModulation);
-	if (stats.bufferOverflow>0) collectOutput("Buffer overflow", stats.bufferOverflow);
+	if (stats.RxReachedNoInterference > 0)
+		collectOutput("RX pkt breakdown", "Received with NO interference", stats.RxReachedNoInterference);
+	if (stats.RxReachedInterference > 0)
+		collectOutput("RX pkt breakdown", "Received despite interference", stats.RxReachedInterference);
+	if (stats.RxFailedNoInterference > 0)
+		collectOutput("RX pkt breakdown", "Failed with NO interference", stats.RxFailedNoInterference);
+	if (stats.RxFailedInterference > 0)
+		collectOutput("RX pkt breakdown", "Failed with interference", stats.RxFailedInterference);
+	if (stats.RxFailedNoRxState > 0)
+		collectOutput("RX pkt breakdown", "Failed, non RX state", stats.RxFailedNoRxState);
+	if (stats.RxFailedSensitivity > 0)
+		collectOutput("RX pkt breakdown", "Failed, below sensitivity", stats.RxFailedSensitivity);
+	if (stats.RxFailedModulation > 0)
+		collectOutput("RX pkt breakdown", "Failed, wrong modulation", stats.RxFailedModulation);
+	if (stats.bufferOverflow > 0)
+		collectOutput("Buffer overflow", stats.bufferOverflow);
 }
-
 
 /* Function takes packet from buffer, creates two wireless channel messages to signal
  * the packet transmission and sends them txTime apart.
  */
-double RadioModule::popAndSendToWirelessChannel() {
-
+double RadioModule::popAndSendToWirelessChannel()
+{
 	MacGenericPacket *macPkt = radioBuffer.front();
 	radioBuffer.pop();
 
 	//Generate begin and end tx messages
-	WirelessChannelSignalBegin *begin = new WirelessChannelSignalBegin("WC_BEGIN",WC_SIGNAL_START);
+	WirelessChannelSignalBegin *begin =
+			new WirelessChannelSignalBegin("WC_BEGIN", WC_SIGNAL_START);
 	begin->setNodeID(self);
 	begin->setPower_dBm(TxLevel->txOutputPower);
 	begin->setCarrierFreq(carrierFreq);
@@ -538,7 +578,8 @@ double RadioModule::popAndSendToWirelessChannel() {
 	begin->setModulationType(RXmode->modulation);
 	begin->setEncodingType(encoding);
 
-	WirelessChannelSignalEnd *end = new WirelessChannelSignalEnd("WC_END",WC_SIGNAL_END);
+	WirelessChannelSignalEnd *end =
+			new WirelessChannelSignalEnd("WC_END", WC_SIGNAL_END);
 	end->setByteLength(PhyFrameOverhead);
 	end->setNodeID(self);
 	end->encapsulate(macPkt);
@@ -553,14 +594,15 @@ double RadioModule::popAndSendToWirelessChannel() {
 	return txTime;
 }
 
-
 /* Update the history of total power received. Overloaded method
  * This version is used when a new signal is added
  */
-void RadioModule::updateTotalPowerReceived(double newSignalPower) {
+void RadioModule::updateTotalPowerReceived(double newSignalPower)
+{
 	TotalPowerReceived_type newElement;
 	// we are assuming additive power. In reality it is more complex.
-	newElement.power_dBm = addPower_dBm(totalPowerReceived.front().power_dBm, newSignalPower);
+	newElement.power_dBm =
+			addPower_dBm(totalPowerReceived.front().power_dBm, newSignalPower);
 	newElement.startTime = simTime();
 	totalPowerReceived.push_front(newElement);
 }
@@ -568,10 +610,12 @@ void RadioModule::updateTotalPowerReceived(double newSignalPower) {
 /* Update the history of total power received. Overloaded method
  * This version is used when an old signal ends
  */
-void RadioModule::updateTotalPowerReceived(list <ReceivedSignal_type>::iterator endingSignal){
+void RadioModule::updateTotalPowerReceived(list<ReceivedSignal_type>::iterator endingSignal)
+{
 	TotalPowerReceived_type newElement;
 	// we are assuming additive power. In reality it is more complex.
-	newElement.power_dBm = subtractPower_dBm(totalPowerReceived.front().power_dBm, endingSignal->power_dBm);
+	newElement.power_dBm =
+		subtractPower_dBm(totalPowerReceived.front().power_dBm, endingSignal->power_dBm);
 	newElement.startTime = simTime();
 	totalPowerReceived.push_front(newElement);
 }
@@ -579,16 +623,17 @@ void RadioModule::updateTotalPowerReceived(list <ReceivedSignal_type>::iterator 
 /* Update the history of total power received. Overloaded method
  * This version is used when we just enter RX state
  */
-void RadioModule::updateTotalPowerReceived() {
+void RadioModule::updateTotalPowerReceived()
+{
 	TotalPowerReceived_type newElement;
-	newElement.power_dBm = -200.0;  // initialize to a value which is practically 0 mW
+	newElement.power_dBm = -200.0;	// initialize to a value which is practically 0 mW
 	/* Go through the list of currently received signals and add up their powers
 	 * We are assuming additive power. In reality it is more complex.
 	 * Also do some housekeeping while calculating total power:
 	 * Signals already active when we just enter RX, cannot be received.
 	 * We tag them here as such
 	 */
-	list <ReceivedSignal_type>::iterator it1;
+	list<ReceivedSignal_type>::iterator it1;
 	for (it1 = receivedSignals.begin(); it1 != receivedSignals.end(); it1++) {
 		newElement.power_dBm = addPower_dBm(it1->power_dBm, newElement.power_dBm);
 		if (it1->bitErrors != ALL_ERRORS) {
@@ -604,27 +649,33 @@ void RadioModule::updateTotalPowerReceived() {
  * This version is used when a new signal is added (WC_SIGNAL_START)
  * Note that the last argument is a message
  */
-void RadioModule::updateInterference(list <ReceivedSignal_type>::iterator it1, WirelessChannelSignalBegin *wcMsg) {
+void RadioModule::updateInterference(list<ReceivedSignal_type>::iterator it1,
+					WirelessChannelSignalBegin * wcMsg)
+{
 	switch (collisionModel) {
 
-		case NO_INTERFERENCE_NO_COLLISIONS: { return; } // nothing, this signal will not affect other signals
+		case NO_INTERFERENCE_NO_COLLISIONS:{
+			return;
+		}		// nothing, this signal will not affect other signals
 
-		case SIMPLE_COLLISION_MODEL: {
+		case SIMPLE_COLLISION_MODEL:{
 			if (wcMsg->getPower_dBm() > RXmode->sensitivity - 6.0) {
-				it1->bitErrors = maxErrorsAllowed(it1->encoding) + 1; // corrupt the signal
-				it1->maxInterference = 0.0;  // a big interference value in dBm
+				it1->bitErrors = maxErrorsAllowed(it1->encoding) + 1;	// corrupt the signal
+				it1->maxInterference = 0.0;	// a big interference value in dBm
 			}
 			return;
 		}
 
 		case ADDITIVE_INTERFERENCE_MODEL:{
-			it1->currentInterference = addPower_dBm(it1->currentInterference,wcMsg->getPower_dBm());
+			it1->currentInterference = addPower_dBm(it1->currentInterference, wcMsg->getPower_dBm());
 			if (it1->currentInterference > it1->maxInterference)
 				it1->maxInterference = it1->currentInterference;
 			return;
 		}
 
-		case COMPLEX_INTERFERENCE_MODEL: { return; } // not implemented yet
+		case COMPLEX_INTERFERENCE_MODEL:{
+			return;
+		}		// not implemented yet
 	}
 }
 
@@ -632,46 +683,61 @@ void RadioModule::updateInterference(list <ReceivedSignal_type>::iterator it1, W
  * This version is used when a new signal is subtracted (WC_SIGNAL_END)
  * note that the last argument is an iterator to a list
  */
-void RadioModule::updateInterference(list <ReceivedSignal_type>::iterator it1, list <ReceivedSignal_type>::iterator endingSignal) {
+void RadioModule::updateInterference(list<ReceivedSignal_type>::iterator it1,
+					list<ReceivedSignal_type>::iterator endingSignal)
+{
 	switch (collisionModel) {
 
-		case NO_INTERFERENCE_NO_COLLISIONS: { return; } // nothing, this signal will not affect other signals
-		case SIMPLE_COLLISION_MODEL: { return; } // do nothing, this signal corrupted/destroyed other signals already
+		case NO_INTERFERENCE_NO_COLLISIONS:{
+			return;
+		}		// nothing, this signal will not affect other signals
+		
+		case SIMPLE_COLLISION_MODEL:{
+			return;
+		}		// do nothing, this signal corrupted/destroyed other signals already
 
-		case ADDITIVE_INTERFERENCE_MODEL: {
-			it1->currentInterference = subtractPower_dBm(it1->currentInterference, endingSignal->power_dBm);
-			if (it1->currentInterference > it1->maxInterference) it1->maxInterference = it1->currentInterference;
+		case ADDITIVE_INTERFERENCE_MODEL:{
+			it1->currentInterference =
+					subtractPower_dBm(it1->currentInterference, endingSignal->power_dBm);
+			if (it1->currentInterference > it1->maxInterference)
+				it1->maxInterference = it1->currentInterference;
 			return;
 		}
 
-		case COMPLEX_INTERFERENCE_MODEL: { return; } // not implemented yet
+		case COMPLEX_INTERFERENCE_MODEL:{
+			return;
+		}		// not implemented yet
 	}
 }
 
 /* Calculate RSSI based on the history of totalReceivedPower
  */
-double RadioModule::readRSSI() {
+double RadioModule::readRSSI()
+{
 
 	double RSSI = -200.0;
 
 	// if we are not RXing return the appropriate error code
-	if (state != RX) return CS_NOT_VALID;
+	if (state != RX)
+		return CS_NOT_VALID;
 
 	simtime_t limitTime = simTime() - rssiIntegrationTime;
 	simtime_t currentTime = simTime();
 
-	list <TotalPowerReceived_type>::iterator it1 = totalPowerReceived.begin();
-	while ( currentTime > limitTime ){
+	list<TotalPowerReceived_type>::iterator it1 = totalPowerReceived.begin();
+	while (currentTime > limitTime) {
 		// fraction of rssiIntegrationTime that the current element in TotalreceivedPower is active
-		float fractionTime = SIMTIME_DBL(currentTime - max(it1->startTime, limitTime))/rssiIntegrationTime;
+		float fractionTime = SIMTIME_DBL(currentTime - max(it1->startTime, limitTime)) / rssiIntegrationTime;
 		// RSSI in dBm being progressively computed
-		RSSI = addPower_dBm (it1->power_dBm + ratioTodB(fractionTime), RSSI);
+		RSSI = addPower_dBm(it1->power_dBm + ratioTodB(fractionTime), RSSI);
 		currentTime = it1->startTime;
 		it1++;
-		if (it1 == totalPowerReceived.end()) break;
+		if (it1 == totalPowerReceived.end())
+			break;
 	}
 	// if we have not RXed long enough, then return an error code
-	if (currentTime > limitTime) return CS_NOT_VALID_YET;
+	if (currentTime > limitTime)
+		return CS_NOT_VALID_YET;
 
 	// the rest of the elements are now irrelevant and should be deleted
 	totalPowerReceived.erase(it1, totalPowerReceived.end());
@@ -685,13 +751,16 @@ double RadioModule::readRSSI() {
  * is negligibly small and given the current power, CCAthreshold
  * and averaging/integration time for RSSI.
  */
-void RadioModule::updatePossibleCSinterrupt() {
+void RadioModule::updatePossibleCSinterrupt()
+{
 
 	// if we are above the threshold, no point in scheduling an interrupt
-	if (readRSSI() > CCAthreshold) return;
+	if (readRSSI() > CCAthreshold)
+		return;
 
 	// if we are going to schedule an interrupt, cancel any future CS interrupt
-	if (simTime() < latestCSinterruptTime) cancelAndDelete(CSinterruptMsg);
+	if (simTime() < latestCSinterruptTime)
+		cancelAndDelete(CSinterruptMsg);
 
 	/* We calculate the fraction of the RSSI averaging time that it will take for
 	 * the current power to surpass the CCA threshold. This is based on how many
@@ -715,42 +784,45 @@ void RadioModule::updatePossibleCSinterrupt() {
 
 /* A method to convert SNR to BER for all the modulation types we support
  */
-double RadioModule::SNR2BER(double SNR_dB) {
-
+double RadioModule::SNR2BER(double SNR_dB)
+{
 	switch (RXmode->modulation) {
 
 		case FSK:
-			return 0.5 * exp(((-0.5) * RXmode->noiseBandwidth / RXmode->datarate)* pow(10.0, (SNR_dB/10.0)));
+			return 0.5 * exp(((-0.5) * RXmode->noiseBandwidth / RXmode->datarate) * pow(10.0, (SNR_dB / 10.0)));
 
 		case PSK:
-			return 0.5 * erfc(sqrt(pow(10.0,(SNR_dB/10.0)) * RXmode->noiseBandwidth / RXmode->datarate));
+			return 0.5 * erfc(sqrt(pow(10.0, (SNR_dB / 10.0)) * RXmode->noiseBandwidth / RXmode->datarate));
 
 		case DIFFBPSK:
-			return 0.5 * exp((RXmode->noiseBandwidth / RXmode->datarate)* pow(10.0, (SNR_dB/10.0)));
+			return 0.5 * exp((RXmode->noiseBandwidth / RXmode->datarate) * pow(10.0, (SNR_dB / 10.0)));
 
 		case DIFFQPSK:
 			return diffQPSK_SNR2BER(SNR_dB);
 
-		case CUSTOM: {
-			if (customModulation[0].SNR > SNR_dB) return 0.0;
-			if (customModulation.back().SNR < SNR_dB) return 1.0;
-			for (int i = 0; i < (int)customModulation.size()-1; i++) {
-				if (customModulation[i+1].SNR < SNR_dB) continue;
-				if (customModulation[i+1].SNR - SNR_dB > SNR_dB - customModulation[i].SNR)
+		case CUSTOM:{
+			if (customModulation[0].SNR > SNR_dB)
+				return 0.0;
+			if (customModulation.back().SNR < SNR_dB)
+				return 1.0;
+			for (int i = 0; i < (int)customModulation.size() - 1; i++) {
+				if (customModulation[i + 1].SNR < SNR_dB)
+					continue;
+				if (customModulation[i + 1].SNR - SNR_dB > SNR_dB - customModulation[i].SNR)
 					return customModulation[i].BER;
 				else
-					return customModulation[i+1].BER;
+					return customModulation[i + 1].BER;
 			}
 			// went through the whole array
 			return 1.0;
 		}
 
 		case IDEAL:
-			return (SNR_dB < IDEAL_MODULATION_THRESHOLD? 1.0:0.0);
+			return (SNR_dB < IDEAL_MODULATION_THRESHOLD ? 1.0 : 0.0);
 
 		default:
 			opp_error("Modulation type not defined");
-		}
+	}
 	return 1.0;
 }
 
@@ -758,44 +830,52 @@ double RadioModule::SNR2BER(double SNR_dB) {
  * Despite its name it does not return bool (but CLEAR=1 BUSY=0)
  * since it also has to return some possible codes for non-valid
  */
-CCA_result RadioModule::isChannelClear() {
+CCA_result RadioModule::isChannelClear()
+{
 	double value = readRSSI();
-	if (value < CS_NOT_VALID) return (value < CCAthreshold)? CLEAR:BUSY;
+	if (value < CS_NOT_VALID)
+		return (value < CCAthreshold) ? CLEAR : BUSY;
 
 	/* Otherwise an error has occured and we are returning the error code.
 	 * CS_NOT_VALID means that the radio is not in RX, so we have to change
 	 * to RX first. CS_NOT_VALID_YET means we are in RX, just not long enough
 	 * The only thing we need to do is wait a little more for the CS to be valid.
 	 */
-	else if (value == CS_NOT_VALID) return CS_NOT_VALID;
-	else return CS_NOT_VALID_YET;
+	else if (value == CS_NOT_VALID)
+		return CS_NOT_VALID;
+	else
+		return CS_NOT_VALID_YET;
 }
-
 
 /* An advanced way of calculating the number of errors by checking if
  * exactly i errors happened, where i = 0..maxallowed.
  */
-int RadioModule::bitErrors(double BER, int numOfBits, int maxBitErrorsAllowed){
+int RadioModule::bitErrors(double BER, int numOfBits, int maxBitErrorsAllowed)
+{
 	double cumulativeProbabilityOfUnrealizedEvents = 0.0;
 
 	int bitErrors;
 	for (bitErrors = 0; bitErrors <= maxBitErrorsAllowed; bitErrors++) {
 		double prob = probabilityOfExactly_N_Errors(BER, bitErrors, numOfBits);
 
-		if (genk_dblrand(0) <= prob / (1.0 - cumulativeProbabilityOfUnrealizedEvents)) break;
+		if (genk_dblrand(0) <= prob / (1.0 - cumulativeProbabilityOfUnrealizedEvents))
+			break;
 		cumulativeProbabilityOfUnrealizedEvents += prob;
-		if (bitErrors == maxBitErrorsAllowed) { bitErrors++; break; }
+		if (bitErrors == maxBitErrorsAllowed) {
+			bitErrors++;
+			break;
+		}
 	}
 	return bitErrors;
 }
 
-
-void RadioModule::readIniFileParameters(void) {
+void RadioModule::readIniFileParameters(void)
+{
 	bufferSize = par("bufferSize");
 	maxPhyFrameSize = par("maxPhyFrameSize");
 	PhyFrameOverhead = par("phyFrameOverhead");
 	carrierFreq = par("carrierFreq");
-	collisionModel = (CollisionModel_type)((int)par("collisionModel"));
+	collisionModel = (CollisionModel_type) ((int)par("collisionModel"));
 	CCAthreshold = par("CCAthreshold");
 	carrierSenseInterruptEnabled = par("carrierSenseInterruptEnabled");
 	symbolsForRSSI = par("symbolsForRSSI");
@@ -807,7 +887,8 @@ void RadioModule::readIniFileParameters(void) {
 
 	string startingTxPower = par("TxOutputPower");
 	TxLevel = parseTxLevel(startingTxPower);
-	trace() << "Initialized TX power output to " << TxLevel->txOutputPower << " dBm, consuming " << TxLevel->txPowerConsumed << " mW";
+	trace() << "Initialized TX power output to " << TxLevel->txOutputPower << 
+			" dBm, consuming " << TxLevel->txPowerConsumed << " mW";
 
 	string defaultSleepLevel = par("sleepLevel");
 	sleepLevel = parseSleepLevel(defaultSleepLevel);
@@ -815,112 +896,171 @@ void RadioModule::readIniFileParameters(void) {
 
 	string startingState = par("state");
 	state = RX;
-	if (startingState.compare("RX") == 0) changingToState = RX;
-	else if (startingState.compare("TX") == 0) changingToState = TX;
-	else if (startingState.compare("SLEEP") == 0) changingToState = SLEEP;
-	else opp_error("Unknown basic state name '%s'\n", startingState.c_str());
+	if (startingState.compare("RX") == 0)
+		changingToState = RX;
+	else if (startingState.compare("TX") == 0)
+		changingToState = TX;
+	else if (startingState.compare("SLEEP") == 0)
+		changingToState = SLEEP;
+	else
+		opp_error("Unknown basic state name '%s'\n", startingState.c_str());
 
 	completeStateTransition();	// this will complete initialisation of the radio according to startingState parameter
 }
 
-
-void RadioModule::parseRadioParameterFile(const char * fileName) {
-	if (strlen(fileName) == 0) opp_error("Radio parameters file not specified");
+void RadioModule::parseRadioParameterFile(const char *fileName)
+{
+	if (strlen(fileName) == 0)
+		opp_error("Radio parameters file not specified");
 	ifstream f(fileName);
-	if (!f.is_open()) opp_error("Error reading from radio parameters file %s\n", fileName);
+	if (!f.is_open())
+		opp_error("Error reading from radio parameters file %s\n", fileName);
 
-	string s; const char *ct;
+	string s;
+	const char *ct;
 	map<int,int> visited;
-	int section = -1; // -1: ERROR, 1: RX MODES, 2: TX LEVELS, 3: SLEEP LEVELS, 4: DELAY TRANSITION 5: POWER TRANSITION
-	while (getline(f,s)) {
+	int section = -1;
+	// sections are -1: ERROR, 1: RX MODES, 2: TX LEVELS, 3: SLEEP LEVELS, 4: DELAY TRANSITION 5: POWER TRANSITION
+	while (getline(f, s)) {
 		// find and remove comments
 		size_t pos = s.find('#');
-		if (pos != string::npos) s.replace(s.begin()+pos,s.end(),"");
+		if (pos != string::npos)
+			s.replace(s.begin() + pos, s.end(), "");
 
 		// find and remove unneeded spaces
 		pos = s.find_last_not_of(" \t\n");
 		if (pos != string::npos) {
 			s.erase(pos + 1);
 			pos = s.find_first_not_of(" \t\n");
-			if (pos != string::npos) s.erase(0, pos);
-		} else s.erase(s.begin(), s.end());
+			if (pos != string::npos)
+				s.erase(0, pos);
+		} else
+			s.erase(s.begin(), s.end());
 
-		if (s.length() == 0) continue;
+		if (s.length() == 0)
+			continue;
 
-		if (s.compare("RX MODES") == 0) { visited[section] = 1; section = 1; }
-		else if (s.compare("TX LEVELS") == 0) { visited[section] = 1; section = 2; }
-		else if (s.compare("SLEEP LEVELS") == 0) { visited[section] = 1; section = 3; }
-		else if (s.compare("DELAY TRANSITION MATRIX") == 0) { visited[section] = 1; section = 4; }
-		else if (s.compare("POWER TRANSITION MATRIX") == 0) { visited[section] = 1; section = 5; }
-		else if (section == -1 || visited[section] == 1) opp_error("Bad syntax of radio parameters file, expecting label:\n%s",ct);
+		if (s.compare("RX MODES") == 0) {
+			visited[section] = 1;
+			section = 1;
+		} else if (s.compare("TX LEVELS") == 0) {
+			visited[section] = 1;
+			section = 2;
+		} else if (s.compare("SLEEP LEVELS") == 0) {
+			visited[section] = 1;
+			section = 3;
+		} else if (s.compare("DELAY TRANSITION MATRIX") == 0) {
+			visited[section] = 1;
+			section = 4;
+		} else if (s.compare("POWER TRANSITION MATRIX") == 0) {
+			visited[section] = 1;
+			section = 5;
+		} else if (section == -1 || visited[section] == 1)
+			opp_error("Bad syntax of radio parameters file, expecting label:\n%s", ct);
 		else {
 			if (section == 1) {
 				// parsing lines in the following format:
-				// Name, dataRate(kbps), modulationType, bitsPerSymbol, bandwidth(MHz), noiseBandwidth(MHz), noiseFloor(dBm), sensitivity(dBm), powerConsumed(mW)
+				// Name, dataRate(kbps), modulationType, bitsPerSymbol, bandwidth(MHz), 
+				// noiseBandwidth(MHz), noiseFloor(dBm), sensitivity(dBm), powerConsumed(mW)
 
 				RXmode_type rxmode;
-				cStringTokenizer t(s.c_str(),", \t"); ct = t.nextToken();	//break the string with ',' delimiter
-				if (ct == NULL) opp_error("Bad syntax of radio parameters file, expecting rx mode name:\n%s",ct);
-				rxmode.name = string(ct); ct = t.nextToken();
+				cStringTokenizer t(s.c_str(), ", \t");
+				ct = t.nextToken();	//break the string with ',' delimiter
+				if (ct == NULL)
+					opp_error("Bad syntax of radio parameters file, expecting rx mode name:\n%s", ct);
+				rxmode.name = string(ct);
+				ct = t.nextToken();
 
-				if (parseFloat(ct,&rxmode.datarate)) opp_error("Bad syntax of radio parameters file, expecting data rate for rx mode %s:\n%s",rxmode.name.c_str(),ct);
-				rxmode.datarate *= 1000.0; //convert kbps to bps
+				if (parseFloat(ct, &rxmode.datarate))
+					opp_error("Bad syntax of radio parameters file, expecting data rate for rx mode %s:\n%s",
+							rxmode.name.c_str(), ct);
+				rxmode.datarate *= 1000.0;	//convert kbps to bps
 				ct = t.nextToken();
 				rxmode.modulation = parseModulationType(ct);
 				ct = t.nextToken();
-				if (parseInt(ct,&rxmode.bitsPerSymbol)) opp_error("Bad syntax of radio parameters file, expecting bits per symbol for rx mode %s:\n%s",rxmode.name.c_str(),ct);
+				if (parseInt(ct, &rxmode.bitsPerSymbol))
+					opp_error("Bad syntax of radio parameters file, expecting bits per symbol for rx mode %s:\n%s",
+							rxmode.name.c_str(), ct);
 				ct = t.nextToken();
-				if (parseFloat(ct,&rxmode.bandwidth)) opp_error("Bad syntax of radio parameters file, expecting bandwidth for rx mode %s:\n%s",rxmode.name.c_str(),ct);
+				if (parseFloat(ct, &rxmode.bandwidth))
+					opp_error("Bad syntax of radio parameters file, expecting bandwidth for rx mode %s:\n%s",
+							rxmode.name.c_str(), ct);
 				ct = t.nextToken();
-				if (parseFloat(ct,&rxmode.noiseBandwidth)) opp_error("Bad syntax of radio parameters file, expecting noise bandwidth for rx mode %s:\n%s",rxmode.name.c_str(),ct);
-				rxmode.noiseBandwidth *= 1000.0; //convert kHz to Hz
+				if (parseFloat(ct, &rxmode.noiseBandwidth))
+					opp_error("Bad syntax of radio parameters file, expecting noise bandwidth for rx mode %s:\n%s",
+							rxmode.name.c_str(), ct);
+				rxmode.noiseBandwidth *= 1000.0;	//convert kHz to Hz
 				ct = t.nextToken();
-				if (parseFloat(ct,&rxmode.noiseFloor)) opp_error("Bad syntax of radio parameters file, expecting noise floor for rx mode %s:\n%s",rxmode.name.c_str(),ct);
+				if (parseFloat(ct, &rxmode.noiseFloor))
+					opp_error("Bad syntax of radio parameters file, expecting noise floor for rx mode %s:\n%s",
+							rxmode.name.c_str(), ct);
 				ct = t.nextToken();
-				if (parseFloat(ct,&rxmode.sensitivity)) opp_error("Bad syntax of radio parameters file, expecting sensitivity for rx mode %s:\n%s",rxmode.name.c_str(),ct);
+				if (parseFloat(ct, &rxmode.sensitivity))
+					opp_error("Bad syntax of radio parameters file, expecting sensitivity for rx mode %s:\n%s",
+							rxmode.name.c_str(), ct);
 				ct = t.nextToken();
-				if (parseFloat(ct,&rxmode.power)) opp_error("Bad syntax of radio parameters file, expecting power for rx mode %s:\n%s",rxmode.name.c_str(),ct);
+				if (parseFloat(ct, &rxmode.power))
+					opp_error("Bad syntax of radio parameters file, expecting power for rx mode %s:\n%s",
+							rxmode.name.c_str(), ct);
 				ct = t.nextToken();
-				if (ct != NULL) opp_error("Bad syntax of radio parameters file, unexpected input for rx mode %s:\n%s",rxmode.name.c_str(),ct);
+				if (ct != NULL)
+					opp_error("Bad syntax of radio parameters file, unexpected input for rx mode %s:\n%s",
+							rxmode.name.c_str(), ct);
 
-				list <RXmode_type>::iterator it1;
+				list<RXmode_type>::iterator it1;
 				for (it1 = RXmodeList.begin(); it1 != RXmodeList.end(); it1++) {
 					if (rxmode.name.compare(it1->name) == 0)
-						opp_error("Bad syntax of radio parameters file, duplicate RX mode %s",rxmode.name.c_str());
+						opp_error("Bad syntax of radio parameters file, duplicate RX mode %s",
+						     rxmode.name.c_str());
 				}
 				RXmodeList.push_back(rxmode);
 
-		    } else if (section == 2) {
+			} else if (section == 2) {
 				// parsing lines in the following format:
 				// Tx_dBm +1, 0, -2, -5, -10, -15
 				// Tx_mW 21, 17, 15, 12, 10, 7
 
-				cStringTokenizer t(s.c_str(),", \t"); ct = t.nextToken();
-				if (ct == NULL) opp_error("Bad syntax of radio parameters file, expecting Tx_dBm or Tx_mW label");
-				int type = 0; //1->dbM, 2->mW
+				cStringTokenizer t(s.c_str(), ", \t");
+				ct = t.nextToken();
+				if (ct == NULL)
+					opp_error("Bad syntax of radio parameters file, expecting Tx_dBm or Tx_mW label");
+				int type = 0;	//1->dbM, 2->mW
 
-				if (strncmp(ct,"Tx_dBm",strlen("Tx_dBm")) == 0) type = 1;
-				else if (strncmp(ct,"Tx_mW",strlen("Tx_mW")) == 0) type = 2;
-				else opp_error("Bad syntax of radio parameters file, expecting Tx_dBm or Tx_mW label:\n%s",ct);
+				if (strncmp(ct, "Tx_dBm", strlen("Tx_dBm")) == 0)
+					type = 1;
+				else if (strncmp(ct, "Tx_mW", strlen("Tx_mW")) == 0)
+					type = 2;
+				else
+					opp_error("Bad syntax of radio parameters file, expecting Tx_dBm or Tx_mW label:\n%s", ct);
 
-				if (TxLevelList.empty()) { // will insert new elements
+				if (TxLevelList.empty()) {	// will insert new elements
 					while ((ct = t.nextToken())) {
 						TxLevel_type txlevel;
 						double tmp;
-						if (parseFloat(ct,&tmp)) opp_error("Bad syntax of radio parameters file, expecting power value for tx level:\n%s",ct);
-						if (type == 1) txlevel.txOutputPower = tmp; else txlevel.txPowerConsumed = tmp;
+						if (parseFloat(ct, &tmp))
+							opp_error("Bad syntax of radio parameters file, expecting power value for tx level:\n%s", ct);
+						if (type == 1)
+							txlevel.txOutputPower = tmp;
+						else
+							txlevel.txPowerConsumed = tmp;
 						TxLevelList.push_back(txlevel);
 					}
-				} else { // will modify existing elements
+				} else {	// will modify existing elements
 					list <TxLevel_type>::iterator it1;
 					for (it1 = TxLevelList.begin(); it1 != TxLevelList.end(); it1++) {
 						ct = t.nextToken();
 						double tmp;
-						if (ct == NULL) opp_error("Bad syntax of radio parameters file, expecting number of elements in Tx_dBm list and tx_mW list must be equal");
-						if (parseFloat(ct,&tmp)) opp_error("Bad syntax of radio parameters file, expecting power value for tx level:\n%s",ct);
-						if (type == 1) it1->txOutputPower = tmp; else it1->txPowerConsumed = tmp;
+						if (ct == NULL)
+							opp_error("Bad syntax of radio parameters file, expecting number of elements in Tx_dBm list and tx_mW list must be equal");
+						if (parseFloat(ct, &tmp))
+							opp_error("Bad syntax of radio parameters file, expecting power value for tx level:\n%s", ct);
+						if (type == 1)
+							it1->txOutputPower = tmp;
+						else
+							it1->txPowerConsumed = tmp;
 					}
-					if (t.nextToken() != NULL) opp_error("Bad syntax of radio parameters file, expecting number of elements in Tx_dBm list and tx_mW list must be equal");
+					if (t.nextToken() != NULL)
+						opp_error("Bad syntax of radio parameters file, expecting number of elements in Tx_dBm list and tx_mW list must be equal");
 				}
 
 			} else if (section == 3) {
@@ -928,157 +1068,218 @@ void RadioModule::parseRadioParameterFile(const char * fileName) {
 				// name, power(mW), delay to switch to mode above(ms), power to switch to mode above (mW), delay to switch to mode below(ms), power to switch to mode below (mW)
 
 				SleepLevel_type sleeplvl;
-				cStringTokenizer t(s.c_str(),", \t"); ct = t.nextToken();	//break the string with ',' delimiter
-				sleeplvl.name = string(ct); ct = t.nextToken();
-
-				if (parseFloat(ct,&sleeplvl.power)) opp_error("Bad syntax of radio parameters file, expecting power for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
+				cStringTokenizer t(s.c_str(), ", \t");
+				ct = t.nextToken();	//break the string with ',' delimiter
+				sleeplvl.name = string(ct);
 				ct = t.nextToken();
 
-				if (sleepLevelList.empty()) { //this is the first element, to txUp should be '-'
-					if (ct[0] != '-' || ct[1]) opp_error("Bad syntax of radio parameters file, expecting '-' as transition up delay for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
+				if (parseFloat(ct, &sleeplvl.power))
+					opp_error("Bad syntax of radio parameters file, expecting power for sleep level %s:\n%s",
+							sleeplvl.name.c_str(), ct);
+				ct = t.nextToken();
+
+				if (sleepLevelList.empty()) {	//this is the first element, to txUp should be '-'
+					if (ct[0] != '-' || ct[1])
+						opp_error("Bad syntax of radio parameters file, expecting '-' as transition up delay for sleep level %s:\n%s",
+								sleeplvl.name.c_str(), ct);
 					ct = t.nextToken();
-					if (ct[0] != '-' || ct[1]) opp_error("Bad syntax of radio parameters file, expecting '-' as transition up power for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
+					if (ct[0] != '-' || ct[1])
+						opp_error("Bad syntax of radio parameters file, expecting '-' as transition up power for sleep level %s:\n%s",
+								sleeplvl.name.c_str(), ct);
 					sleeplvl.transitionUp.delay = 0.0;
 					sleeplvl.transitionUp.power = 0.0;
-				} else { //this is not the first element, so parse txUp
-					if (parseFloat(ct,&sleeplvl.transitionUp.delay)) opp_error("Bad syntax of radio parameters file, expecting transition up delay for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
-					sleeplvl.transitionUp.delay /= 1000.0; // convert msec to sec
+				} else {	//this is not the first element, so parse txUp
+					if (parseFloat(ct, &sleeplvl.transitionUp.delay))
+						opp_error("Bad syntax of radio parameters file, expecting transition up delay for sleep level %s:\n%s",
+								sleeplvl.name.c_str(), ct);
+					sleeplvl.transitionUp.delay /= 1000.0;	// convert msec to sec
 					ct = t.nextToken();
-					if (parseFloat(ct,&sleeplvl.transitionUp.power)) opp_error("Bad syntax of radio parameters file, expecting transition up power for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
+					if (parseFloat(ct, &sleeplvl.transitionUp.power))
+						opp_error("Bad syntax of radio parameters file, expecting transition up power for sleep level %s:\n%s",
+								sleeplvl.name.c_str(), ct);
 				}
 
 				ct = t.nextToken();
-				if (ct[0] == '-' && !ct[1]) { // this is the last element
+				if (ct[0] == '-' && !ct[1]) {	// this is the last element
 					visited[section] = 1;
 					ct = t.nextToken();
-					if (ct[0] != '-' || ct[1]) opp_error("Bad syntax of radio parameters file, expecting '-' as transition down power for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
+					if (ct[0] != '-' || ct[1])
+						opp_error("Bad syntax of radio parameters file, expecting '-' as transition down power for sleep level %s:\n%s",
+								sleeplvl.name.c_str(), ct);
 					sleeplvl.transitionDown.delay = 0.0;
 					sleeplvl.transitionDown.power = 0.0;
 				} else {
-					if (parseFloat(ct,&sleeplvl.transitionDown.delay)) opp_error("Bad syntax of radio parameters file, expecting transition down delay for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
-					sleeplvl.transitionDown.delay /= 1000.0; // convert msec to sec
+					if (parseFloat(ct, &sleeplvl.transitionDown.delay))
+						opp_error("Bad syntax of radio parameters file, expecting transition down delay for sleep level %s:\n%s",
+								sleeplvl.name.c_str(), ct);
+					sleeplvl.transitionDown.delay /= 1000.0;	// convert msec to sec
 					ct = t.nextToken();
-					if (parseFloat(ct,&sleeplvl.transitionDown.power)) opp_error("Bad syntax of radio parameters file, expecting transition down power for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
+					if (parseFloat(ct, &sleeplvl.transitionDown.power))
+						opp_error("Bad syntax of radio parameters file, expecting transition down power for sleep level %s:\n%s",
+								sleeplvl.name.c_str(), ct);
 				}
 
 				ct = t.nextToken();
-				if (ct != NULL) opp_error("Bad syntax of radio parameters file, unexpected input for sleep level %s:\n%s",sleeplvl.name.c_str(),ct);
+				if (ct != NULL)
+					opp_error("Bad syntax of radio parameters file, unexpected input for sleep level %s:\n%s",
+							sleeplvl.name.c_str(), ct);
 				sleepLevelList.push_back(sleeplvl);
 
 			} else if (section == 4 || section == 5) {
 				// parsing lines in the following format:
 				// [RX|TX|SLEEP] [x|-] [x|-] [x|-]
 
-				cStringTokenizer t(s.c_str()," \t");
+				cStringTokenizer t(s.c_str(), " \t");
 				ct = t.nextToken();
 				int stateTo;
-				if (strncmp(ct,"RX",strlen("RX")) == 0) stateTo = 0;
-				else if (strncmp(ct,"TX",strlen("TX")) == 0) stateTo = 1;
-				else if (strncmp(ct,"SLEEP",strlen("SLEEP")) == 0) stateTo = 2;
+				if (strncmp(ct, "RX", strlen("RX")) == 0)
+					stateTo = 0;
+				else if (strncmp(ct, "TX", strlen("TX")) == 0)
+					stateTo = 1;
+				else if (strncmp(ct, "SLEEP", strlen("SLEEP")) == 0)
+					stateTo = 2;
 				ct = t.nextToken();
 				int stateFrom = 0;
 
 				while (stateFrom < 3) {
 					if (stateTo == stateFrom) {
-						if (ct[0] != '-' || ct[1]) opp_error("Bad syntax of radio parameters file, expecting '-' as state transition value from %i to %i:\n%s",stateFrom,stateTo,ct);
+						if (ct[0] != '-' || ct[1])
+							opp_error("Bad syntax of radio parameters file, expecting '-' as state transition value from %i to %i:\n%s",
+									stateFrom, stateTo, ct);
 					} else {
 						double tmp;
-						if (parseFloat(ct,&tmp)) opp_error("Bad syntax of radio parameters file, expecting state transition value from %i to %i:\n%s",stateFrom,stateTo,ct);
-						if (section == 4) transition[stateFrom][stateTo].delay = tmp / 1000.0;  //convert msec to sec
-						else transition[stateFrom][stateTo].power = tmp;
+						if (parseFloat(ct, &tmp))
+							opp_error("Bad syntax of radio parameters file, expecting state transition value from %i to %i:\n%s",
+									stateFrom, stateTo, ct);
+						if (section == 4)
+							transition[stateFrom][stateTo].delay = tmp / 1000.0;	//convert msec to sec
+						else
+							transition[stateFrom][stateTo].power = tmp;
 					}
 					stateFrom++;
 					ct = t.nextToken();
 				}
-				if (ct != NULL) opp_error("Bad syntax of radio parameters file, unexpected input for transition matrix:\n%s",ct);
+				if (ct != NULL)
+					opp_error("Bad syntax of radio parameters file, unexpected input for transition matrix:\n%s", ct);
 			}
 		}
 	}
 }
 
-Modulation_type RadioModule::parseModulationType(const char *c) {
+Modulation_type RadioModule::parseModulationType(const char *c)
+{
 	string modulation(c);
-	if (modulation.compare("CUSTOM") == 0) return CUSTOM;
-	if (modulation.compare("IDEAL") == 0) return IDEAL;
-	if (modulation.compare("FSK") == 0) return FSK;
-	if (modulation.compare("PSK") == 0) return PSK;
-	if (modulation.compare("DIFFBPSK") == 0) return DIFFBPSK;
-	if (modulation.compare("DIFFQPSK") == 0) return DIFFQPSK;
+	if (modulation.compare("CUSTOM") == 0)
+		return CUSTOM;
+	if (modulation.compare("IDEAL") == 0)
+		return IDEAL;
+	if (modulation.compare("FSK") == 0)
+		return FSK;
+	if (modulation.compare("PSK") == 0)
+		return PSK;
+	if (modulation.compare("DIFFBPSK") == 0)
+		return DIFFBPSK;
+	if (modulation.compare("DIFFQPSK") == 0)
+		return DIFFQPSK;
 	opp_error("Unknown modulation type parameter: '%s'\n", c);
 	return CUSTOM;
 }
 
-Encoding_type RadioModule::parseEncodingType(const char *c) {
+Encoding_type RadioModule::parseEncodingType(const char *c)
+{
 	string encodingStr(c);
-	if (encodingStr.compare("NRZ")) return NRZ;
-	if (encodingStr.compare("CODE_4B5B")) return CODE_4B5B;
-	if (encodingStr.compare("4B5B")) return CODE_4B5B;
-	if (encodingStr.compare("MANCHESTER")) return MANCHESTER;
-	if (encodingStr.compare("SECDEC")) return SECDEC;
+	if (encodingStr.compare("NRZ"))
+		return NRZ;
+	if (encodingStr.compare("CODE_4B5B"))
+		return CODE_4B5B;
+	if (encodingStr.compare("4B5B"))
+		return CODE_4B5B;
+	if (encodingStr.compare("MANCHESTER"))
+		return MANCHESTER;
+	if (encodingStr.compare("SECDEC"))
+		return SECDEC;
 	opp_error("Unknown encoding type parameter: '%s'\n", c);
 	return NRZ;
 }
 
-list <RXmode_type>::iterator RadioModule::parseRxMode(string modeName) {
-	if (modeName.compare("") == 0) return RXmodeList.begin();
+list<RXmode_type>::iterator RadioModule::parseRxMode(string modeName)
+{
+	if (modeName.compare("") == 0)
+		return RXmodeList.begin();
 
-	list <RXmode_type>::iterator it1;
+	list<RXmode_type>::iterator it1;
 	// find the mode in the list of RXmodes and assign it to RXmode
 	for (it1 = RXmodeList.begin(); it1 != RXmodeList.end(); it1++) {
-		if (modeName.compare(it1->name) == 0) return it1;
+		if (modeName.compare(it1->name) == 0)
+			return it1;
 	}
-	opp_error("Unknown radio RX mode %s",modeName.c_str());
+	opp_error("Unknown radio RX mode %s", modeName.c_str());
 	return RXmodeList.end();
 }
 
-list <TxLevel_type>::iterator RadioModule::parseTxLevel(string txPower) {
-	if (txPower.compare("") == 0) return TxLevelList.begin();
+list<TxLevel_type>::iterator RadioModule::parseTxLevel(string txPower)
+{
+	if (txPower.compare("") == 0)
+		return TxLevelList.begin();
 	double txPower_dBm;
-	if (parseFloat(txPower.c_str(),&txPower_dBm)) opp_error("Unable to parse TxOutputPower %s", txPower.c_str());
+	if (parseFloat(txPower.c_str(), &txPower_dBm))
+		opp_error("Unable to parse TxOutputPower %s", txPower.c_str());
 	return parseTxLevel(txPower_dBm);
 }
 
-list <TxLevel_type>::iterator RadioModule::parseTxLevel(double txPower) {
-	list <TxLevel_type>::iterator it1;
+list<TxLevel_type>::iterator RadioModule::parseTxLevel(double txPower)
+{
+	list<TxLevel_type>::iterator it1;
 	for (it1 = TxLevelList.begin(); it1 != TxLevelList.end(); it1++) {
-		if (it1->txOutputPower == txPower) return it1;
+		if (it1->txOutputPower == txPower)
+			return it1;
 	}
 	opp_error("Unknown Tx Output Power Level %f", txPower);
 	return TxLevelList.end();
 }
 
-list <SleepLevel_type>::iterator RadioModule::parseSleepLevel(string sleepLevelName) {
-	if (sleepLevelName.compare("") == 0) return sleepLevelList.begin();
+list<SleepLevel_type>::iterator RadioModule::parseSleepLevel(string sleepLevelName)
+{
+	if (sleepLevelName.compare("") == 0)
+		return sleepLevelList.begin();
 
-	list <SleepLevel_type>::iterator it1;
+	list<SleepLevel_type>::iterator it1;
 	for (it1 = sleepLevelList.begin(); it1 != sleepLevelList.end(); it1++) {
-		if (sleepLevelName.compare(it1->name) == 0) return it1;
+		if (sleepLevelName.compare(it1->name) == 0)
+			return it1;
 	}
-	opp_error("Unknown radio sleep level %s",sleepLevelName.c_str());
+	opp_error("Unknown radio sleep level %s", sleepLevelName.c_str());
 	return sleepLevelList.end();
 }
 
-
 //wrapper function for atoi(...) call. returns 1 on error, 0 on success
-int RadioModule::parseInt(const char * c, int * dst) {
-	while (c[0] && (c[0] == ' ' || c[0] == '\t')) c++;
-	if (!c[0] || c[0] < '0' || c[0] > '9') return 1;
+int RadioModule::parseInt(const char *c, int *dst)
+{
+	while (c[0] && (c[0] == ' ' || c[0] == '\t'))
+		c++;
+	if (!c[0] || c[0] < '0' || c[0] > '9')
+		return 1;
 	*dst = atoi(c);
 	return 0;
 }
 
 //wrapper function for strtof(...) call. returns 1 on error, 0 on success
-int RadioModule::parseFloat(const char * c, double * dst) {
-	char * tmp;
-	*dst = strtof(c,&tmp);
-	if (c == tmp) return 1;
+int RadioModule::parseFloat(const char *c, double *dst)
+{
+	char *tmp;
+	*dst = strtof(c, &tmp);
+	if (c == tmp)
+		return 1;
 	return 0;
 }
 
-void RadioModule::ReceivedSignalDebug(const char * description) {
-	list <ReceivedSignal_type>::iterator it1;
+void RadioModule::ReceivedSignalDebug(const char *description)
+{
+	list<ReceivedSignal_type>::iterator it1;
 	trace() << "*** RECEIVED SIGNALS LIST DEBUG AT " << description << " ***";
 	for (it1 = receivedSignals.begin(); it1 != receivedSignals.end(); it1++) {
-		trace() << "ID:" << it1->ID << ", power:" << it1->power_dBm << ", crIntrf:" << it1->currentInterference << ", bitErr:" << it1->bitErrors;
+		trace() << "ID:" << it1->ID << ", power:" << it1->power_dBm << ", crIntrf:" << 
+				it1->currentInterference << ", bitErr:" << it1->bitErrors;
 	}
 }
+

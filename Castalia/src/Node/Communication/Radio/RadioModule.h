@@ -9,7 +9,6 @@
  *      Attention:  License Inquiry.                                        *
  ****************************************************************************/
 
-
 #ifndef _RADIOMODULE_H_
 #define _RADIOMODULE_H_
 
@@ -56,7 +55,6 @@ enum Encoding_type {
 	SECDEC = 3
 };
 
-
 struct RXmode_type {
 	string name;
 	double datarate;
@@ -71,16 +69,16 @@ struct RXmode_type {
 
 struct ReceivedSignal_type {
 	int ID;			// an ID to distinguish between signals, in single radio nodes the nodeID will suffice
-	double power_dBm;		// in dBm
+	double power_dBm;	// in dBm
 	Modulation_type modulation;
 	Encoding_type encoding;
 	double currentInterference;	//in dBm
 	double maxInterference;	//in dBm
-	int bitErrors; 		// number of bits with errors
+	int bitErrors;		// number of bits with errors
 };
 
 struct TotalPowerReceived_type {
-	double power_dBm;		// in dBm
+	double power_dBm;	// in dBm
 	simtime_t startTime;
 };
 
@@ -116,42 +114,43 @@ enum CCA_result {
 // we define an internal stats collection structure to be more computationally efficient
 struct PktBreakdown {
 	int transmissions;
-	int RxReachedNoInterference;	// packets reached
-	int RxReachedInterference;  	// packets reached despite interference
-	int RxFailedNoInterference;		// packets failed even without interference
-	int RxFailedInterference;		// packets failed with interference
-	int RxFailedSensitivity;		// packets failed, below sensitivity
-	int RxFailedModulation; 		// packets failed, wrong modulation
+	int RxReachedNoInterference;// packets reached
+	int RxReachedInterference;	// packets reached despite interference
+	int RxFailedNoInterference;	// packets failed even without interference
+	int RxFailedInterference;	// packets failed with interference
+	int RxFailedSensitivity;	// packets failed, below sensitivity
+	int RxFailedModulation;		// packets failed, wrong modulation
 	int RxFailedNoRxState;		// packets failed, radio not in RX
 	int bufferOverflow;			// packets overflown
 
-	/* initialize the struct (C++ syntax)*/
-	PktBreakdown() : transmissions(0), RxReachedNoInterference(0), RxReachedInterference(0),
-	RxFailedNoInterference(0), RxFailedInterference(0), RxFailedSensitivity(0),
-	RxFailedModulation(0), RxFailedNoRxState(0), bufferOverflow(0) {}
+	/* initialize the struct (C++ syntax) */
+	PktBreakdown():transmissions(0), RxReachedNoInterference(0),
+			RxReachedInterference(0), RxFailedNoInterference(0),
+			RxFailedInterference(0), RxFailedSensitivity(0),
+			RxFailedModulation(0), RxFailedNoRxState(0), bufferOverflow(0) { }
 };
 
-class RadioModule : public VirtualCastaliaModule {
-	private:
+class RadioModule: public VirtualCastaliaModule {
+ private:
 
 	/* class member variables that are derived from module parameters
 	 * (either in RadioParametersFile or .ini file
 	 */
-	list <TxLevel_type> TxLevelList;
-	list <RXmode_type> RXmodeList;
-	list <SleepLevel_type> sleepLevelList;
+	list<TxLevel_type> TxLevelList;
+	list<RXmode_type> RXmodeList;
+	list<SleepLevel_type> sleepLevelList;
 	TransitionElement transition[3][3];
 	int symbolsForRSSI;
 
 	double carrierFreq;
-	list <TxLevel_type>::iterator TxLevel;
-	list <RXmode_type>::iterator RXmode;
-	list <SleepLevel_type>::iterator sleepLevel;
+	list<TxLevel_type>::iterator TxLevel;
+	list<RXmode_type>::iterator RXmode;
+	list<SleepLevel_type>::iterator sleepLevel;
 	BasicState_type state;
 
 	// if a custom modulation is defined in one of the RX modes this variable
 	// will hold the info. Only ONE custom modulation is currently supported
-	vector <CustomModulationElement> customModulation;
+	vector<CustomModulationElement> customModulation;
 
 	double CCAthreshold;
 	bool carrierSenseInterruptEnabled;
@@ -164,21 +163,21 @@ class RadioModule : public VirtualCastaliaModule {
 	/* class member variables used internally */
 	int self;		// the node's ID. Can be considered as a full MAC address
 
-	queue <MacGenericPacket *> radioBuffer;
+	queue<MacGenericPacket*> radioBuffer;
 
 	// a list of signals curently being received
-	list <ReceivedSignal_type> receivedSignals;
+	list<ReceivedSignal_type> receivedSignals;
 	// last time the above list changed
 	simtime_t timeOfLastSignalChange;
 
 	// a history of recent changes in total received power to help calculate RSSI
-	list <TotalPowerReceived_type> totalPowerReceived;
+	list<TotalPowerReceived_type> totalPowerReceived;
 
 	// a pointer to the object of the Radio Module (used for direct method calls)
 	ResourceGenericManager *resMgrModule;
 
 	int changingToState;	// indicates that the Radio is in the middle of changing from one state (A)
-				// to another (B). It also holds the value for state B
+							// to another (B). It also holds the value for state B
 
 	// span of time the total received power is integrated to calculate RSSI
 	double rssiIntegrationTime;
@@ -194,18 +193,18 @@ class RadioModule : public VirtualCastaliaModule {
 
 	PktBreakdown stats;
 
-    protected:
+ protected:
 	virtual void initialize();
-	virtual void handleMessage(cMessage *msg);
+	virtual void handleMessage(cMessage * msg);
 	virtual void finishSpecific();
 	void readIniFileParameters(void);
 	void parseRadioParameterFile(const char *);
 
 	void updateTotalPowerReceived();
 	void updateTotalPowerReceived(double newSignalPower);
-	void updateTotalPowerReceived(list <ReceivedSignal_type>::iterator endingSignal);
-	void updateInterference(list <ReceivedSignal_type>::iterator it1, WirelessChannelSignalBegin *wcMsg);
-	void updateInterference(list <ReceivedSignal_type>::iterator it1, list <ReceivedSignal_type>::iterator endingSignal);
+	void updateTotalPowerReceived(list<ReceivedSignal_type>::iterator endingSignal);
+	void updateInterference(list<ReceivedSignal_type>::iterator it1, WirelessChannelSignalBegin * wcMsg);
+	void updateInterference(list<ReceivedSignal_type>::iterator it1, list<ReceivedSignal_type>::iterator endingSignal);
 
 	void completeStateTransition();
 	void delayStateTransition(simtime_t);
@@ -215,21 +214,20 @@ class RadioModule : public VirtualCastaliaModule {
 	double SNR2BER(double SNR);
 	int bitErrors(double, int, int);
 	int maxErrorsAllowed(Encoding_type) { return 0; }
-
-	int parseInt(const char*, int*);
-	int parseFloat(const char*, double*);
-	Modulation_type parseModulationType(const char*);
-	Encoding_type parseEncodingType(const char*);
-	list <RXmode_type>::iterator parseRxMode(string);
-	list <TxLevel_type>::iterator parseTxLevel(string);
-	list <TxLevel_type>::iterator parseTxLevel(double);
-	list <SleepLevel_type>::iterator parseSleepLevel(string);
+	int parseInt(const char *, int *);
+	int parseFloat(const char *, double *);
+	Modulation_type parseModulationType(const char *);
+	Encoding_type parseEncodingType(const char *);
+	list<RXmode_type>::iterator parseRxMode(string);
+	list<TxLevel_type>::iterator parseTxLevel(string);
+	list<TxLevel_type>::iterator parseTxLevel(double);
+	list<SleepLevel_type>::iterator parseSleepLevel(string);
 
 	void ReceivedSignalDebug(const char *);
 
-    public:
+ public:
 	double readRSSI();
 	CCA_result isChannelClear();
 };
 
-#endif //_RADIOMODULE_H_
+#endif				//_RADIOMODULE_H_

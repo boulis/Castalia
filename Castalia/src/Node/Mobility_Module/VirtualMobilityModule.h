@@ -17,31 +17,29 @@
 
 using namespace std;
 
-struct NodeLocation_type{
-    double x;
-    double y;
-    double z;
-    double phi;		// orientation info provided by 2 angles.
-    double theta;
-    int cell;		// store the cell ID that corresponds to coordinates xyz so we do not have to recompute it
+struct NodeLocation_type {
+	double x;
+	double y;
+	double z;
+	double phi;		// orientation info provided by 2 angles.
+	double theta;
+	int cell;		// store the cell ID that corresponds to coordinates xyz so we do not have to recompute it
 };
 
+class VirtualMobilityModule:public VirtualCastaliaModule {
+ protected:
+	NodeLocation_type nodeLocation;
 
-class VirtualMobilityModule : public VirtualCastaliaModule
-{
-    protected:
-        NodeLocation_type nodeLocation;
-
-        cModule *wchannel;
+	cModule *wchannel;
 	WirelessChannelNodeMoveMessage *positionUpdateMsg;
 
 	virtual void initialize();
-        virtual void notifyWirelessChannel();
-        virtual void setLocation(double x,double y,double z,double phi = 0,double theta = 0);
-        virtual void setLocation(NodeLocation_type);
-	
-    public:
-        virtual NodeLocation_type getLocation();
+	virtual void notifyWirelessChannel();
+	virtual void setLocation(double x, double y, double z, double phi = 0, double theta = 0);
+	virtual void setLocation(NodeLocation_type);
+
+ public:
+	 virtual NodeLocation_type getLocation();
 };
 
-#endif 
+#endif

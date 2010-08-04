@@ -13,12 +13,10 @@
 
 Define_Module(NoMobilityModule);
 
-void NoMobilityModule::handleMessage(cMessage *msg)
+void NoMobilityModule::handleMessage(cMessage * msg)
 {
-	int msgKind = msg->getKind(); 
+	int msgKind = msg->getKind();
 	trace() << "Unexpected message: " << msgKind;
 	delete msg;
 	msg = NULL;
 }
-
-

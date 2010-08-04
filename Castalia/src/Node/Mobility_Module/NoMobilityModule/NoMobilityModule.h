@@ -18,10 +18,9 @@
 
 using namespace std;
 
-class NoMobilityModule : public VirtualMobilityModule
-{
-	protected:
-	    void handleMessage(cMessage *msg);
+class NoMobilityModule:public VirtualMobilityModule {
+ protected:
+	void handleMessage(cMessage * msg);
 };
 
-#endif 
+#endif

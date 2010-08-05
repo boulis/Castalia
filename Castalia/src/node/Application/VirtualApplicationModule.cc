@@ -161,7 +161,7 @@ void VirtualApplicationModule::handleMessage(cMessage * msg)
 
 void VirtualApplicationModule::finish()
 {
-	VirtualCastaliaModule::finish();
+	CastaliaModule::finish();
 	DebugInfoWriter::closeStream();
 }
 

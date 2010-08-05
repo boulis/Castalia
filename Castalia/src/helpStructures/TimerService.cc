@@ -10,18 +10,18 @@
  *                                                                          *  
  ****************************************************************************/
 
-#include "TimerModule.h"
+#include "TimerService.h"
 
-void TimerModule::setTimerDrift(double new_drift)
+void TimerService::setTimerDrift(double new_drift)
 {
 	timerDrift = new_drift;
 }
 
-void TimerModule::timerFiredCallback(int timerIndex)
+void TimerService::timerFiredCallback(int timerIndex)
 {
 }
 
-void TimerModule::cancelTimer(int timerIndex)
+void TimerService::cancelTimer(int timerIndex)
 {
 	std::map<int,TimerServiceMessage*>::iterator iter = timerMessages.find(timerIndex);
 	if (iter != timerMessages.end()) {
@@ -32,7 +32,7 @@ void TimerModule::cancelTimer(int timerIndex)
 	}
 }
 
-void TimerModule::setTimer(int timerIndex, simtime_t time)
+void TimerService::setTimer(int timerIndex, simtime_t time)
 {
 	cancelTimer(timerIndex);
 	timerMessages[timerIndex] = new TimerServiceMessage("Timer message", TIMER_SERVICE);
@@ -40,7 +40,7 @@ void TimerModule::setTimer(int timerIndex, simtime_t time)
 	scheduleAt(simTime() + timerDrift * time, timerMessages[timerIndex]);
 }
 
-void TimerModule::handleTimerMessage(cMessage * msg)
+void TimerService::handleTimerMessage(cMessage * msg)
 {
 	int msgKind = (int)msg->getKind();
 	if (msgKind == TIMER_SERVICE) {
@@ -54,7 +54,7 @@ void TimerModule::handleTimerMessage(cMessage * msg)
 	}
 }
 
-simtime_t TimerModule::getClock()
+simtime_t TimerService::getClock()
 {
 	return simTime() * timerDrift;
 }

@@ -14,16 +14,16 @@
 #define _RESOURCEGENERICMANAGER_H_
 
 #include <map>
-#include "VirtualCastaliaModule.h"
+#include "CastaliaModule.h"
 #include "ResourceManagerMessage_m.h"
 
 using namespace std;
 
-enum Timer {
+enum ResoruceManagerTimers {
 	PERIODIC_ENERGY_CALCULATION = 1,
 };
 
-class ResourceGenericManager:public VirtualCastaliaModule {
+class ResourceGenericManager: public CastaliaModule {
  private:
 	// parameters and variables
 	/*--- The .ned file's parameters ---*/

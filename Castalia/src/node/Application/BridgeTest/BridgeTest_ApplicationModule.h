@@ -32,7 +32,7 @@ struct report_info {
 	vector<int> parts;
 };
 
-enum Timers {
+enum BridgeTestApplicationTimers {
 	REQUEST_SAMPLE = 1,
 	REPROGRAM_NODES = 2,
 	SEND_REPROGRAM_PACKET = 3,

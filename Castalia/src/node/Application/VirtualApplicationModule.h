@@ -22,14 +22,14 @@
 #include "ResourceGenericManager.h"
 #include "RadioModule.h"
 #include "VirtualMobilityModule.h"
-#include "VirtualCastaliaModule.h"
-#include "TimerModule.h"
+#include "CastaliaModule.h"
+#include "TimerService.h"
 
 #define SELF_NETWORK_ADDRESS selfAddress.c_str()
 
 using namespace std;
 
-class VirtualApplicationModule:public VirtualCastaliaModule, public TimerModule {
+class VirtualApplicationModule: public CastaliaModule, public TimerService {
  protected:
 	/*--- The .ned file's parameters ---*/
 	string applicationID;

@@ -24,13 +24,12 @@
 #include "ResourceGenericManager.h"
 #include "RadioControlMessage_m.h"
 #include "RadioModule.h"
-#include "TimerModule.h"
-
-#include "VirtualCastaliaModule.h"
+#include "TimerService.h"
+#include "CastaliaModule.h"
 
 using namespace std;
 
-class VirtualMacModule:public VirtualCastaliaModule, public TimerModule {
+class VirtualMacModule: public CastaliaModule, public TimerService {
  private:
 	int disabled;
 	int macBufferSize;

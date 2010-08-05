@@ -10,8 +10,8 @@
  *                                                                          *  
  ****************************************************************************/
 
-#ifndef TIMERMODULE
-#define TIMERMODULE
+#ifndef CASTALIA_TIMER
+#define CASTALIA_TIMER
 
 #include <omnetpp.h>
 #include <map>
@@ -19,7 +19,7 @@
 #include "CastaliaMessages.h"
 #include "TimerServiceMessage_m.h"
 
-class TimerModule:public virtual cSimpleModule {
+class TimerService: public virtual cSimpleModule {
  private:
 	double timerDrift;
  protected:

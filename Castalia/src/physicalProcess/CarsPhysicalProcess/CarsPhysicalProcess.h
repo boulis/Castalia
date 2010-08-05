@@ -15,7 +15,7 @@
 
 #define SIMTIME_STEP 0.01
 
-#include "VirtualCastaliaModule.h"
+#include "CastaliaModule.h"
 #include "PhysicalProcessMessage_m.h"
 
 using namespace std;
@@ -26,7 +26,7 @@ typedef struct {
 	double y;
 } sourceSnapshot;
 
-class CarsPhysicalProcess:public VirtualCastaliaModule {
+class CarsPhysicalProcess: public CastaliaModule {
  private:
 	bool printDebugInfo;
 

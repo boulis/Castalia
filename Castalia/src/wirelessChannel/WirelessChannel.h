@@ -16,7 +16,7 @@
 #include "WirelessChannelMessages_m.h"
 #include "WirelessChannelTemporal.h"
 #include "VirtualMobilityModule.h"
-#include "VirtualCastaliaModule.h"
+#include "CastaliaModule.h"
 
 #include "time.h"
 #include <list>
@@ -41,7 +41,7 @@ class PathLossElement {
 	};
 };
 
-class WirelessChannel:public VirtualCastaliaModule {
+class WirelessChannel: public CastaliaModule {
  private:
 
 	/*--- variables corresponding to .ned file's parameters ---*/

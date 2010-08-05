@@ -13,8 +13,8 @@
 #ifndef VIRTUALNETWORKMODULE
 #define VIRTUALNETWORKMODULE
 
-#include "VirtualCastaliaModule.h"
-#include "TimerModule.h"
+#include "CastaliaModule.h"
+#include "TimerService.h"
 #include "CastaliaMessages.h"
 #include "RadioModule.h"
 
@@ -26,7 +26,7 @@
 
 using namespace std;
 
-class VirtualNetworkModule:public VirtualCastaliaModule, public TimerModule {
+class VirtualNetworkModule: public CastaliaModule, public TimerService {
  protected:
 	/*--- The .ned file's parameters ---*/
 	int maxNetFrameSize;		//in bytes

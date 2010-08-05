@@ -209,7 +209,7 @@ void VirtualNetworkModule::handleRadioControlMessage(cMessage * msg)
 
 void VirtualNetworkModule::finish()
 {
-	VirtualCastaliaModule::finish();
+	CastaliaModule::finish();
 	cPacket *pkt;
 	while (!TXBuffer.empty()) {
 		pkt = TXBuffer.front();

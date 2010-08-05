@@ -45,7 +45,7 @@ struct outputKeyDef {
 };
 
 struct simpleOutputTypeDef {
-	map < string, double >data;
+	map <string,double> data;
 };
 
 struct histogramOutputTypeDef {
@@ -60,7 +60,7 @@ struct histogramOutputTypeDef {
 typedef map <outputKeyDef, simpleOutputTypeDef> simpleOutputMapType;
 typedef map <outputKeyDef, histogramOutputTypeDef> histogramOutputMapType;
 
-class VirtualCastaliaModule:public virtual cSimpleModule {
+class CastaliaModule: public virtual cSimpleModule {
  private:
 	simpleOutputMapType simpleoutputs;
 	histogramOutputMapType histograms;

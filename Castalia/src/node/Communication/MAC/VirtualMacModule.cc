@@ -147,7 +147,7 @@ void VirtualMacModule::handleMessage(cMessage * msg)
 
 void VirtualMacModule::finish()
 {
-	VirtualCastaliaModule::finish();
+	CastaliaModule::finish();
 	while (!TXBuffer.empty()) {
 		cancelAndDelete(TXBuffer.front());
 		TXBuffer.pop();

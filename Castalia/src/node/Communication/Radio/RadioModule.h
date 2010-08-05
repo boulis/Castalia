@@ -25,6 +25,7 @@
 #include "RadioControlMessage_m.h"
 #include "MacGenericPacket_m.h"
 #include "ResourceGenericManager.h"
+#include "CastaliaModule.h"
 
 #define ALL_ERRORS -1
 #define IDEAL_MODULATION_THRESHOLD 5.0
@@ -131,7 +132,7 @@ struct PktBreakdown {
 			RxFailedModulation(0), RxFailedNoRxState(0), bufferOverflow(0) { }
 };
 
-class RadioModule: public VirtualCastaliaModule {
+class RadioModule: public CastaliaModule {
  private:
 
 	/* class member variables that are derived from module parameters

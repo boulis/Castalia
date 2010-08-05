@@ -17,11 +17,11 @@
 #include "PhysicalProcessMessage_m.h"
 
 #include "VirtualMobilityModule.h"
-#include "VirtualCastaliaModule.h"
+#include "CastaliaModule.h"
 
 using namespace std;
 
-class SensorDevMgrModule:public VirtualCastaliaModule {
+class SensorDevMgrModule: public CastaliaModule {
  private:
 	/*--- The .ned file's parameters ---*/
 	bool printDebugInfo;

@@ -10,11 +10,11 @@
  *                                                                          *  
  ****************************************************************************/
 
-#include "VirtualCastaliaModule.h"
+#include "CastaliaModule.h"
 
 #define CASTALIA_PREFIX "Castalia|\t"
 
-void VirtualCastaliaModule::finish()
+void CastaliaModule::finish()
 {
 	finishSpecific();
 	if (simpleoutputs.size() == 0 && histograms.size() == 0)
@@ -65,7 +65,7 @@ void VirtualCastaliaModule::finish()
 	histograms.clear();
 }
 
-std::ostream & VirtualCastaliaModule::trace()
+std::ostream & CastaliaModule::trace()
 {
 	if (hasPar("collectTraceInfo") && par("collectTraceInfo")) {
 		return (ostream &) DebugInfoWriter::getStream() <<
@@ -75,18 +75,18 @@ std::ostream & VirtualCastaliaModule::trace()
 	}
 }
 
-std::ostream & VirtualCastaliaModule::debug()
+std::ostream & CastaliaModule::debug()
 {
 	return cerr;
 }
 
-void VirtualCastaliaModule::declareOutput(const char *descr)
+void CastaliaModule::declareOutput(const char *descr)
 {
 	outputKeyDef key(descr, -1);
 	simpleoutputs[key].data.clear();
 }
 
-void VirtualCastaliaModule::declareOutput(const char *descr, int index)
+void CastaliaModule::declareOutput(const char *descr, int index)
 {
 	if (index < 0)
 		opp_error("Negative output index not permitted");
@@ -94,14 +94,14 @@ void VirtualCastaliaModule::declareOutput(const char *descr, int index)
 	simpleoutputs[key].data.clear();
 }
 
-void VirtualCastaliaModule::collectOutput(const char *descr, int index)
+void CastaliaModule::collectOutput(const char *descr, int index)
 {
 	if (index < 0)
 		opp_error("Negative output index not permitted");
 	collectOutputNocheck(descr, index, "total", 1);
 }
 
-void VirtualCastaliaModule::collectOutput(const char *descr, int index,
+void CastaliaModule::collectOutput(const char *descr, int index,
 						const char *label, double amt)
 {
 	if (index < 0)
@@ -109,7 +109,7 @@ void VirtualCastaliaModule::collectOutput(const char *descr, int index,
 	collectOutputNocheck(descr, index, label, amt);
 }
 
-void VirtualCastaliaModule::collectOutputNocheck(const char *descr, int index,
+void CastaliaModule::collectOutputNocheck(const char *descr, int index,
 						const char *label, double amt)
 {
 	outputKeyDef key(descr, index);
@@ -119,14 +119,14 @@ void VirtualCastaliaModule::collectOutputNocheck(const char *descr, int index,
 	}
 }
 
-void VirtualCastaliaModule::collectOutput(const char *descr, int index, const char *label)
+void CastaliaModule::collectOutput(const char *descr, int index, const char *label)
 {
 	if (index < 0)
 		opp_error("Negative output index not permitted");
 	collectOutputNocheck(descr, index, label, 1);
 }
 
-void VirtualCastaliaModule::declareHistogramNocheck(const char *descr, double min,
+void CastaliaModule::declareHistogramNocheck(const char *descr, double min,
 					double max, int buckets, int index)
 {
 	if (min >= max || buckets < 1)
@@ -146,7 +146,7 @@ void VirtualCastaliaModule::declareHistogramNocheck(const char *descr, double mi
 	histograms[key] = hist;
 }
 
-void VirtualCastaliaModule::declareHistogram(const char *descr, double min, double max,
+void CastaliaModule::declareHistogram(const char *descr, double min, double max,
 						int buckets, int index)
 {
 	if (index < 0)
@@ -154,14 +154,14 @@ void VirtualCastaliaModule::declareHistogram(const char *descr, double min, doub
 	declareHistogramNocheck(descr, min, max, buckets, index);
 }
 
-void VirtualCastaliaModule::collectHistogram(const char *descr, int index, double value)
+void CastaliaModule::collectHistogram(const char *descr, int index, double value)
 {
 	if (index < 0)
 		opp_error("Negative output index not permitted");
 	collectHistogramNocheck(descr, index, value);
 }
 
-void VirtualCastaliaModule::collectHistogramNocheck(const char *descr, int index, double value)
+void CastaliaModule::collectHistogramNocheck(const char *descr, int index, double value)
 {
 	outputKeyDef key(descr, index);
 	histogramOutputMapType::iterator i = histograms.find(key);
@@ -178,7 +178,7 @@ void VirtualCastaliaModule::collectHistogramNocheck(const char *descr, int index
 	}
 }
 
-void VirtualCastaliaModule::powerDrawn(double power)
+void CastaliaModule::powerDrawn(double power)
 {
 /*
     if (!resourceManager) {

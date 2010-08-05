@@ -15,7 +15,7 @@
 
 #define SIMTIME_STEP 0.01
 
-#include "VirtualCastaliaModule.h"
+#include "CastaliaModule.h"
 #include "PhysicalProcessMessage_m.h"
 
 using namespace std;
@@ -33,7 +33,7 @@ typedef struct {
 	double value;
 } sourceSnapshot;
 
-class CustomizablePhysicalProcess: public VirtualCastaliaModule {
+class CustomizablePhysicalProcess: public CastaliaModule {
  private:
 	/*--- The .ned file's parameters ---*/
 	bool printDebugInfo;

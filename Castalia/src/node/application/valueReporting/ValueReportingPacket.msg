@@ -16,13 +16,13 @@ cplusplus {{
 
 class ApplicationGenericDataPacket;
 
-struct valueReportData {
+struct ValueReportData {
 	unsigned short nodeID;	//the ID of the Node
 	double locX;		// x-coordinate of the node
 	double locY;		// y-coordinate of the node
 } 
 
-packet valueReporting_DataPacket extends ApplicationGenericDataPacket {
-	valueReportData extraData;
+packet ValueReportingDataPacket extends ApplicationGenericDataPacket {
+	ValueReportData extraData;
 }
 

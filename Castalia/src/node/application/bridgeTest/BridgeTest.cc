@@ -10,11 +10,11 @@
  *                                                                          *  
  ****************************************************************************/
 
-#include "BridgeTest_ApplicationModule.h"
+#include "BridgeTest.h"
 
-Define_Module(BridgeTest_ApplicationModule);
+Define_Module(BridgeTest);
 
-void BridgeTest_ApplicationModule::startup()
+void BridgeTest::startup()
 {
 	reportTreshold = par("reportTreshold");
 	sampleInterval = (double)par("sampleInterval") / 1000;
@@ -46,7 +46,7 @@ void BridgeTest_ApplicationModule::startup()
 	}
 }
 
-void BridgeTest_ApplicationModule::timerFiredCallback(int timer)
+void BridgeTest::timerFiredCallback(int timer)
 {
 	switch (timer) {
 
@@ -79,7 +79,7 @@ void BridgeTest_ApplicationModule::timerFiredCallback(int timer)
 	}
 }
 
-void BridgeTest_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
+void BridgeTest::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
 			const char *source, double rssi, double lqi)
 {
 	string packetName(rcvPacket->getName());
@@ -115,7 +115,7 @@ void BridgeTest_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket
 	}
 }
 
-void BridgeTest_ApplicationModule::handleSensorReading(SensorReadingGenericMessage * sensorMsg)
+void BridgeTest::handleSensorReading(SensorReadingGenericMessage * sensorMsg)
 {
 	string sensType(sensorMsg->getSensorType());
 	double sensValue = sensorMsg->getSensedValue();
@@ -141,7 +141,7 @@ void BridgeTest_ApplicationModule::handleSensorReading(SensorReadingGenericMessa
 	currSampleSN++;
 }
 
-void BridgeTest_ApplicationModule::finishSpecific()
+void BridgeTest::finishSpecific()
 {
 	if (isSink) {
 		for (int i = 0; i < (int)report_info_table.size(); i++) {
@@ -162,7 +162,7 @@ void BridgeTest_ApplicationModule::finishSpecific()
 	}
 }
 
-int BridgeTest_ApplicationModule::updateReportTable(int src, int seq)
+int BridgeTest::updateReportTable(int src, int seq)
 {
 	int pos = -1;
 	for (int i = 0; i < (int)report_info_table.size(); i++) {
@@ -190,7 +190,7 @@ int BridgeTest_ApplicationModule::updateReportTable(int src, int seq)
 	return 1;
 }
 
-int BridgeTest_ApplicationModule::updateVersionTable(double version, int seq)
+int BridgeTest::updateVersionTable(double version, int seq)
 {
 	int pos = -1;
 	for (int i = 0; i < (int)version_info_table.size(); i++) {

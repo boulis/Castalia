@@ -10,11 +10,11 @@
  *                                                                          *  
  ****************************************************************************/
 
-#include "simpleAggregation_ApplicationModule.h"
+#include "SimpleAggregation.h"
 
-Define_Module(simpleAggregation_ApplicationModule);
+Define_Module(SimpleAggregation);
 
-void simpleAggregation_ApplicationModule::startup()
+void SimpleAggregation::startup()
 {
 	sampleInterval = (double)par("sampleInterval") / 1000;
 	aggregatedValue = 0.0;
@@ -24,7 +24,7 @@ void simpleAggregation_ApplicationModule::startup()
 	setTimer(REQUEST_SAMPLE, 0);
 }
 
-void simpleAggregation_ApplicationModule::timerFiredCallback(int index)
+void SimpleAggregation::timerFiredCallback(int index)
 {
 	switch (index) {
 		
@@ -42,7 +42,7 @@ void simpleAggregation_ApplicationModule::timerFiredCallback(int index)
 	}
 }
 
-void simpleAggregation_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
+void SimpleAggregation::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
 		const char *source, double rssi, double lqi)
 {
 	double theData = rcvPacket->getData();
@@ -55,14 +55,14 @@ void simpleAggregation_ApplicationModule::fromNetworkLayer(ApplicationGenericDat
 		trace() << "from " << source << "received value " << theData;
 }
 
-void simpleAggregation_ApplicationModule::handleSensorReading(SensorReadingGenericMessage * rcvReading)
+void SimpleAggregation::handleSensorReading(SensorReadingGenericMessage * rcvReading)
 {
 	string sensType(rcvReading->getSensorType());
 	double sensValue = rcvReading->getSensedValue();
 	lastSensedValue = sensValue;
 }
 
-void simpleAggregation_ApplicationModule::handleNeworkControlMessage(cMessage * msg)
+void SimpleAggregation::handleNeworkControlMessage(cMessage * msg)
 {
 /*
     switch(msg->getKind()) {

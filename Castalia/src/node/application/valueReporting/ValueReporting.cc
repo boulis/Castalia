@@ -10,11 +10,11 @@
  *                                                                          *  
  ****************************************************************************/
 
-#include "valueReporting_ApplicationModule.h"
+#include "ValueReporting.h"
 
-Define_Module(valueReporting_ApplicationModule);
+Define_Module(ValueReporting);
 
-void valueReporting_ApplicationModule::startup()
+void ValueReporting::startup()
 {
 	maxSampleInterval = ((double)par("maxSampleInterval")) / 1000.0;
 	minSampleInterval = ((double)par("minSampleInterval")) / 1000.0;
@@ -24,7 +24,7 @@ void valueReporting_ApplicationModule::startup()
 	setTimer(REQUEST_SAMPLE, maxSampleInterval * randomBackoffIntervalFraction);
 }
 
-void valueReporting_ApplicationModule::timerFiredCallback(int index)
+void ValueReporting::timerFiredCallback(int index)
 {
 	switch (index) {
 		
@@ -36,16 +36,16 @@ void valueReporting_ApplicationModule::timerFiredCallback(int index)
 	}
 }
 
-void valueReporting_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket * genericPacket,
+void ValueReporting::fromNetworkLayer(ApplicationGenericDataPacket * genericPacket,
 		 const char *source, double rssi, double lqi)
 {
-	valueReporting_DataPacket *rcvPacket = check_and_cast<valueReporting_DataPacket*>(genericPacket);
-	valueReportData theData = rcvPacket->getExtraData();
+	ValueReportingDataPacket *rcvPacket = check_and_cast<ValueReportingDataPacket*>(genericPacket);
+	ValueReportData theData = rcvPacket->getExtraData();
 	if (isSink)
 		trace() << "Sink received from: " << theData.nodeID << " \tvalue=" << rcvPacket->getData();
 }
 
-void valueReporting_ApplicationModule::handleSensorReading(SensorReadingGenericMessage * rcvReading)
+void ValueReporting::handleSensorReading(SensorReadingGenericMessage * rcvReading)
 {
 	// int sensIndex =  rcvReading->getSensorIndex();
 	// string sensType(rcvReading->getSensorType());
@@ -54,13 +54,13 @@ void valueReporting_ApplicationModule::handleSensorReading(SensorReadingGenericM
 	// schedule the TX of the value
 	trace() << "Sensed = " << sensValue;
 
-	valueReportData tmpData;
+	ValueReportData tmpData;
 	tmpData.nodeID = (unsigned short)self;
 	tmpData.locX = mobilityModule->getLocation().x;
 	tmpData.locY = mobilityModule->getLocation().y;
 
-	valueReporting_DataPacket *packet2Net =
-	    new valueReporting_DataPacket("Application Packet Application->Mac", APPLICATION_PACKET);
+	ValueReportingDataPacket *packet2Net =
+	    new ValueReportingDataPacket("Application Packet Application->Mac", APPLICATION_PACKET);
 	packet2Net->setExtraData(tmpData);
 	packet2Net->setData(sensValue);
 	packet2Net->setSequenceNumber(currSentSampleSN);

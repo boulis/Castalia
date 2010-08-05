@@ -10,11 +10,11 @@
  *                                                                          *  
  ****************************************************************************/
 
-#include "throughputTest_ApplicationModule.h"
+#include "ThroughputTest.h"
 
-Define_Module(throughputTest_ApplicationModule);
+Define_Module(ThroughputTest);
 
-void throughputTest_ApplicationModule::startup()
+void ThroughputTest::startup()
 {
 	packet_rate = par("packet_rate");
 	recipientAddress = par("nextRecipient").stringValue();
@@ -33,7 +33,7 @@ void throughputTest_ApplicationModule::startup()
 		trace() << "Not sending packets";
 }
 
-void throughputTest_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
+void ThroughputTest::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
 		const char *source, double rssi, double lqi)
 {
 	int sequenceNumber = rcvPacket->getSequenceNumber();
@@ -46,7 +46,7 @@ void throughputTest_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPa
 	}
 }
 
-void throughputTest_ApplicationModule::timerFiredCallback(int index)
+void ThroughputTest::timerFiredCallback(int index)
 {
 	switch (index) {
 		case SEND_PACKET:{
@@ -60,7 +60,7 @@ void throughputTest_ApplicationModule::timerFiredCallback(int index)
 }
 
 // This method updates the number of packets received by node 0 from other nodes
-void throughputTest_ApplicationModule::update_packets_received(int srcID, int SN)
+void ThroughputTest::update_packets_received(int srcID, int SN)
 {
 	map < int, packet_info >::iterator i = packet_info_table.find(srcID);
 	if (i == packet_info_table.end())
@@ -73,7 +73,7 @@ void throughputTest_ApplicationModule::update_packets_received(int srcID, int SN
 
 // This method processes a received carrier sense interupt. Used only for demo purposes
 // in some simulation. Feel free to comment out the trace command.  
-void throughputTest_ApplicationModule::handleRadioControlMessage(RadioControlMessage *radioMsg)
+void ThroughputTest::handleRadioControlMessage(RadioControlMessage *radioMsg)
 {
 	switch (radioMsg->getRadioControlMessageKind()) {
 		case CARRIER_SENSE_INTERRUPT:

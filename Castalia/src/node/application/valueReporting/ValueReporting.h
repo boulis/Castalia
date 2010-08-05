@@ -1,7 +1,7 @@
 /****************************************************************************
  *  Copyright: National ICT Australia,  2007 - 2010                         *
  *  Developed at the Networks and Pervasive Computing program               *
- *  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis                 *
+ *  Author(s): Dimosthenis Pediaditakis, Yuriy Tselishchev                  *
  *  This file is distributed under the terms in the attached LICENSE file.  *
  *  If you do not find this file, copies can be found by writing to:        *
  *                                                                          *
@@ -10,33 +10,36 @@
  *                                                                          *  
  ****************************************************************************/
 
-#ifndef _SIMPLEAGGREGATION_APPLICATIONMODULE_H_
-#define _SIMPLEAGGREGATION_APPLICATIONMODULE_H_
+#ifndef _VALUEREPORTING_H_
+#define _VALUEREPORTING_H_
 
 #include "VirtualApplication.h"
+#include "ValueReportingPacket_m.h"
 
 using namespace std;
 
-enum SimpleAggregationTimers {
+enum ValueReportingTimers {
 	REQUEST_SAMPLE = 1,
-	SEND_AGGREGATED_VALUE = 2
+	SEND_DATA = 2,
 };
 
-class simpleAggregation_ApplicationModule: public VirtualApplication {
+class ValueReporting: public VirtualApplication {
  private:
-	double aggregatedValue;
+	double maxSampleInterval;
+	double minSampleInterval;
+
 	int routingLevel;
-	double waitingTimeForLowerLevelData;
 	double lastSensedValue;
-	double sampleInterval;
-	int totalPackets;
+	int currSentSampleSN;
+
+	double randomBackoffIntervalFraction;
+	bool sentOnce;
 
  protected:
 	void startup();
-	void timerFiredCallback(int);
-	void handleSensorReading(SensorReadingGenericMessage *);
-	void handleNeworkControlMessage(cMessage *);
 	void fromNetworkLayer(ApplicationGenericDataPacket *, const char *, double, double);
+	void handleSensorReading(SensorReadingGenericMessage *);
+	void timerFiredCallback(int);
 };
 
-#endif				// _SIMPLEAGGREGATION_APPLICATIONMODULE_H_
+#endif				// _VALUEREPORTING_APPLICATIONMODULE_H_

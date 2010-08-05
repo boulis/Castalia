@@ -10,11 +10,11 @@
  *                                                                             *  
  *******************************************************************************/
 
-#include "connectivityMap_ApplicationModule.h"
+#include "ConnectivityMap.h"
 
-Define_Module(connectivityMap_ApplicationModule);
+Define_Module(ConnectivityMap);
 
-void connectivityMap_ApplicationModule::startup()
+void ConnectivityMap::startup()
 {
 	packetSpacing = (double)par("packetSpacing") / 1000.0;
 	packetsPerNode = par("packetsPerNode");
@@ -36,13 +36,13 @@ void connectivityMap_ApplicationModule::startup()
 	setTimer(SEND_PACKET, startTxTime);
 }
 
-void connectivityMap_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
+void ConnectivityMap::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
 			const char *source, double rssi, double lqi)
 {
 	updateNeighborTable(atoi(source), rcvPacket->getSequenceNumber());
 }
 
-void connectivityMap_ApplicationModule::timerFiredCallback(int timerIndex)
+void ConnectivityMap::timerFiredCallback(int timerIndex)
 {
 	switch (timerIndex) {
 
@@ -57,7 +57,7 @@ void connectivityMap_ApplicationModule::timerFiredCallback(int timerIndex)
 	}
 }
 
-void connectivityMap_ApplicationModule::finishSpecific()
+void ConnectivityMap::finishSpecific()
 {
 	for (int i = 0; i < (int)neighborTable.size(); i++) {
 		declareOutput("Packets received", neighborTable[i].id);
@@ -66,7 +66,7 @@ void connectivityMap_ApplicationModule::finishSpecific()
 	}
 }
 
-void connectivityMap_ApplicationModule::updateNeighborTable(int nodeID, int serialNum)
+void ConnectivityMap::updateNeighborTable(int nodeID, int serialNum)
 {
 	int i = 0, pos = -1;
 	int tblSize = (int)neighborTable.size();

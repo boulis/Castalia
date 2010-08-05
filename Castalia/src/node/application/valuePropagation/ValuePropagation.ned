@@ -15,9 +15,9 @@ package node.application.valuePropagation;
 // The sensor node module. Connects to the wireless channel in order to communicate 
 // with other nodes. Connects to psysical processes so it can sample them.
 
-simple valuePropagation_ApplicationModule like node.application.iApplication {
+simple ValuePropagation like node.application.iApplication {
  parameters:
- 	string applicationID = default ("ValProp");
+ 	string applicationID = default ("valuePropagation");
 	bool collectTraceInfo = default (true);
 	int priority = default (1);
 	int maxAppPacketSize = default (30);	// in bytes

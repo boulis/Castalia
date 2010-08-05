@@ -10,48 +10,33 @@
  *                                                                             *  
  *******************************************************************************/
 
-#ifndef _CONNECTIVITYMAP_APPLICATIONMODULE_H_
-#define _CONNECTIVITYMAP_APPLICATIONMODULE_H_
+#ifndef _VALUEPROPAGATION_H_
+#define _VALUEPROPAGATION_H_
 
 #include "VirtualApplication.h"
 
 using namespace std;
 
-struct neighborRecord {
-	int id;
-	int timesRx;
-	int receivedPackets;
+enum ValuePropagationTimers {
+	REQUEST_SAMPLE = 1,
 };
 
-enum ConnectivityMapTimers {
-	SEND_PACKET = 1,
-};
-
-class connectivityMap_ApplicationModule: public VirtualApplication {
+class ValuePropagation: public VirtualApplication {
  private:
-	// parameters and variables
-	int priority;
-	int maxAppPacketSize;
-	int packetHeaderOverhead;
-	bool printConnMap;
-	int constantDataPayload;
-	double packetSpacing;
-	int packetsPerNode;
-	int packetSize;
-
-	vector<neighborRecord> neighborTable;
-	int packetsSent;
-	int serialNumber;
-	int totalSNnodes;
-	double txInterval_perNode;
-	double txInterval_total;
+	int totalPackets;
+	double currMaxReceivedValue;
+	double currMaxSensedValue;
+	int sentOnce;
+	double theValue;
+	double tempThreshold;
+	vector<double> sensedValues;
 
  protected:
 	void startup();
 	void finishSpecific();
 	void fromNetworkLayer(ApplicationGenericDataPacket *, const char *, double, double);
+	void handleSensorReading(SensorReadingGenericMessage *);
 	void timerFiredCallback(int);
-	void updateNeighborTable(int nodeID, int theSN);
 };
 
-#endif				// _CONNECTIVITYMAP_APPLICATIONMODULE_H_
+#endif				// _VALUEPROPAGATION_APPLICATIONMODULE_H_

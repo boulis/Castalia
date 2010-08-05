@@ -15,7 +15,7 @@ package node.application.valueReporting;
 // The sensor node module. Connects to the wireless channel in order to communicate 
 // with other nodes. Connects to psysical processes so it can sample them.
 
-simple valueReporting_ApplicationModule like node.application.iApplication {
+simple ValueReporting like node.application.iApplication {
  parameters:
  	string applicationID = default ("valueReporting");
 	bool collectTraceInfo = default (true);

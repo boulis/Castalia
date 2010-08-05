@@ -15,7 +15,7 @@ package node.application.simpleAggregation;
 // The sensor node module. Connects to the wireless channel in order to communicate 
 // with other nodes. Connects to psysical processes so it can sample them.
 
-simple simpleAggregation_ApplicationModule like node.application.iApplication {
+simple SimpleAggregation like node.application.iApplication {
  parameters:
  	string applicationID = default ("simpleAggregation");
 	bool collectTraceInfo = default (true);

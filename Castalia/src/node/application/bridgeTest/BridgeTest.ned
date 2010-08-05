@@ -1,7 +1,7 @@
 //********************************************************************************
 //*  Copyright: National ICT Australia,  2007 - 2010                             *
 //*  Developed at the Networks and Pervasive Computing program                   *
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis, Yuriy Tselishchev  *
+//*  Author(s): Yuriy Tselishchev                                                *
 //*  This file is distributed under the terms in the attached LICENSE file.      *
 //*  If you do not find this file, copies can be found by writing to:            *
 //*                                                                              *
@@ -10,23 +10,33 @@
 //*                                                                              *
 //*******************************************************************************/
 
-package node.application.connectivityMap;
+package node.application.bridgeTest;
 
 // The sensor node module. Connects to the wireless channel in order to communicate 
 // with other nodes. Connects to psysical processes so it can sample them.
 
-simple connectivityMap_ApplicationModule like node.application.iApplication {
- parameters:
- 	string applicationID = default ("connMap");
+simple BridgeTest like node.application.iApplication {
+ parameters: 
+ 	string applicationID = default ("BridgeTest");
 	bool collectTraceInfo = default (false);
-	int packetHeaderOverhead = default (8);
-	int maxAppPacketSize = default (0);
 	int priority = default (1);
-	int constantDataPayload = default (8);
+	int maxAppPacketSize = default (0);			// in bytes
+	int packetHeaderOverhead = default (8);		// in bytes
+	int constantDataPayload = default (0);
 
-	int packetSpacing = default (100);	// in ms
-	int packetsPerNode = default (100);
-	int packetSize = default (32);	// in bytes
+	bool isSink = default (false);
+
+//      bool broadcastReports = default(false);
+	string reportDestination = default ("0");	//this can also be set to "-1" for broadcast
+												// or to a specific node's address (e.g "0")
+
+	double reportTreshold = default (10);
+	double sampleInterval = default (100);	// in ms
+	int sampleSize = default (12);	// in bytes
+	int reprogramInterval = default (86400);	// in seconds
+	int reprogramPacketDelay = default (500);	// in ms
+	int reprogramPayload = default (5120);	// in bytes
+	int maxPayloadPacketSize = default (128);	// in bytes
 
  gates:
  	output toCommunicationModule;

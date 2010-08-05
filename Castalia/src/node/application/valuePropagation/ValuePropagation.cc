@@ -10,11 +10,11 @@
  *                                                                             *  
  *******************************************************************************/
 
-#include "valuePropagation_ApplicationModule.h"
+#include "ValuePropagation.h"
 
-Define_Module(valuePropagation_ApplicationModule);
+Define_Module(ValuePropagation);
 
-void valuePropagation_ApplicationModule::startup()
+void ValuePropagation::startup()
 {
 	tempThreshold = par("tempThreshold");
 	totalPackets = 0;
@@ -25,7 +25,7 @@ void valuePropagation_ApplicationModule::startup()
 	setTimer(REQUEST_SAMPLE, 0);
 }
 
-void valuePropagation_ApplicationModule::timerFiredCallback(int index)
+void ValuePropagation::timerFiredCallback(int index)
 {
 	switch (index) {
 		case REQUEST_SAMPLE:{
@@ -35,7 +35,7 @@ void valuePropagation_ApplicationModule::timerFiredCallback(int index)
 	}
 }
 
-void valuePropagation_ApplicationModule::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
+void ValuePropagation::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
 		const char *source, double rssi, double lqi)
 {
 	double receivedData = rcvPacket->getData();
@@ -52,7 +52,7 @@ void valuePropagation_ApplicationModule::fromNetworkLayer(ApplicationGenericData
 	}
 }
 
-void valuePropagation_ApplicationModule::handleSensorReading(SensorReadingGenericMessage * rcvReading)
+void ValuePropagation::handleSensorReading(SensorReadingGenericMessage * rcvReading)
 {
 	double sensedValue = rcvReading->getSensedValue();
 
@@ -66,7 +66,7 @@ void valuePropagation_ApplicationModule::handleSensorReading(SensorReadingGeneri
 	}
 }
 
-void valuePropagation_ApplicationModule::finishSpecific()
+void ValuePropagation::finishSpecific()
 {
 	declareOutput("got value");
 	if (theValue > tempThreshold)

@@ -10,8 +10,8 @@
  *                                                                          *  
  ****************************************************************************/
 
-#ifndef _BRIDGETEST_APPLICATIONMODULE_H_
-#define _BRIDGETEST_APPLICATIONMODULE_H_
+#ifndef _BridgeTest_H_
+#define _BridgeTest_H_
 
 #include "VirtualApplication.h"
 
@@ -38,7 +38,7 @@ enum BridgeTestTimers {
 	SEND_REPROGRAM_PACKET = 3,
 };
 
-class BridgeTest_ApplicationModule:public VirtualApplication {
+class BridgeTest:public VirtualApplication {
  private:
 	int reportTreshold;
 	double sampleInterval;
@@ -73,4 +73,4 @@ class BridgeTest_ApplicationModule:public VirtualApplication {
 	void handleSensorReading(SensorReadingGenericMessage *);
 };
 
-#endif				// _BRIDGETEST_APPLICATIONMODULE_H_
+#endif				// _BridgeTest_H_

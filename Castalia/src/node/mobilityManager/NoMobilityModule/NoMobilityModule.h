@@ -10,16 +10,16 @@
  *                                                                          *  
  ****************************************************************************/
 
-#ifndef _NOMOBILITYMANAGER_H_
-#define _NOMOBILITYMANAGER_H_
+#ifndef _MOBILITYMODULE_H_
+#define _MOBILITYMODULE_H_
 
 #include <omnetpp.h>
 #include "DebugInfoWriter.h"
-#include "VirtualMobilityManager.h"
+#include "VirtualMobilityModule.h"
 
 using namespace std;
 
-class NoMobilityManager: public VirtualMobilityManager {
+class NoMobilityModule:public VirtualMobilityModule {
  protected:
 	void handleMessage(cMessage * msg);
 };

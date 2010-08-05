@@ -10,13 +10,13 @@
  *                                                                          *  
  ****************************************************************************/
 
-#include "LineMobilityManager.h"
+#include "LineMobilityModule.h"
 
-Define_Module(LineMobilityManager);
+Define_Module(LineMobilityModule);
 
-void LineMobilityManager::initialize()
+void LineMobilityModule::initialize()
 {
-	VirtualMobilityManager::initialize();
+	VirtualMobilityModule::initialize();
 	cModule *node = getParentModule();
 
 	updateInterval = par("updateInterval");
@@ -39,11 +39,11 @@ void LineMobilityManager::initialize()
 		incr_z = (loc2_z - loc1_z) / tmp;
 		setLocation(loc1_x, loc1_y, loc1_z);
 		scheduleAt(simTime() + updateInterval,
-			new MobilityManagerMessage("Periodic location update message", MOBILITY_PERIODIC));
+			new MobilityModule_Message("Periodic location update message", MOBILITY_PERIODIC));
 	}
 }
 
-void LineMobilityManager::handleMessage(cMessage * msg)
+void LineMobilityModule::handleMessage(cMessage * msg)
 {
 	int msgKind = msg->getKind();
 	switch (msgKind) {
@@ -82,7 +82,7 @@ void LineMobilityManager::handleMessage(cMessage * msg)
 			}
 			notifyWirelessChannel();
 			scheduleAt(simTime() + updateInterval,
-				new MobilityManagerMessage("Periodic location update message", MOBILITY_PERIODIC));
+				new MobilityModule_Message("Periodic location update message", MOBILITY_PERIODIC));
 
 			trace() << "changed location(x:y:z) to " << nodeLocation.x << 
 					":" << nodeLocation.y << ":" << nodeLocation.z;

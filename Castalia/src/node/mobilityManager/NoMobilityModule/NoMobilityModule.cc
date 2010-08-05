@@ -10,11 +10,11 @@
  *                                                                          *  
  ****************************************************************************/
 
-#include "NoMobilityManager.h"
+#include "NoMobilityModule.h"
 
-Define_Module(NoMobilityManager);
+Define_Module(NoMobilityModule);
 
-void NoMobilityManager::handleMessage(cMessage * msg)
+void NoMobilityModule::handleMessage(cMessage * msg)
 {
 	int msgKind = msg->getKind();
 	trace() << "Unexpected message: " << msgKind;

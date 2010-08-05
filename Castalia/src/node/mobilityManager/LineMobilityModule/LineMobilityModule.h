@@ -13,12 +13,12 @@
 #ifndef _MOBILITYMODULE_H_
 #define _MOBILITYMODULE_H_
 
-#include "MobilityManagerMessage_m.h"
-#include "VirtualMobilityManager.h"
+#include "MobilityModule_Message_m.h"
+#include "VirtualMobilityModule.h"
 
 using namespace std;
 
-class LineMobilityManager: public VirtualMobilityManager {
+class LineMobilityModule: public VirtualMobilityModule {
  private:
 	/*--- The .ned file's parameters ---*/
 	double updateInterval;

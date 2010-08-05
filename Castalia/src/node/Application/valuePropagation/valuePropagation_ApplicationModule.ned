@@ -23,7 +23,7 @@ simple valuePropagation_ApplicationModule like node.Application.ApplicationGener
 	int maxAppPacketSize = default (30);	// in bytes
 	int packetHeaderOverhead = default (8);	// in bytes
 	int constantDataPayload = default (2);	// in bytes
-	double tempTreshold = default (15.0);
+	double tempThreshold = default (15.0);
 
  gates:
  	output toCommunicationModule;

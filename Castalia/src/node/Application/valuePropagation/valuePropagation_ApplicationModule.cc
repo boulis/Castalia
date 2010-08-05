@@ -16,7 +16,7 @@ Define_Module(valuePropagation_ApplicationModule);
 
 void valuePropagation_ApplicationModule::startup()
 {
-	tempTreshold = par("tempTreshold");
+	tempThreshold = par("tempThreshold");
 	totalPackets = 0;
 	currMaxReceivedValue = -1.0;
 	currMaxSensedValue = -1.0;
@@ -44,7 +44,7 @@ void valuePropagation_ApplicationModule::fromNetworkLayer(ApplicationGenericData
 	if (receivedData > currMaxReceivedValue)
 		currMaxReceivedValue = receivedData;
 
-	if (receivedData > tempTreshold && !sentOnce) {
+	if (receivedData > tempThreshold && !sentOnce) {
 		theValue = receivedData;
 		toNetworkLayer(createGenericDataPacket(receivedData, 1), BROADCAST_NETWORK_ADDRESS);
 		sentOnce = 1;
@@ -59,7 +59,7 @@ void valuePropagation_ApplicationModule::handleSensorReading(SensorReadingGeneri
 	if (sensedValue > currMaxSensedValue)
 		currMaxSensedValue = sensedValue;
 
-	if (sensedValue > tempTreshold && !sentOnce) {
+	if (sensedValue > tempThreshold && !sentOnce) {
 		theValue = sensedValue;
 		toNetworkLayer(createGenericDataPacket(sensedValue, 1), BROADCAST_NETWORK_ADDRESS);
 		sentOnce = 1;
@@ -68,7 +68,10 @@ void valuePropagation_ApplicationModule::handleSensorReading(SensorReadingGeneri
 
 void valuePropagation_ApplicationModule::finishSpecific()
 {
-	declareOutput("Value");
-	collectOutput("Value", "Celcius", theValue);
+	declareOutput("got value");
+	if (theValue > tempThreshold)
+		collectOutput("got value", "yes/no", 1);
+	else
+		collectOutput("got value", "yes/no", 0);
 }
 

@@ -28,7 +28,7 @@ class valuePropagation_ApplicationModule: public VirtualApplicationModule {
 	double currMaxSensedValue;
 	int sentOnce;
 	double theValue;
-	double tempTreshold;
+	double tempThreshold;
 	vector<double> sensedValues;
 
  protected:

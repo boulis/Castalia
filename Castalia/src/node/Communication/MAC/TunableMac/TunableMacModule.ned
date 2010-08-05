@@ -26,7 +26,7 @@ simple TunableMacModule like node.Communication.MAC.MacGenericModule {
 
 	double dutyCycle = default (1.0);	// sleeping / (sleeping+listening)
 	int listenInterval = default (10);	// how long do we leave the radio in listen mode, in ms
-	double beaconIntervalFraction = default (0.0);	// fraction of the sleeping interval that we send beacons
+	double beaconIntervalFraction = default (1.0);	// fraction of the sleeping interval that we send beacons
 	double probTx = default (1.0);		// the probability of a single try of Transmission to happen
 	int numTx = default (1);			// when we have something to Tx, how many times we try
 	int randomTxOffset = default (10);	// Tx after time chosen randomly from interval [0..randomTxOffset]

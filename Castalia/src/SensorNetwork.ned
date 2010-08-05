@@ -11,7 +11,7 @@
 //*******************************************************************************/
 
 import Wireless_Channel;
-import Physical_Process;
+import physicalProcess;
 import Node;
 
 network SN {
@@ -50,7 +50,7 @@ network SN {
 	} 
 
 	physicalProcess[numPhysicalProcesses]:<physicalProcessModuleName> 
-				like Physical_Process.PhysicalProcessGenericModule {
+				like physicalProcess.iPhysicalProcess {
 	 gates:
 		toNode[numNodes];
 		fromNode[numNodes];

@@ -14,7 +14,7 @@
 #define _APPLICATIONMODULESIMPLE_H_
 
 #include "SensorReadingGenericMessage_m.h"
-#include "PhyProcessGenericMessage_m.h"
+#include "PhysicalProcessMessage_m.h"
 
 #include "VirtualMobilityModule.h"
 #include "VirtualCastaliaModule.h"

@@ -10,7 +10,7 @@
 //*                                                                              *
 //*******************************************************************************/
 
-package Physical_Process.CustomizablePhysicalProcess;
+package physicalProcess.CustomizablePhysicalProcess;
 
 //=======================================================================================
 // The physical process module simulates a physical process that could be measured/sampled
@@ -21,7 +21,7 @@ package Physical_Process.CustomizablePhysicalProcess;
 // sensor device 'Temperature'
 //=======================================================================================
 
-simple CustomizablePhysicalProcess like Physical_Process.PhysicalProcessGenericModule {
+simple CustomizablePhysicalProcess like physicalProcess.iPhysicalProcess {
  parameters:
  	bool collectTraceInfo = default (false);
 	double inputType = default (1);	// 0 --> values are dictated by "directNodeValueAssignment" parameter

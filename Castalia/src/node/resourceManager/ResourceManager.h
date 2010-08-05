@@ -10,48 +10,53 @@
  *                                                                             *  
  *******************************************************************************/
 
-#ifndef _APPLICATIONMODULESIMPLE_H_
-#define _APPLICATIONMODULESIMPLE_H_
+#ifndef _RESOURCEMANAGER_H_
+#define _RESOURCEMANAGER_H_
 
-#include "SensorReadingGenericMessage_m.h"
-#include "PhysicalProcessMessage_m.h"
-
-#include "VirtualMobilityManager.h"
+#include <map>
 #include "CastaliaModule.h"
+#include "ResourceManagerMessage_m.h"
 
 using namespace std;
 
-class SensorDevMgrModule: public CastaliaModule {
- private:
-	/*--- The .ned file's parameters ---*/
-	bool printDebugInfo;
-	vector<int> corrPhyProcess;
-	vector<double> pwrConsumptionPerDevice;
-	vector<simtime_t> minSamplingIntervals;
-	vector<string> sensorTypes;
-	vector<double> sensorBiasSigma;
-	vector<double> sensorNoiseSigma;
-	vector<double> sensorSensitivity;
-	vector<double> sensorResolution;
-	vector<double> sensorSaturation;
+enum ResoruceManagerTimers {
+	PERIODIC_ENERGY_CALCULATION = 1,
+};
 
-	/*--- Custom class member variables ---*/
-	int self;		// the node's ID
-	int totalSensors;
-	vector<simtime_t> sensorlastSampleTime;
-	vector<double> sensorLastValue;
-	vector<double> sensorBias;
-	VirtualMobilityManager *nodeMobilityModule;
-	int disabled;
+class ResourceManager: public CastaliaModule {
+ private:
+	// parameters and variables
+	/*--- The .ned file's parameters ---*/
+	double sigmaCPUClockDrift;
+	double cpuClockDrift;
+	double initialEnergy;
+	double ramSize;
+	double baselineNodePower;
+	double currentNodePower;
+	simtime_t timeOfLastCalculation;
+	double periodicEnergyCalculationInterval;
+
+	/*--- Custom class parameters ---*/
+	double remainingEnergy;
+	double totalRamData;
+
+	map<int,double> storedPowerConsumptions;
+
+	cMessage *energyMsg;
 
  protected:
 	virtual void initialize();
 	virtual void handleMessage(cMessage * msg);
-	void parseStringParams(void);
+	virtual void finishSpecific();
+	void calculateEnergySpent();
 
  public:
-	double getSensorDeviceBias(int index);
-
+	double getCPUClockDrift(void);
+	void consumeEnergy(double amount);
+	double getSpentEnergy(void);
+	void destroyNode(void);
+	int RamStore(int numBytes);
+	void RamFree(int numBytes);
 };
 
-#endif				// _APPLICATIONMODULESIMPLE_H_
+#endif				// _RESOURCEGENERICMANAGER_H_

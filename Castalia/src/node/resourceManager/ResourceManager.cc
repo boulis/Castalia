@@ -10,14 +10,14 @@
  *                                                                             *  
  *******************************************************************************/
 
-#include "ResourceGenericManager.h"
+#include "ResourceManager.h"
 
-Define_Module(ResourceGenericManager);
+Define_Module(ResourceManager);
 
-void ResourceGenericManager::initialize()
+void ResourceManager::initialize()
 {
 	sigmaCPUClockDrift = par("sigmaCPUClockDrift");
-	//using the "0" rng generator of the ResourceGenericManager module
+	//using the "0" rng generator of the ResourceManager module
 	cpuClockDrift = normal(0, sigmaCPUClockDrift);
 	/* Crop any values beyond +/- 3 sigmas. Some protocols (e.g., MAC) rely on
 	 * bounded cpuClockDrift. Although the bounds are conservative (usually 3sigmas),
@@ -48,7 +48,7 @@ void ResourceGenericManager::initialize()
 	scheduleAt(simTime() + periodicEnergyCalculationInterval, energyMsg);
 }
 
-void ResourceGenericManager::calculateEnergySpent()
+void ResourceManager::calculateEnergySpent()
 {
 	simtime_t timePassed = simTime() - timeOfLastCalculation;
 	trace() << "energy consumed in the last " << timePassed << 
@@ -61,10 +61,10 @@ void ResourceGenericManager::calculateEnergySpent()
 	}
 }
 
-/* The ResourceGenericManager module is not connected with other modules. They use instead its public methods.
+/* The ResourceManager module is not connected with other modules. They use instead its public methods.
  * The only possible message is periodic energy consumption. There is no message object associated to that message kind.
  */
-void ResourceGenericManager::handleMessage(cMessage * msg)
+void ResourceManager::handleMessage(cMessage * msg)
 {
 	switch (msg->getKind()) {
 	
@@ -93,26 +93,26 @@ void ResourceGenericManager::handleMessage(cMessage * msg)
 	delete msg;
 }
 
-void ResourceGenericManager::finishSpecific()
+void ResourceManager::finishSpecific()
 {
 	calculateEnergySpent();
 	declareOutput("Consumed Energy");
 	collectOutput("Consumed Energy", "", getSpentEnergy());
 }
 
-double ResourceGenericManager::getSpentEnergy(void)
+double ResourceManager::getSpentEnergy(void)
 {
 	Enter_Method("getSpentEnergy()");
 	return (initialEnergy - remainingEnergy);
 }
 
-double ResourceGenericManager::getCPUClockDrift(void)
+double ResourceManager::getCPUClockDrift(void)
 {
 	Enter_Method("getCPUClockDrift(void)");
 	return (1.0f + cpuClockDrift);
 }
 
-void ResourceGenericManager::consumeEnergy(double amount)
+void ResourceManager::consumeEnergy(double amount)
 {
 	Enter_Method("consumeEnergy(double amount)");
 
@@ -127,7 +127,7 @@ void ResourceGenericManager::consumeEnergy(double amount)
 		remainingEnergy -= amount;
 }
 
-void ResourceGenericManager::destroyNode(void)
+void ResourceManager::destroyNode(void)
 {
 	Enter_Method("destroyNode(void)");
 
@@ -138,7 +138,7 @@ void ResourceGenericManager::destroyNode(void)
 	send(new cMessage("Destroy node message", DESTROY_NODE), "toRadio");
 }
 
-int ResourceGenericManager::RamStore(int numBytes)
+int ResourceManager::RamStore(int numBytes)
 {
 	Enter_Method("RamStore(int numBytes)");
 
@@ -152,7 +152,7 @@ int ResourceGenericManager::RamStore(int numBytes)
 	return 1;
 }
 
-void ResourceGenericManager::RamFree(int numBytes)
+void ResourceManager::RamFree(int numBytes)
 {
 	Enter_Method("RamFree(int numBytes)");
 	totalRamData -= numBytes;

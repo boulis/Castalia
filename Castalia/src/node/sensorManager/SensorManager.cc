@@ -10,11 +10,11 @@
  *                                                                             *  
  *******************************************************************************/
 
-#include "SensorDevMgrModule.h"
+#include "SensorManager.h"
 
-Define_Module(SensorDevMgrModule);
+Define_Module(SensorManager);
 
-void SensorDevMgrModule::initialize()
+void SensorManager::initialize()
 {
 	self = getParentModule()->getIndex();
 
@@ -39,7 +39,7 @@ void SensorDevMgrModule::initialize()
 	}
 }
 
-void SensorDevMgrModule::handleMessage(cMessage * msg)
+void SensorManager::handleMessage(cMessage * msg)
 {
 	int msgKind = msg->getKind();
 
@@ -69,7 +69,7 @@ void SensorDevMgrModule::handleMessage(cMessage * msg)
 		 * vector minSamplingIntervals[].
 		 */
 		case SENSOR_READING_MESSAGE:{
-			SensorReadingGenericMessage *rcvPacket = check_and_cast<SensorReadingGenericMessage*>(msg);
+			SensorReadingMessage *rcvPacket = check_and_cast<SensorReadingMessage*>(msg);
 			int sensorIndex = rcvPacket->getSensorIndex();
 
 			simtime_t currentTime = simTime();
@@ -133,8 +133,8 @@ void SensorDevMgrModule::handleMessage(cMessage * msg)
 			theValue = sensorResolution[sensorIndex] * lrint(theValue / sensorResolution[sensorIndex]);
 			sensorLastValue[sensorIndex] = theValue;
 
-			SensorReadingGenericMessage *readingMsg =
-					new SensorReadingGenericMessage("sensor reading", SENSOR_READING_MESSAGE);
+			SensorReadingMessage *readingMsg =
+					new SensorReadingMessage("sensor reading", SENSOR_READING_MESSAGE);
 			readingMsg->setSensorType(sensorTypes[sensorIndex].c_str());
 			readingMsg->setSensedValue(theValue);
 			readingMsg->setSensorIndex(sensorIndex);
@@ -167,7 +167,7 @@ void SensorDevMgrModule::handleMessage(cMessage * msg)
 	msg = NULL;		// safeguard
 }
 
-void SensorDevMgrModule::parseStringParams(void)
+void SensorManager::parseStringParams(void)
 {
 	const char *parameterStr, *token;
 	simtime_t sampleInterval;
@@ -261,7 +261,7 @@ void SensorDevMgrModule::parseStringParams(void)
 		opp_error("\n[Sensor Device Manager]: The parameters of the sensor device manager are not initialized correctly in omnet.ini file.");
 }
 
-double SensorDevMgrModule::getSensorDeviceBias(int index)
+double SensorManager::getSensorDeviceBias(int index)
 {
 	Enter_Method("getSensorDeviceBias()");
 	if ((totalSensors <= index) || (index < 0)) {

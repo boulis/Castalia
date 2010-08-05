@@ -36,8 +36,8 @@ module Node {
 
  submodules:
  	nodeMobilityModule:<mobilityModuleName> like node.mobilityManager.iMobilityManager;
-	nodeResourceMgr:node.Resource_Manager.ResourceGenericManager;
-	nodeSensorDevMgr:node.Sensor_Device_Manager.SensorDevMgrModule {
+	nodeResourceMgr:node.resourceManager.ResourceManager;
+	nodeSensorDevMgr:node.sensorManager.SensorManager {
 	 gates:
 		fromNodeContainerModule[sizeof(toPhysicalProcess)];
 		toNodeContainerModule[sizeof(toPhysicalProcess)];

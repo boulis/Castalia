@@ -35,7 +35,7 @@ class ValuePropagation: public VirtualApplication {
 	void startup();
 	void finishSpecific();
 	void fromNetworkLayer(ApplicationGenericDataPacket *, const char *, double, double);
-	void handleSensorReading(SensorReadingGenericMessage *);
+	void handleSensorReading(SensorReadingMessage *);
 	void timerFiredCallback(int);
 };
 

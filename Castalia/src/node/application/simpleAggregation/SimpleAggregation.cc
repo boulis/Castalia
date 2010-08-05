@@ -55,7 +55,7 @@ void SimpleAggregation::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacke
 		trace() << "from " << source << "received value " << theData;
 }
 
-void SimpleAggregation::handleSensorReading(SensorReadingGenericMessage * rcvReading)
+void SimpleAggregation::handleSensorReading(SensorReadingMessage * rcvReading)
 {
 	string sensType(rcvReading->getSensorType());
 	double sensValue = rcvReading->getSensedValue();

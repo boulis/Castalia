@@ -21,7 +21,7 @@
 
 #include "NetworkGenericPacket_m.h"
 #include "MacGenericPacket_m.h"
-#include "ResourceGenericManager.h"
+#include "ResourceManager.h"
 #include "RadioControlMessage_m.h"
 #include "RadioModule.h"
 #include "TimerService.h"
@@ -36,8 +36,7 @@ class VirtualMacModule: public CastaliaModule, public TimerService {
 	int macMaxFrameSize;
 	int macFrameOverhead;
 
-	void createAndSendRadioControlCommand(
-			RadioControlCommand_type, double, const char *, BasicState_type);
+	void createAndSendRadioControlCommand(RadioControlCommand_type, double, const char *, BasicState_type);
 
  protected:
 	int self;		// the node's ID
@@ -46,7 +45,7 @@ class VirtualMacModule: public CastaliaModule, public TimerService {
 	RadioModule *radioModule;
 	
 	//a pointer to the object of the Resource Manager Module (used for direct method calls)
-	ResourceGenericManager *resMgrModule;	
+	ResourceManager *resMgrModule;	
 	
 	queue<cPacket*> TXBuffer;
 

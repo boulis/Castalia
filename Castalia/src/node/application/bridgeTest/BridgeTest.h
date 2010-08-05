@@ -70,7 +70,7 @@ class BridgeTest:public VirtualApplication {
 	int updateReportTable(int src, int seq);
 	void fromNetworkLayer(ApplicationGenericDataPacket *, const char *, double, double);
 	void timerFiredCallback(int);
-	void handleSensorReading(SensorReadingGenericMessage *);
+	void handleSensorReading(SensorReadingMessage *);
 };
 
 #endif				// _BridgeTest_H_

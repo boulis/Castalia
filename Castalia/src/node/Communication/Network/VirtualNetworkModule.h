@@ -17,7 +17,7 @@
 #include "TimerService.h"
 #include "CastaliaMessages.h"
 #include "RadioModule.h"
-
+#include "ResourceManager.h"
 #include "NetworkGenericPacket_m.h"
 #include "ApplicationPacket_m.h"
 
@@ -35,7 +35,7 @@ class VirtualNetworkModule: public CastaliaModule, public TimerService {
 
 	/*--- Custom class parameters ---*/
 	double radioDataRate;
-	ResourceGenericManager *resMgrModule;
+	ResourceManager *resMgrModule;
 
 	queue<cPacket*> TXBuffer;
 

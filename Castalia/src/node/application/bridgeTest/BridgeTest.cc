@@ -115,7 +115,7 @@ void BridgeTest::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket,
 	}
 }
 
-void BridgeTest::handleSensorReading(SensorReadingGenericMessage * sensorMsg)
+void BridgeTest::handleSensorReading(SensorReadingMessage * sensorMsg)
 {
 	string sensType(sensorMsg->getSensorType());
 	double sensValue = sensorMsg->getSensedValue();

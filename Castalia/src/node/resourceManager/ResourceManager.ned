@@ -10,16 +10,16 @@
 //*                                                                              *
 //*******************************************************************************/
 
-package node.Resource_Manager;
+package node.resourceManager;
 
-simple ResourceGenericManager {
+simple ResourceManager {
  parameters:
 	bool collectTraceInfo = default (false);
-	double ramSize = default (0.0);	//in kB
-	double flashSize = default (0.0);	//in kB
+	double ramSize = default (0.0);			//in kB
+	double flashSize = default (0.0);		//in kB
 	double flashWriteCost = default (0.0);	//per kB
 	double flashReadCost = default (0.0);	//per kB
-	double imageSize = default (0.0);	//the space that the OS (e.g. Contiki or TinyOS) occupies in the flash
+	double imageSize = default (0.0);		//the space that the OS (e.g. Contiki or TinyOS) occupies in the flash
 
 	string cpuPowerSpeedLevelNames = default ("");
 	string cpuPowerPerLevel = default ("");	//spent energy per time unit

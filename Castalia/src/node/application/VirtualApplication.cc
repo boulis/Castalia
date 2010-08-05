@@ -21,7 +21,7 @@ void VirtualApplication::initialize()
 	cModule *parent = getParentModule();
 
 	if (parent->findSubmodule("nodeResourceMgr") != -1) {
-		resMgrModule = check_and_cast <ResourceGenericManager*>(parent->getSubmodule("nodeResourceMgr"));
+		resMgrModule = check_and_cast <ResourceManager*>(parent->getSubmodule("nodeResourceMgr"));
 	} else {
 		opp_error("\n[Application]:\n Error in geting a valid reference to nodeResourceMgr for direct method calls.");
 	}
@@ -113,7 +113,7 @@ void VirtualApplication::handleMessage(cMessage * msg)
 
 		case SENSOR_READING_MESSAGE:
 		{
-			SensorReadingGenericMessage *sensMsg = check_and_cast <SensorReadingGenericMessage*>(msg);
+			SensorReadingMessage *sensMsg = check_and_cast <SensorReadingMessage*>(msg);
 			handleSensorReading(sensMsg);
 			break;
 		}
@@ -183,8 +183,8 @@ ApplicationGenericDataPacket *VirtualApplication::createGenericDataPacket(double
 void VirtualApplication::requestSensorReading(int index)
 {
 	// send the request message to the Sensor Device Manager
-	SensorReadingGenericMessage *reqMsg;
-	reqMsg = new SensorReadingGenericMessage("app 2 sensor dev manager (Sample request)", SENSOR_READING_MESSAGE);
+	SensorReadingMessage *reqMsg =
+		new SensorReadingMessage("app 2 sensor dev manager (Sample request)", SENSOR_READING_MESSAGE);
 
 	//we need the index of the vector in the sensorTypes vector
 	//to distinguish the self messages for each sensor

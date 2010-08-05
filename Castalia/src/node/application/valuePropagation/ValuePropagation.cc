@@ -52,7 +52,7 @@ void ValuePropagation::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket
 	}
 }
 
-void ValuePropagation::handleSensorReading(SensorReadingGenericMessage * rcvReading)
+void ValuePropagation::handleSensorReading(SensorReadingMessage * rcvReading)
 {
 	double sensedValue = rcvReading->getSensedValue();
 

@@ -18,8 +18,8 @@
 #include <string>
 #include <omnetpp.h>
 #include "ApplicationPacket_m.h"
-#include "SensorReadingGenericMessage_m.h"
-#include "ResourceGenericManager.h"
+#include "SensorManagerMessage_m.h"
+#include "ResourceManager.h"
 #include "RadioModule.h"
 #include "VirtualMobilityManager.h"
 #include "CastaliaModule.h"
@@ -44,7 +44,7 @@ class VirtualApplication: public CastaliaModule, public TimerService {
 	/*--- Custom class parameters ---*/
 	int self;				// the node's ID
 	string selfAddress;
-	ResourceGenericManager *resMgrModule;	//a pointer to the object of the Resource Manager Module
+	ResourceManager *resMgrModule;			//a pointer to the object of the Resource Manager Module
 	VirtualMobilityManager *mobilityModule;	//a pointer to the mobilityModule object
 	RadioModule *radioModule;				//a pointer to the radio module object
 	int disabled;
@@ -62,7 +62,7 @@ class VirtualApplication: public CastaliaModule, public TimerService {
 
 	ApplicationGenericDataPacket *createGenericDataPacket(double, int, int = -1);
 	virtual void fromNetworkLayer(ApplicationGenericDataPacket *, const char *, double, double) = 0;
-	virtual void handleSensorReading(SensorReadingGenericMessage *) {}
+	virtual void handleSensorReading(SensorReadingMessage *) {}
 	virtual void handleNetworkControlMessage(cMessage *) {}
 	virtual void handleMacControlMessage(cMessage *) {}
 	virtual void handleRadioControlMessage(RadioControlMessage *) {}

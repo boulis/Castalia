@@ -45,7 +45,7 @@ void ValueReporting::fromNetworkLayer(ApplicationGenericDataPacket * genericPack
 		trace() << "Sink received from: " << theData.nodeID << " \tvalue=" << rcvPacket->getData();
 }
 
-void ValueReporting::handleSensorReading(SensorReadingGenericMessage * rcvReading)
+void ValueReporting::handleSensorReading(SensorReadingMessage * rcvReading)
 {
 	// int sensIndex =  rcvReading->getSensorIndex();
 	// string sensType(rcvReading->getSensorType());

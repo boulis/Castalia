@@ -29,7 +29,7 @@ void VirtualNetworkModule::initialize()
 	//& message types for tighlty couplped operations.
 	cModule *parentParent = getParentModule()->getParentModule();
 	if (parentParent->findSubmodule("nodeResourceMgr") != -1) {
-		resMgrModule = check_and_cast <ResourceGenericManager*>(parentParent->getSubmodule("nodeResourceMgr"));
+		resMgrModule = check_and_cast <ResourceManager*>(parentParent->getSubmodule("nodeResourceMgr"));
 	} else {
 		opp_error("\n[Network]:\n Error in geting a valid reference to  nodeResourceMgr for direct method calls.");
 	}

@@ -24,7 +24,7 @@
 #include "WirelessChannelMessages_m.h"
 #include "RadioControlMessage_m.h"
 #include "MacGenericPacket_m.h"
-#include "ResourceGenericManager.h"
+#include "ResourceManager.h"
 #include "CastaliaModule.h"
 
 #define ALL_ERRORS -1
@@ -176,7 +176,7 @@ class RadioModule: public CastaliaModule {
 	list<TotalPowerReceived_type> totalPowerReceived;
 
 	// a pointer to the object of the Radio Module (used for direct method calls)
-	ResourceGenericManager *resMgrModule;
+	ResourceManager *resMgrModule;
 
 	int changingToState;	// indicates that the Radio is in the middle of changing from one state (A)
 							// to another (B). It also holds the value for state B

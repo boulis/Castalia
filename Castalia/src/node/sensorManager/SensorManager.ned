@@ -10,13 +10,13 @@
 //*                                                                              *
 //*******************************************************************************/
 
-package node.Sensor_Device_Manager;
+package node.sensorManager;
 
 // The sensor node module. Connects to the wireless channel in order to communicate 
 // with other nodes. Connects to psysical processes so it can sample them. 
 // Default values represent temperature sensor
 
-simple SensorDevMgrModule {
+simple SensorManager {
  parameters:
 	bool collectTraceInfo = default (false);
 	int numSensingDevices = default (1);		// how many sensing devices the node has 

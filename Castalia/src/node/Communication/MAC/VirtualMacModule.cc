@@ -28,7 +28,7 @@ void VirtualMacModule::initialize()
 	//we can make direct calls to its public methods instead of using extra 
 	//messages & message types for tighlty couplped operations.
 	if (getParentModule()->getParentModule()->findSubmodule("nodeResourceMgr") != -1) {
-		resMgrModule = check_and_cast <ResourceGenericManager*>
+		resMgrModule = check_and_cast <ResourceManager*>
 			(getParentModule()->getParentModule()->getSubmodule("nodeResourceMgr"));
 	} else {
 		opp_error("\n[Mac]:\n Error in geting a valid reference to nodeResourceMgr for direct method calls.");

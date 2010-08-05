@@ -38,7 +38,7 @@ class ValueReporting: public VirtualApplication {
  protected:
 	void startup();
 	void fromNetworkLayer(ApplicationGenericDataPacket *, const char *, double, double);
-	void handleSensorReading(SensorReadingGenericMessage *);
+	void handleSensorReading(SensorReadingMessage *);
 	void timerFiredCallback(int);
 };
 

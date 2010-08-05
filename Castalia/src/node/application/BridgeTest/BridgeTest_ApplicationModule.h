@@ -13,7 +13,7 @@
 #ifndef _BRIDGETEST_APPLICATIONMODULE_H_
 #define _BRIDGETEST_APPLICATIONMODULE_H_
 
-#include "VirtualApplicationModule.h"
+#include "VirtualApplication.h"
 
 #define REPROGRAM_PACKET_NAME "Bridge test reprogram packet"
 #define REPORT_PACKET_NAME "Bridge test report packet"
@@ -32,13 +32,13 @@ struct report_info {
 	vector<int> parts;
 };
 
-enum BridgeTestApplicationTimers {
+enum BridgeTestTimers {
 	REQUEST_SAMPLE = 1,
 	REPROGRAM_NODES = 2,
 	SEND_REPROGRAM_PACKET = 3,
 };
 
-class BridgeTest_ApplicationModule:public VirtualApplicationModule {
+class BridgeTest_ApplicationModule:public VirtualApplication {
  private:
 	int reportTreshold;
 	double sampleInterval;

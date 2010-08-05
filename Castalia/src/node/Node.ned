@@ -43,7 +43,7 @@ module Node {
 		toNodeContainerModule[sizeof(toPhysicalProcess)];
 	} 
 	networkInterface:node.Communication.CommunicationModule;
-	nodeApplication:<appModuleName> like node.Application.ApplicationGenericModule;
+	nodeApplication:<appModuleName> like node.application.iApplication;
 
  connections:
 	networkInterface.toNodeContainerModule --> toWirelessChannel;

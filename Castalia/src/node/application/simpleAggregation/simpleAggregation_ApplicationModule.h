@@ -1,7 +1,7 @@
 /****************************************************************************
  *  Copyright: National ICT Australia,  2007 - 2010                         *
  *  Developed at the Networks and Pervasive Computing program               *
- *  Author(s): Dimosthenis Pediaditakis, Yuriy Tselishchev                  *
+ *  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis                 *
  *  This file is distributed under the terms in the attached LICENSE file.  *
  *  If you do not find this file, copies can be found by writing to:        *
  *                                                                          *
@@ -10,36 +10,33 @@
  *                                                                          *  
  ****************************************************************************/
 
-#ifndef _VALUEREPORTING_APPLICATIONMODULE_H_
-#define _VALUEREPORTING_APPLICATIONMODULE_H_
+#ifndef _SIMPLEAGGREGATION_APPLICATIONMODULE_H_
+#define _SIMPLEAGGREGATION_APPLICATIONMODULE_H_
 
-#include "VirtualApplicationModule.h"
-#include "valueReporting_DataPacket_m.h"
+#include "VirtualApplication.h"
 
 using namespace std;
 
-enum Timers {
+enum SimpleAggregationTimers {
 	REQUEST_SAMPLE = 1,
-	SEND_DATA = 2,
+	SEND_AGGREGATED_VALUE = 2
 };
 
-class valueReporting_ApplicationModule:public VirtualApplicationModule {
+class simpleAggregation_ApplicationModule: public VirtualApplication {
  private:
-	double maxSampleInterval;
-	double minSampleInterval;
-
+	double aggregatedValue;
 	int routingLevel;
+	double waitingTimeForLowerLevelData;
 	double lastSensedValue;
-	int currSentSampleSN;
-
-	double randomBackoffIntervalFraction;
-	bool sentOnce;
+	double sampleInterval;
+	int totalPackets;
 
  protected:
 	void startup();
-	void fromNetworkLayer(ApplicationGenericDataPacket *, const char *, double, double);
-	void handleSensorReading(SensorReadingGenericMessage *);
 	void timerFiredCallback(int);
+	void handleSensorReading(SensorReadingGenericMessage *);
+	void handleNeworkControlMessage(cMessage *);
+	void fromNetworkLayer(ApplicationGenericDataPacket *, const char *, double, double);
 };
 
-#endif				// _VALUEREPORTING_APPLICATIONMODULE_H_
+#endif				// _SIMPLEAGGREGATION_APPLICATIONMODULE_H_

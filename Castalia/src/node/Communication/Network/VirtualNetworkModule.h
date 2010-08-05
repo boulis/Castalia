@@ -19,7 +19,7 @@
 #include "RadioModule.h"
 
 #include "NetworkGenericPacket_m.h"
-#include "ApplicationGenericPacket_m.h"
+#include "ApplicationPacket_m.h"
 
 #define SELF_NETWORK_ADDRESS selfAddress.c_str()
 #define ROUTE_DEST_DELIMITER "#"

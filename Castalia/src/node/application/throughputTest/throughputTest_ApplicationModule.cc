@@ -73,7 +73,7 @@ void throughputTest_ApplicationModule::update_packets_received(int srcID, int SN
 
 // This method processes a received carrier sense interupt. Used only for demo purposes
 // in some simulation. Feel free to comment out the trace command.  
-void VirtualApplicationModule::handleRadioControlMessage(RadioControlMessage *radioMsg)
+void throughputTest_ApplicationModule::handleRadioControlMessage(RadioControlMessage *radioMsg)
 {
 	switch (radioMsg->getRadioControlMessageKind()) {
 		case CARRIER_SENSE_INTERRUPT:

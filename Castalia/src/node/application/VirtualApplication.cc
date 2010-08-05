@@ -10,9 +10,9 @@
  *                                                                          *  
  ****************************************************************************/
 
-#include "VirtualApplicationModule.h"
+#include "VirtualApplication.h"
 
-void VirtualApplicationModule::initialize()
+void VirtualApplication::initialize()
 {
 	/* Get a valid references to the objects of the Resources Manager module
 	 * the Mobility module and the radio module, so that we can make direct
@@ -72,7 +72,7 @@ void VirtualApplicationModule::initialize()
 		declareHistogram("Application level latency, in ms", 0, latencyMax, latencyBuckets);
 }
 
-void VirtualApplicationModule::handleMessage(cMessage * msg)
+void VirtualApplication::handleMessage(cMessage * msg)
 {
 	int msgKind = msg->getKind();
 
@@ -159,13 +159,13 @@ void VirtualApplicationModule::handleMessage(cMessage * msg)
 	msg = NULL;		// safeguard
 }
 
-void VirtualApplicationModule::finish()
+void VirtualApplication::finish()
 {
 	CastaliaModule::finish();
 	DebugInfoWriter::closeStream();
 }
 
-ApplicationGenericDataPacket *VirtualApplicationModule::createGenericDataPacket(double data, int seqNum, int size)
+ApplicationGenericDataPacket *VirtualApplication::createGenericDataPacket(double data, int seqNum, int size)
 {
 	ApplicationGenericDataPacket *newPacket =
 	    new ApplicationGenericDataPacket("Application generic packet", APPLICATION_PACKET);
@@ -180,7 +180,7 @@ ApplicationGenericDataPacket *VirtualApplicationModule::createGenericDataPacket(
 	return newPacket;
 }
 
-void VirtualApplicationModule::requestSensorReading(int index)
+void VirtualApplication::requestSensorReading(int index)
 {
 	// send the request message to the Sensor Device Manager
 	SensorReadingGenericMessage *reqMsg;
@@ -193,14 +193,14 @@ void VirtualApplicationModule::requestSensorReading(int index)
 	send(reqMsg, "toSensorDeviceManager");
 }
 
-void VirtualApplicationModule::toNetworkLayer(cMessage * msg)
+void VirtualApplication::toNetworkLayer(cMessage * msg)
 {
 	if (msg->getKind() == APPLICATION_PACKET)
 		opp_error("toNetworkLayer() function used incorrectly to send APPLICATION_PACKET without destination Network address");
 	send(msg, "toCommunicationModule");
 }
 
-void VirtualApplicationModule::toNetworkLayer(cPacket * pkt, const char *dst)
+void VirtualApplication::toNetworkLayer(cPacket * pkt, const char *dst)
 {
 	ApplicationGenericDataPacket *appPkt = check_and_cast <ApplicationGenericDataPacket*>(pkt);
 	appPkt->getApplicationInteractionControl().destination = string(dst);

@@ -17,7 +17,7 @@
 #include <sstream>
 #include <string>
 #include <omnetpp.h>
-#include "ApplicationGenericPacket_m.h"
+#include "ApplicationPacket_m.h"
 #include "SensorReadingGenericMessage_m.h"
 #include "ResourceGenericManager.h"
 #include "RadioModule.h"
@@ -29,7 +29,7 @@
 
 using namespace std;
 
-class VirtualApplicationModule: public CastaliaModule, public TimerService {
+class VirtualApplication: public CastaliaModule, public TimerService {
  protected:
 	/*--- The .ned file's parameters ---*/
 	string applicationID;
@@ -65,7 +65,7 @@ class VirtualApplicationModule: public CastaliaModule, public TimerService {
 	virtual void handleSensorReading(SensorReadingGenericMessage *) {}
 	virtual void handleNetworkControlMessage(cMessage *) {}
 	virtual void handleMacControlMessage(cMessage *) {}
-	virtual void handleRadioControlMessage(RadioControlMessage *);
+	virtual void handleRadioControlMessage(RadioControlMessage *) {}
 };
 
 #endif

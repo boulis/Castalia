@@ -10,12 +10,12 @@
 //*                                                                          *  
 //****************************************************************************/
 
-package node.Application.throughputTest;
+package node.application.throughputTest;
 
 // The sensor node module. Connects to the wireless channel in order to communicate 
 // with other nodes. Connects to psysical processes so it can sample them.
 
-simple throughputTest_ApplicationModule like node.Application.ApplicationGenericModule {
+simple throughputTest_ApplicationModule like node.application.iApplication {
  parameters:
  	string applicationID = default ("throughputTest");
 	bool collectTraceInfo = default (false);

@@ -10,19 +10,28 @@
 //*                                                                                     *
 //***************************************************************************************
 
-cplusplus {{
-#include "ApplicationGenericPacket_m.h"
-}}
+package node.application.valueReporting;
 
-class ApplicationGenericDataPacket;
+// The sensor node module. Connects to the wireless channel in order to communicate 
+// with other nodes. Connects to psysical processes so it can sample them.
 
-struct valueReportData {
-	unsigned short nodeID;	//the ID of the Node
-	double locX;		// x-coordinate of the node
-	double locY;		// y-coordinate of the node
-} 
+simple valueReporting_ApplicationModule like node.application.iApplication {
+ parameters:
+ 	string applicationID = default ("valueReporting");
+	bool collectTraceInfo = default (true);
+	int priority = default (1);
+	int maxAppPacketSize = default (30);	// in bytes
+	int packetHeaderOverhead = default (8);	// in bytes
+	int constantDataPayload = default (12);	// in bytes
+	int maxSampleInterval = default (60000);// in msec
+	int minSampleInterval = default (1000);	// in msec
+	bool isSink = default (false);
 
-packet valueReporting_DataPacket extends ApplicationGenericDataPacket {
-	valueReportData extraData;
+ gates:
+ 	output toCommunicationModule;
+	output toSensorDeviceManager;
+	input fromCommunicationModule;
+	input fromSensorDeviceManager;
+	input fromResourceManager;
 }
 

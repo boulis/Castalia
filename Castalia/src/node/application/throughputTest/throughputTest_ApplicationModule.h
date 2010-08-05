@@ -1,7 +1,7 @@
 /****************************************************************************
  *  Copyright: National ICT Australia,  2007 - 2010                         *
  *  Developed at the Networks and Pervasive Computing program               *
- *  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis                 *
+ *  Author(s): Athanassios Boulis, Yuriy Tselishchev                        *
  *  This file is distributed under the terms in the attached LICENSE file.  *
  *  If you do not find this file, copies can be found by writing to:        *
  *                                                                          *
@@ -10,33 +10,41 @@
  *                                                                          *  
  ****************************************************************************/
 
-#ifndef _SIMPLEAGGREGATION_APPLICATIONMODULE_H_
-#define _SIMPLEAGGREGATION_APPLICATIONMODULE_H_
+#ifndef _THROUGHPUTTEST_APPLICATIONMODULE_H_
+#define _THROUGHPUTTEST_APPLICATIONMODULE_H_
 
-#include "VirtualApplicationModule.h"
+#include "VirtualApplication.h"
 
 using namespace std;
 
-enum Timers {
-	REQUEST_SAMPLE = 1,
-	SEND_AGGREGATED_VALUE = 2
+struct packet_info {
+	map<int,bool> packets_received;
 };
 
-class simpleAggregation_ApplicationModule: public VirtualApplicationModule {
+enum ThroughputTestTimers {
+	SEND_PACKET = 1
+};
+
+class throughputTest_ApplicationModule: public VirtualApplication {
  private:
-	double aggregatedValue;
-	int routingLevel;
-	double waitingTimeForLowerLevelData;
-	double lastSensedValue;
-	double sampleInterval;
-	int totalPackets;
+	double packet_rate;
+	string recipientAddress;
+	double startupDelay;
+
+	float packet_spacing;
+	// this table records the number of packets received by node 0 from each other node
+	map < int, packet_info > packet_info_table;	
+	int total_packets_received;
+	int packets_lost_at_mac;
+	int packets_lost_at_network;
+	int dataSN;
 
  protected:
 	void startup();
-	void timerFiredCallback(int);
-	void handleSensorReading(SensorReadingGenericMessage *);
-	void handleNeworkControlMessage(cMessage *);
+	void update_packets_received(int srcID, int SN);
 	void fromNetworkLayer(ApplicationGenericDataPacket *, const char *, double, double);
+	void handleRadioControlMessage(RadioControlMessage *);
+	void timerFiredCallback(int);
 };
 
-#endif				// _SIMPLEAGGREGATION_APPLICATIONMODULE_H_
+#endif				// _THROUGHPUTTEST_APPLICATIONMODULE_H_

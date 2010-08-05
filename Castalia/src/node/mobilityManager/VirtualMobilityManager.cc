@@ -10,11 +10,11 @@
  *                                                                          *  
  ****************************************************************************/
 
-#include "VirtualMobilityModule.h"
+#include "VirtualMobilityManager.h"
 
-Define_Module(VirtualMobilityModule);
+Define_Module(VirtualMobilityManager);
 
-void VirtualMobilityModule::initialize()
+void VirtualMobilityManager::initialize()
 {
 	cModule *node = getParentModule();
 	cModule *network = node->getParentModule();
@@ -71,7 +71,7 @@ void VirtualMobilityModule::initialize()
 			nodeLocation.y << ":" << nodeLocation.z;
 }
 
-void VirtualMobilityModule::setLocation(double x, double y, double z, double phi, double theta)
+void VirtualMobilityManager::setLocation(double x, double y, double z, double phi, double theta)
 {
 	nodeLocation.x = x;
 	nodeLocation.y = y;
@@ -81,13 +81,13 @@ void VirtualMobilityModule::setLocation(double x, double y, double z, double phi
 	notifyWirelessChannel();
 }
 
-void VirtualMobilityModule::setLocation(NodeLocation_type newLocation)
+void VirtualMobilityManager::setLocation(NodeLocation_type newLocation)
 {
 	nodeLocation = newLocation;
 	notifyWirelessChannel();
 }
 
-void VirtualMobilityModule::notifyWirelessChannel()
+void VirtualMobilityManager::notifyWirelessChannel()
 {
 	positionUpdateMsg =
 	    new WirelessChannelNodeMoveMessage("location update message", WC_NODE_MOVEMENT);
@@ -100,7 +100,7 @@ void VirtualMobilityModule::notifyWirelessChannel()
 	sendDirect(positionUpdateMsg, wchannel, "fromMobilityModule");
 }
 
-NodeLocation_type VirtualMobilityModule::getLocation()
+NodeLocation_type VirtualMobilityManager::getLocation()
 {
 	return nodeLocation;
 }

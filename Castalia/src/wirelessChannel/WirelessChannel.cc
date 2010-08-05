@@ -105,8 +105,8 @@ void WirelessChannel::initialize(int stage)
 	topo->extractByNedTypeName(cStringTokenizer("node.Node").asVector());
 
 	for (int i = 0; i < numOfNodes; i++) {
-		VirtualMobilityModule *nodeMobilityModule = 
-			check_and_cast<VirtualMobilityModule*>
+		VirtualMobilityManager *nodeMobilityModule = 
+			check_and_cast<VirtualMobilityManager*>
 			(topo->getNode(i)->getModule()->getSubmodule("nodeMobilityModule"));
 		nodeLocation[i] = nodeMobilityModule->getLocation();
 		nodeLocation[i].cell = i;

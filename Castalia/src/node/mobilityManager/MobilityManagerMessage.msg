@@ -10,9 +10,9 @@
 //*                                                                          *  
 //****************************************************************************/
 
-enum MobilityModule_MessageType {
+enum MobilityManagerMessageType {
 	MOBILITY_PERIODIC = 1;
 }
 
-message MobilityModule_Message {
+message MobilityManagerMessage {
 }

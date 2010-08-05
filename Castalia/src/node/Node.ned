@@ -12,7 +12,7 @@
 
 package node;
 
-import node.Mobility_Module;
+import node.mobilityManager;
 
 // The sensor node module. Connects to the wireless channel in order to communicate 
 // with other nodes. Connects to psysical processes so it can sample them.
@@ -26,7 +26,7 @@ module Node {
 	double theta = default (0);
 
 	string appModuleName;	//the name of the implemented Application Module
-	string mobilityModuleName = default ("NoMobilityModule");	//the name of the implemented Mobility Module
+	string mobilityModuleName = default ("NoMobilityManager");	//the name of the implemented Mobility Module
 
  gates:
 	output toWirelessChannel;
@@ -35,7 +35,7 @@ module Node {
 	input fromPhysicalProcess[];
 
  submodules:
- 	nodeMobilityModule:<mobilityModuleName> like node.Mobility_Module.VirtualMobilityModule;
+ 	nodeMobilityModule:<mobilityModuleName> like node.mobilityManager.iMobilityManager;
 	nodeResourceMgr:node.Resource_Manager.ResourceGenericManager;
 	nodeSensorDevMgr:node.Sensor_Device_Manager.SensorDevMgrModule {
 	 gates:

@@ -10,14 +10,9 @@
 //*                                                                          *  
 //****************************************************************************/
 
-package node.Mobility_Module.LineMobilityModule;
+package node.mobilityManager;
 
-simple LineMobilityModule like node.Mobility_Module.VirtualMobilityModule {
+moduleinterface iMobilityManager {
  parameters:
-	bool collectTraceInfo = default (false);
-	double updateInterval = default (1000);
-	double xCoorDestination;
-	double yCoorDestination;
-	double zCoorDestination;
-	double speed;
+	bool collectTraceInfo;
 }

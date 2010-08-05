@@ -21,7 +21,7 @@
 #include "SensorReadingGenericMessage_m.h"
 #include "ResourceGenericManager.h"
 #include "RadioModule.h"
-#include "VirtualMobilityModule.h"
+#include "VirtualMobilityManager.h"
 #include "CastaliaModule.h"
 #include "TimerService.h"
 
@@ -45,7 +45,7 @@ class VirtualApplication: public CastaliaModule, public TimerService {
 	int self;				// the node's ID
 	string selfAddress;
 	ResourceGenericManager *resMgrModule;	//a pointer to the object of the Resource Manager Module
-	VirtualMobilityModule *mobilityModule;	//a pointer to the mobilityModule object
+	VirtualMobilityManager *mobilityModule;	//a pointer to the mobilityModule object
 	RadioModule *radioModule;				//a pointer to the radio module object
 	int disabled;
 	double cpuClockDrift;

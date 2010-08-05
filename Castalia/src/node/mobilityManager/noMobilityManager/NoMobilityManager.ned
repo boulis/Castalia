@@ -10,9 +10,9 @@
 //*                                                                          *  
 //****************************************************************************/
 
-package node.Mobility_Module;
+package node.mobilityManager.noMobilityManager;
 
-moduleinterface VirtualMobilityModule {
+simple NoMobilityManager like node.mobilityManager.iMobilityManager {
  parameters:
-	bool collectTraceInfo;
+	bool collectTraceInfo = default (false);
 }

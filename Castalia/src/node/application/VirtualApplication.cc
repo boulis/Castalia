@@ -27,7 +27,7 @@ void VirtualApplication::initialize()
 	}
 
 	if (parent->findSubmodule("nodeMobilityModule") != -1) {
-		mobilityModule = check_and_cast <VirtualMobilityModule*>(parent->getSubmodule("nodeMobilityModule"));
+		mobilityModule = check_and_cast <VirtualMobilityManager*>(parent->getSubmodule("nodeMobilityModule"));
 	} else {
 		opp_error("\n[Application]:\n Error in geting a valid reference to nodeMobilityModule for direct method calls.");
 	}

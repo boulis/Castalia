@@ -16,7 +16,7 @@
 #include "SensorReadingGenericMessage_m.h"
 #include "PhysicalProcessMessage_m.h"
 
-#include "VirtualMobilityModule.h"
+#include "VirtualMobilityManager.h"
 #include "CastaliaModule.h"
 
 using namespace std;
@@ -41,7 +41,7 @@ class SensorDevMgrModule: public CastaliaModule {
 	vector<simtime_t> sensorlastSampleTime;
 	vector<double> sensorLastValue;
 	vector<double> sensorBias;
-	VirtualMobilityModule *nodeMobilityModule;
+	VirtualMobilityManager *nodeMobilityModule;
 	int disabled;
 
  protected:

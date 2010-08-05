@@ -15,7 +15,7 @@
 
 #include "WirelessChannelMessages_m.h"
 #include "WirelessChannelTemporal.h"
-#include "VirtualMobilityModule.h"
+#include "VirtualMobilityManager.h"
 #include "CastaliaModule.h"
 
 #include "time.h"

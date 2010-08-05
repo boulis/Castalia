@@ -10,8 +10,8 @@
  *                                                                          *  
  ****************************************************************************/
 
-#ifndef _VIRTUALBILITYMODULE_H_
-#define _VIRTUALBILITYMODULE_H_
+#ifndef _VIRTUALBILITYMANAGER_H_
+#define _VIRTUALBILITYMANAGER_H_
 
 #include "WirelessChannelMessages_m.h"
 #include "CastaliaModule.h"
@@ -27,7 +27,7 @@ struct NodeLocation_type {
 	int cell;		// store the cell ID that corresponds to coordinates xyz so we do not have to recompute it
 };
 
-class VirtualMobilityModule:public CastaliaModule {
+class VirtualMobilityManager: public CastaliaModule {
  protected:
 	NodeLocation_type nodeLocation;
 

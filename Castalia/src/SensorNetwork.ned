@@ -10,9 +10,9 @@
 //*                                                                              *
 //*******************************************************************************/
 
-import Wireless_Channel;
+import wirelessChannel;
 import physicalProcess;
-import Node;
+import node;
 
 network SN {
 	
@@ -43,7 +43,7 @@ network SN {
 	string debugInfoFilename = default ("Castalia-Trace.txt");
 
  submodules:
-	wirelessChannel:Wireless_Channel.WirelessChannel {
+	wirelessChannel:wirelessChannel.WirelessChannel {
 	 gates:
 		toNode[numNodes];
 		fromNode[numNodes];
@@ -56,7 +56,7 @@ network SN {
 		fromNode[numNodes];
 	}
 
-	node[numNodes]:Node.Node {
+	node[numNodes]:node.Node {
 	 gates:
 		toPhysicalProcess[numPhysicalProcesses];
 		fromPhysicalProcess[numPhysicalProcesses];

@@ -11,12 +11,12 @@
 //****************************************************************************/
 
 cplusplus {{
-#include "NetworkGenericPacket_m.h"
+#include "RoutingPacket_m.h"
 }}
 
-class NetworkGenericPacket;
+class RoutingPacket;
 
-packet BypassRoutingPacket extends NetworkGenericPacket {
+packet BypassRoutingPacket extends RoutingPacket {
 	string source;
 	string destination;
 }

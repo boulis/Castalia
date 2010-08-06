@@ -10,16 +10,16 @@
  *                                                                             *  
  *******************************************************************************/
 
-#include "BypassRoutingModule.h"
+#include "BypassRouting.h"
 
-Define_Module(BypassRoutingModule);
+Define_Module(BypassRouting);
 
 //Application layer sends a packet together with a network layer address 'destination'
 //Network layer is responsible to route that packet by selecting an appropriate MAC address
 //to forward that packet to. We will encapsulate the received packet into a network packet
 //and use BROADCAST_MAC_ADDRESS for all transmissions since this module does no routing
 //NOTE: function toMacLayer requires second argument (a MAC address) if first argument is a packet
-void BypassRoutingModule::fromApplicationLayer(cPacket * pkt, const char *destination)
+void BypassRouting::fromApplicationLayer(cPacket * pkt, const char *destination)
 {
 	BypassRoutingPacket *netPacket = new BypassRoutingPacket("BypassRouting packet", NETWORK_LAYER_PACKET);
 	//NETWORK_LAYER_PACKET is a generic Castalia message kind to identify network layer packets
@@ -35,7 +35,7 @@ void BypassRoutingModule::fromApplicationLayer(cPacket * pkt, const char *destin
 //Here we dont check what source MAC address is, just filter incoming packets 
 //by network addresses
 //NOTE: use of dynamic_cast is similar to that in BypassMacModule
-void BypassRoutingModule::fromMacLayer(cPacket * pkt, int srcMacAddress, double rssi, double lqi)
+void BypassRouting::fromMacLayer(cPacket * pkt, int srcMacAddress, double rssi, double lqi)
 {
 	BypassRoutingPacket *netPacket = dynamic_cast <BypassRoutingPacket*>(pkt);
 	if (netPacket) {

@@ -10,15 +10,15 @@
  *                                                                             *  
  *******************************************************************************/
 
-#ifndef BYPASSROUTINGMODULE
-#define BYPASSROUTINGMODULE
+#ifndef _BYPASSROUTING_H_
+#define _BYPASSROUTING_H_
 
-#include "VirtualNetworkModule.h"
+#include "VirtualRouting.h"
 #include "BypassRoutingPacket_m.h"
 
 using namespace std;
 
-class BypassRoutingModule:public VirtualNetworkModule {
+class BypassRouting: public VirtualRouting {
  protected:
 	void fromApplicationLayer(cPacket *, const char *);
 	void fromMacLayer(cPacket *, int, double, double);

@@ -10,9 +10,9 @@
 //*                                                                              *
 //*******************************************************************************/
 
-package node.communication.Network.multipathRingsRouting;
+package node.communication.routing.multipathRingsRouting;
 
-simple multipathRingsRoutingModule like node.communication.Network.NetworkGenericModule {
+simple MultipathRingsRouting like node.communication.routing.iRouting {
  parameters:
 	bool collectTraceInfo = default (false);
 	int maxNetFrameSize = default (0);					// bytes, 0 means no limit

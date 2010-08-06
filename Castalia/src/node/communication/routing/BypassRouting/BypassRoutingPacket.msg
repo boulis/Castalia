@@ -1,7 +1,7 @@
 //****************************************************************************
 //*  Copyright: National ICT Australia,  2007 - 2010                         *
 //*  Developed at the Networks and Pervasive Computing program               *
-//*  Author(s): Dimosthenis Pediaditakis, Yuriy Tselishchev                  *
+//*  Author(s): Yuriy Tselishchev                                            *
 //*  This file is distributed under the terms in the attached LICENSE file.  *
 //*  If you do not find this file, copies can be found by writing to:        *
 //*                                                                          *
@@ -11,25 +11,13 @@
 //****************************************************************************/
 
 cplusplus {{
-#include "RoutingPacket_m.h"
+#include "NetworkGenericPacket_m.h"
 }}
 
-class RoutingPacket;
+class NetworkGenericPacket;
 
-enum multipathRingsRoutingPacketDef {
-	MPRINGS_DATA_PACKET = 1;
-	MPRINGS_TOPOLOGY_SETUP_PACKET = 2;
-} 
-
-packet MultipathRingsRoutingPacket extends RoutingPacket {
-	int multipathRingsRoutingPacketKind enum (multipathRingsRoutingPacketDef);	// 1 byte
-	string source;		// 4 bytes
-	string destination;	// 4 bytes
-	int sinkID;			// 2 bytes
-	int sequenceNumber;	// 1 byte
-	int senderLevel;	// 1 byte
-
-	//DATA packet overhead contains all fields, making its total size 13 bytes
-	//SETUP packet does not contain sequence number field, making its size 12 bytes
+packet BypassRoutingPacket extends NetworkGenericPacket {
+	string source;
+	string destination;
 }
 

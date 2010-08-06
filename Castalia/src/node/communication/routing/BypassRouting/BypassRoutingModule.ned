@@ -10,9 +10,9 @@
 //*                                                                              *  
 //*******************************************************************************/
 
-package node.communication.routing.bypassRouting;
+package node.communication.Network.BypassRouting;
 
-simple BypassRouting like node.communication.routing.iRouting
+simple BypassRoutingModule like node.communication.Network.NetworkGenericModule
 //====================================================================================
 // Network_GenericFrame has the following real-world
 // (non-simulation-specific) fields:

@@ -10,24 +10,24 @@
  *                                                                             *  
  *******************************************************************************/
 
-#ifndef _MULTIPATHRINGSROUTING_H_
-#define _MULTIPATHRINGSROUTING_H_
+#ifndef MULTIPATHRINGSROUTINGMODULE
+#define MULTIPATHRINGSROUTINGMODULE
 
 #include <map>
-#include "VirtualRouting.h"
-#include "MultipathRingsRoutingPacket_m.h"
-#include "MultipathRingsRoutingControl_m.h"
+#include "VirtualNetworkModule.h"
+#include "multipathRingsRoutingFrame_m.h"
+#include "multipathRingsRoutingControl_m.h"
 
 #define NO_LEVEL  -110
 #define NO_SINK   -120
 
 using namespace std;
 
-enum MultipathRingsRoutingTimers {
+enum Timers {
 	TOPOLOGY_SETUP_TIMEOUT = 1,
 };
 
-class MultipathRingsRouting: public VirtualRouting {
+class multipathRingsRoutingModule:public VirtualNetworkModule {
  private:
 	int mpathRingsSetupFrameOverhead;	// in bytes
 	double netSetupTimeout;

@@ -10,15 +10,26 @@
 //*                                                                          *  
 //****************************************************************************/
 
-enum multipathRingsRoutingControlDef {
-	MPRINGS_NOT_CONNECTED = 1;
-	MPRINGS_CONNECTED_TO_TREE = 2;
-	MPRINGS_TREE_LEVEL_UPDATED = 3;
-}
+cplusplus {{
+#include "NetworkGenericPacket_m.h"
+}}
 
-message MultipathRingsRoutingControlMessage {
-	int multipathRingsRoutingControlMessageKind enum (multipathRingsRoutingControlDef);
-	int sinkID;
-	int level;
+class NetworkGenericPacket;
+
+enum multipathRingsRoutingPacketDef {
+	MPRINGS_DATA_PACKET = 1;
+	MPRINGS_TOPOLOGY_SETUP_PACKET = 2;
+} 
+
+packet multipathRingsRoutingPacket extends NetworkGenericPacket {
+	int multipathRingsRoutingPacketKind enum (multipathRingsRoutingPacketDef);	// 1 byte
+	string source;		// 4 bytes
+	string destination;	// 4 bytes
+	int sinkID;			// 2 bytes
+	int sequenceNumber;	// 1 byte
+	int senderLevel;	// 1 byte
+
+	//DATA packet overhead contains all fields, making its total size 13 bytes
+	//SETUP packet does not contain sequence number field, making its size 12 bytes
 }
 

@@ -10,8 +10,8 @@
  *                                                                          *  
  ****************************************************************************/
  
-#include "VirtualNetworkModule.h"
-void VirtualNetworkModule::initialize()
+#include "VirtualRouting.h"
+void VirtualRouting::initialize()
 {
 	maxNetFrameSize = par("maxNetFrameSize");
 	netDataFrameOverhead = par("netDataFrameOverhead");
@@ -44,46 +44,46 @@ void VirtualNetworkModule::initialize()
 	declareOutput("Buffer overflow");
 }
 
-void VirtualNetworkModule::toMacLayer(cMessage * msg)
+void VirtualRouting::toMacLayer(cMessage * msg)
 {
 	if (msg->getKind() == NETWORK_LAYER_PACKET)
 		opp_error("toMacLayer() function used incorrectly to send NETWORK_LAYER_PACKET without destination MAC address");
 	send(msg, "toMacModule");
 }
 
-void VirtualNetworkModule::toMacLayer(cPacket * pkt, int destination)
+void VirtualRouting::toMacLayer(cPacket * pkt, int destination)
 {
-	NetworkGenericPacket *netPacket = check_and_cast <NetworkGenericPacket*>(pkt);
-	netPacket->getNetworkInteractionControl().nextHop = destination;
+	RoutingPacket *netPacket = check_and_cast <RoutingPacket*>(pkt);
+	netPacket->getRoutingInteractionControl().nextHop = destination;
 	send(netPacket, "toMacModule");
 }
 
-void VirtualNetworkModule::toApplicationLayer(cMessage * msg)
+void VirtualRouting::toApplicationLayer(cMessage * msg)
 {
 	send(msg, "toCommunicationModule");
 }
 
-void VirtualNetworkModule::encapsulatePacket(cPacket * pkt, cPacket * appPkt)
+void VirtualRouting::encapsulatePacket(cPacket * pkt, cPacket * appPkt)
 {
-	NetworkGenericPacket *netPkt = check_and_cast <NetworkGenericPacket*>(pkt);
+	RoutingPacket *netPkt = check_and_cast <RoutingPacket*>(pkt);
 	netPkt->setByteLength(netDataFrameOverhead);
 	netPkt->setKind(NETWORK_LAYER_PACKET);
-	netPkt->getNetworkInteractionControl().source = SELF_NETWORK_ADDRESS;
+	netPkt->getRoutingInteractionControl().source = SELF_NETWORK_ADDRESS;
 	netPkt->encapsulate(appPkt);
 }
 
-cPacket *VirtualNetworkModule::decapsulatePacket(cPacket * pkt)
+cPacket *VirtualRouting::decapsulatePacket(cPacket * pkt)
 {
-	NetworkGenericPacket *netPkt = check_and_cast <NetworkGenericPacket*>(pkt);
+	RoutingPacket *netPkt = check_and_cast <RoutingPacket*>(pkt);
 	ApplicationGenericDataPacket *appPkt = check_and_cast <ApplicationGenericDataPacket*>(netPkt->decapsulate());
 
-	appPkt->getApplicationInteractionControl().RSSI = netPkt->getNetworkInteractionControl().RSSI;
-	appPkt->getApplicationInteractionControl().LQI = netPkt->getNetworkInteractionControl().LQI;
-	appPkt->getApplicationInteractionControl().source = netPkt->getNetworkInteractionControl().source;
+	appPkt->getApplicationInteractionControl().RSSI = netPkt->getRoutingInteractionControl().RSSI;
+	appPkt->getApplicationInteractionControl().LQI = netPkt->getRoutingInteractionControl().LQI;
+	appPkt->getApplicationInteractionControl().source = netPkt->getRoutingInteractionControl().source;
 	return appPkt;
 }
 
-void VirtualNetworkModule::handleMessage(cMessage * msg)
+void VirtualRouting::handleMessage(cMessage * msg)
 {
 	int msgKind = msg->getKind();
 	if (disabled && msgKind != NODE_STARTUP) {
@@ -130,9 +130,9 @@ void VirtualNetworkModule::handleMessage(cMessage * msg)
 	 * Data Frame Received from the MAC layer
 	 *--------------------------------------------------------------------------------------------------------------*/
 		case NETWORK_LAYER_PACKET:{
-			NetworkGenericPacket *netPacket = check_and_cast <NetworkGenericPacket*>(msg);
+			RoutingPacket *netPacket = check_and_cast <RoutingPacket*>(msg);
 			trace() << "Received [" << netPacket->getName() << "] from MAC layer";
-			NetworkInteractionControl_type control = netPacket->getNetworkInteractionControl();
+			RoutingInteractionControl_type control = netPacket->getRoutingInteractionControl();
 			fromMacLayer(netPacket, control.lastHop, control.RSSI, control.LQI);
 			//although we passed the message control to function fromMacLayer(), we still use break here 
 			//instead of return. This is to allow fromMacLayer function to worry only about encapsulated
@@ -196,18 +196,18 @@ void VirtualNetworkModule::handleMessage(cMessage * msg)
 }
 
 // handleMacControlMessage needs to either process and DELETE the message OR forward it
-void VirtualNetworkModule::handleMacControlMessage(cMessage * msg)
+void VirtualRouting::handleMacControlMessage(cMessage * msg)
 {
 	toApplicationLayer(msg);
 }
 
 // handleRadioControlMessage needs to either process and DELETE the message OR forward it
-void VirtualNetworkModule::handleRadioControlMessage(cMessage * msg)
+void VirtualRouting::handleRadioControlMessage(cMessage * msg)
 {
 	toApplicationLayer(msg);
 }
 
-void VirtualNetworkModule::finish()
+void VirtualRouting::finish()
 {
 	CastaliaModule::finish();
 	cPacket *pkt;
@@ -218,7 +218,7 @@ void VirtualNetworkModule::finish()
 	}
 }
 
-int VirtualNetworkModule::bufferPacket(cPacket * rcvFrame)
+int VirtualRouting::bufferPacket(cPacket * rcvFrame)
 {
 	if ((int)TXBuffer.size() >= netBufferSize) {
 		collectOutput("Buffer overflow");
@@ -232,7 +232,7 @@ int VirtualNetworkModule::bufferPacket(cPacket * rcvFrame)
 	}
 }
 
-int VirtualNetworkModule::resolveNetworkAddress(const char *netAddr)
+int VirtualRouting::resolveNetworkAddress(const char *netAddr)
 {
 	if (!netAddr[0] || netAddr[0] < '0' || netAddr[0] > '9')
 		return BROADCAST_MAC_ADDRESS;

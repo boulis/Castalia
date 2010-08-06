@@ -1,7 +1,7 @@
 //****************************************************************************
 //*  Copyright: National ICT Australia,  2007 - 2010                         *
 //*  Developed at the Networks and Pervasive Computing program               *
-//*  Author(s): Athanassios Boulis, Yuriy Tselishchev                        *
+//*  Author(s): Yuriy Tselishchev                                            *
 //*  This file is distributed under the terms in the attached LICENSE file.  *
 //*  If you do not find this file, copies can be found by writing to:        *
 //*                                                                          *
@@ -10,16 +10,14 @@
 //*                                                                          *  
 //****************************************************************************/
 
-struct NetworkInteractionControl_type {
-	double RSSI;
-	double LQI;
-	int nextHop;
-	int lastHop;
-	string pathFromSource;
-	string source;
-}
+cplusplus {{
+#include "RoutingPacket_m.h"
+}}
 
-packet NetworkGenericPacket {
-	NetworkInteractionControl_type NetworkInteractionControl;
+class RoutingPacket;
+
+packet BypassRoutingPacket extends RoutingPacket {
+	string source;
+	string destination;
 }
 

@@ -10,18 +10,17 @@
  *                                                                             *  
  *******************************************************************************/
 
-#include "multipathRingsRoutingModule.h"
+#include "MultipathRingsRouting.h"
 
-Define_Module(multipathRingsRoutingModule);
+Define_Module(MultipathRingsRouting);
 
-void multipathRingsRoutingModule::startup()
+void MultipathRingsRouting::startup()
 {
 	netSetupTimeout = (double)par("netSetupTimeout") / 1000.0;
 	mpathRingsSetupFrameOverhead = par("mpathRingsSetupFrameOverhead");
 
 	// make sure that in your omnetpp.ini you have used an Application module that has the boolean parameter "isSink"
-	isSink = gate("toCommunicationModule")->getNextGate()->getOwnerModule()->
-			gate("toApplicationModule")->getNextGate()->getOwnerModule()->par("isSink");
+	isSink = gate("toCommunicationModule")->getNextGate()->getOwnerModule()->gate("toApplicationModule")->getNextGate()->getOwnerModule()->par("isSink");
 	currentLevel = tmpLevel = isSink ? 0 : NO_LEVEL;
 	currentSinkID = tmpSinkID = isSink ? self : NO_SINK;
 
@@ -34,10 +33,10 @@ void multipathRingsRoutingModule::startup()
 		sendTopologySetupPacket();
 }
 
-void multipathRingsRoutingModule::sendTopologySetupPacket()
+void MultipathRingsRouting::sendTopologySetupPacket()
 {
-	multipathRingsRoutingPacket *setupPkt =
-	    new multipathRingsRoutingPacket("Multipath rings routing packet", NETWORK_LAYER_PACKET);
+	MultipathRingsRoutingPacket *setupPkt =
+	    new MultipathRingsRoutingPacket("Multipath rings routing packet", NETWORK_LAYER_PACKET);
 	setupPkt->setMultipathRingsRoutingPacketKind(MPRINGS_TOPOLOGY_SETUP_PACKET);
 	setupPkt->setSource(SELF_NETWORK_ADDRESS);
 	setupPkt->setDestination(BROADCAST_NETWORK_ADDRESS);
@@ -46,18 +45,17 @@ void multipathRingsRoutingModule::sendTopologySetupPacket()
 	toMacLayer(setupPkt, BROADCAST_MAC_ADDRESS);
 }
 
-void multipathRingsRoutingModule::
-sendControlMessage(multipathRingsRoutingControlDef kind)
+void MultipathRingsRouting::sendControlMessage(multipathRingsRoutingControlDef kind)
 {
-	multipathRingsRoutingControlMessage *ctrlMsg =
-	    new multipathRingsRoutingControlMessage("Multipath routing control message",NETWORK_CONTROL_MESSAGE);
+	MultipathRingsRoutingControlMessage *ctrlMsg =
+	    new MultipathRingsRoutingControlMessage("Multipath routing control message",NETWORK_CONTROL_MESSAGE);
 	ctrlMsg->setMultipathRingsRoutingControlMessageKind(kind);
 	ctrlMsg->setLevel(currentLevel);
 	ctrlMsg->setSinkID(currentSinkID);
 	toApplicationLayer(ctrlMsg);
 }
 
-void multipathRingsRoutingModule::timerFiredCallback(int index)
+void MultipathRingsRouting::timerFiredCallback(int index)
 {
 	if (index != TOPOLOGY_SETUP_TIMEOUT)
 		return;
@@ -88,7 +86,7 @@ void multipathRingsRoutingModule::timerFiredCallback(int index)
 	tmpSinkID = isSink ? self : NO_SINK;
 }
 
-void multipathRingsRoutingModule::processBufferedPacket()
+void MultipathRingsRouting::processBufferedPacket()
 {
 	while (!TXBuffer.empty()) {
 		toMacLayer(TXBuffer.front(), BROADCAST_MAC_ADDRESS);
@@ -96,12 +94,12 @@ void multipathRingsRoutingModule::processBufferedPacket()
 	}
 }
 
-void multipathRingsRoutingModule::fromApplicationLayer(cPacket * pkt, const char *destination)
+void MultipathRingsRouting::fromApplicationLayer(cPacket * pkt, const char *destination)
 {
 	string dst(destination);
 
-	multipathRingsRoutingPacket *netPacket =
-	    new multipathRingsRoutingPacket("Multipath rings routing data packet", NETWORK_LAYER_PACKET);
+	MultipathRingsRoutingPacket *netPacket =
+	    new MultipathRingsRoutingPacket("Multipath rings routing data packet", NETWORK_LAYER_PACKET);
 	netPacket->setMultipathRingsRoutingPacketKind(MPRINGS_DATA_PACKET);
 	netPacket->setSource(SELF_NETWORK_ADDRESS);
 	netPacket->setDestination(destination);
@@ -126,9 +124,9 @@ void multipathRingsRoutingModule::fromApplicationLayer(cPacket * pkt, const char
 	}
 }
 
-void multipathRingsRoutingModule::fromMacLayer(cPacket * pkt, int macAddress, double rssi, double lqi)
+void MultipathRingsRouting::fromMacLayer(cPacket * pkt, int macAddress, double rssi, double lqi)
 {
-	multipathRingsRoutingPacket *netPacket = dynamic_cast <multipathRingsRoutingPacket*>(pkt);
+	MultipathRingsRoutingPacket *netPacket = dynamic_cast <MultipathRingsRoutingPacket*>(pkt);
 	if (!netPacket)
 		return;
 
@@ -173,7 +171,7 @@ void multipathRingsRoutingModule::fromMacLayer(cPacket * pkt, int macAddress, do
 						// We want to rebroadcast this packet since we are not its destination
 						// For this, a copy of the packet is created and sender level field is 
 						// updated before calling toMacLayer() function
-						multipathRingsRoutingPacket *dupPacket = netPacket->dup();
+						MultipathRingsRoutingPacket *dupPacket = netPacket->dup();
 						dupPacket->setSenderLevel(currentLevel);
 						toMacLayer(dupPacket, BROADCAST_MAC_ADDRESS);
 					}
@@ -191,7 +189,7 @@ void multipathRingsRoutingModule::fromMacLayer(cPacket * pkt, int macAddress, do
 	}
 }
 
-bool multipathRingsRoutingModule::filterIncomingPacket(string source, int seq)
+bool MultipathRingsRouting::filterIncomingPacket(string source, int seq)
 {
 	if (packetFilter[source] >= seq)
 		return false;

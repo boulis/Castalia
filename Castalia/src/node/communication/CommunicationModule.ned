@@ -15,7 +15,7 @@ package node.communication;
 module CommunicationModule {
  parameters:
  	string MACProtocolName = default ("BypassMacModule");
-	string RoutingProtocolName = default ("BypassRoutingModule");
+	string RoutingProtocolName = default ("BypassRouting");
 
  gates:
  	output toApplicationModule;
@@ -29,7 +29,7 @@ module CommunicationModule {
  submodules:
  	Radio: node.communication.radio.Radio;
 	MAC: <MACProtocolName> like node.communication.MAC.MacGenericModule;
-	Routing: <RoutingProtocolName> like node.communication.Network.NetworkGenericModule;
+	Routing: <RoutingProtocolName> like node.communication.routing.iRouting;
 
  connections:
  	fromApplicationModule --> Routing.fromCommunicationModule;

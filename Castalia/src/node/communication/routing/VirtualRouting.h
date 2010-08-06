@@ -10,15 +10,15 @@
  *                                                                          *  
  ****************************************************************************/
 
-#ifndef VIRTUALNETWORKMODULE
-#define VIRTUALNETWORKMODULE
+#ifndef _VIRTUALROUTING_H_
+#define _VIRTUALROUTING_H_
 
 #include "CastaliaModule.h"
 #include "TimerService.h"
 #include "CastaliaMessages.h"
 #include "Radio.h"
 #include "ResourceManager.h"
-#include "NetworkGenericPacket_m.h"
+#include "RoutingPacket_m.h"
 #include "ApplicationPacket_m.h"
 
 #define SELF_NETWORK_ADDRESS selfAddress.c_str()
@@ -26,7 +26,7 @@
 
 using namespace std;
 
-class VirtualNetworkModule: public CastaliaModule, public TimerService {
+class VirtualRouting: public CastaliaModule, public TimerService {
  protected:
 	/*--- The .ned file's parameters ---*/
 	int maxNetFrameSize;		//in bytes

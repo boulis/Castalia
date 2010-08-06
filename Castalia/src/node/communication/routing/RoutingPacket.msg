@@ -1,7 +1,7 @@
 //****************************************************************************
 //*  Copyright: National ICT Australia,  2007 - 2010                         *
 //*  Developed at the Networks and Pervasive Computing program               *
-//*  Author(s): Dimosthenis Pediaditakis, Yuriy Tselishchev                  *
+//*  Author(s): Athanassios Boulis, Yuriy Tselishchev                        *
 //*  This file is distributed under the terms in the attached LICENSE file.  *
 //*  If you do not find this file, copies can be found by writing to:        *
 //*                                                                          *
@@ -10,15 +10,16 @@
 //*                                                                          *  
 //****************************************************************************/
 
-enum multipathRingsRoutingControlDef {
-	MPRINGS_NOT_CONNECTED = 1;
-	MPRINGS_CONNECTED_TO_TREE = 2;
-	MPRINGS_TREE_LEVEL_UPDATED = 3;
+struct RoutingInteractionControl_type {
+	double RSSI;
+	double LQI;
+	int nextHop;
+	int lastHop;
+	string pathFromSource;
+	string source;
 }
 
-message multipathRingsRoutingControlMessage {
-	int multipathRingsRoutingControlMessageKind enum (multipathRingsRoutingControlDef);
-	int sinkID;
-	int level;
+packet RoutingPacket {
+	RoutingInteractionControl_type RoutingInteractionControl;
 }
 

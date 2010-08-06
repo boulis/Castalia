@@ -19,7 +19,7 @@
 #include <map>
 #include <omnetpp.h>
 
-#include "NetworkGenericPacket_m.h"
+#include "RoutingPacket_m.h"
 #include "MacGenericPacket_m.h"
 #include "ResourceManager.h"
 #include "Radio.h"

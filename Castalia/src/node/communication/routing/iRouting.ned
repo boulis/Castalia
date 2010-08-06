@@ -10,18 +10,16 @@
 //*                                                                              *
 //*******************************************************************************/
 
-package node.communication.Network.multipathRingsRouting;
+package node.communication.routing;
 
-simple multipathRingsRoutingModule like node.communication.Network.NetworkGenericModule {
+moduleinterface iRouting {
  parameters:
-	bool collectTraceInfo = default (false);
-	int maxNetFrameSize = default (0);					// bytes, 0 means no limit
-	int netBufferSize = default (32);					// number of messages
-	int netDataFrameOverhead = default (14);			// bytes
-	int mpathRingsSetupFrameOverhead = default (13);	// bytes
-	int netSetupTimeout = default (50);					// msec
+	bool collectTraceInfo;
+	int maxNetFrameSize;		// in bytes
+	int netDataFrameOverhead;	// in bytes
+	int netBufferSize;			// in number of messages
 
- gates:
+ gates: 
 	output toCommunicationModule;
 	output toMacModule;
 	input fromCommunicationModule;

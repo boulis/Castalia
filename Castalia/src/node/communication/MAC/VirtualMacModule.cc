@@ -89,7 +89,7 @@ void VirtualMacModule::handleMessage(cMessage * msg)
 		}
 
 		case NETWORK_LAYER_PACKET:{
-			NetworkGenericPacket *pkt = check_and_cast <NetworkGenericPacket*>(msg);
+			RoutingPacket *pkt = check_and_cast <RoutingPacket*>(msg);
 			if (macMaxFrameSize > 0 && macMaxFrameSize < pkt->getByteLength() + macFrameOverhead) {
 				trace() << "Oversized packet dropped. Size:" << pkt->getByteLength() << 
 						", MAC layer overhead:" << macFrameOverhead << 
@@ -97,7 +97,7 @@ void VirtualMacModule::handleMessage(cMessage * msg)
 				break;
 			}
 			// trace() << "Received [" << pkt->getName() << "] from Network layer";
-			fromNetworkLayer(pkt, pkt->getNetworkInteractionControl().nextHop);
+			fromNetworkLayer(pkt, pkt->getRoutingInteractionControl().nextHop);
 			return;
 		}
 
@@ -175,13 +175,12 @@ void VirtualMacModule::encapsulatePacket(cPacket * macPkt, cPacket * netPkt)
 cPacket *VirtualMacModule::decapsulatePacket(cPacket * pkt)
 {
 	MacGenericPacket *macPkt = check_and_cast <MacGenericPacket*>(pkt);
-	NetworkGenericPacket *netPkt =
-	    check_and_cast <NetworkGenericPacket*>(macPkt->decapsulate());
-	netPkt->getNetworkInteractionControl().RSSI =
-	    macPkt->getMacInteractionControl().RSSI;
-	netPkt->getNetworkInteractionControl().LQI =
-	    macPkt->getMacInteractionControl().LQI;
-	netPkt->getNetworkInteractionControl().lastHop = SELF_MAC_ADDRESS;
+	RoutingPacket *netPkt = check_and_cast <RoutingPacket*>(macPkt->decapsulate());
+	netPkt->getRoutingInteractionControl().RSSI =
+	    	macPkt->getMacInteractionControl().RSSI;
+	netPkt->getRoutingInteractionControl().LQI =
+	    	macPkt->getMacInteractionControl().LQI;
+	netPkt->getRoutingInteractionControl().lastHop = SELF_MAC_ADDRESS;
 	return netPkt;
 }
 

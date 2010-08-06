@@ -10,9 +10,9 @@
 //*                                                                          *  
 //****************************************************************************/
 
-package node.communication.MAC.TMac;
+package node.communication.mac.TMac;
 
-simple TMacModule like node.communication.MAC.MacGenericModule {
+simple TMacModule like node.communication.mac.iMac {
  parameters:
     //debug parameters
 	bool collectTraceInfo = default (false);

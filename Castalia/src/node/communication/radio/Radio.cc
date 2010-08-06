@@ -209,7 +209,7 @@ void Radio::handleMessage(cMessage * msg)
 			if (endingSignal->bitErrors != ALL_ERRORS) {
 				if (endingSignal->bitErrors <= maxErrorsAllowed(endingSignal->encoding)) {
 					// decapsulate the packet and add the RSSI and LQI fields
-					MacGenericPacket *macPkt = check_and_cast<MacGenericPacket*>(wcMsg->decapsulate());
+					MacPacket *macPkt = check_and_cast<MacPacket*>(wcMsg->decapsulate());
 					macPkt->getMacInteractionControl().RSSI = readRSSI();
 					macPkt->getMacInteractionControl().LQI = endingSignal->power_dBm - 
 							addPower_dBm(endingSignal->maxInterference, RXmode->noiseFloor);
@@ -256,7 +256,7 @@ void Radio::handleMessage(cMessage * msg)
 		 * Packet from MAC level arrived. Buffer it, if there is space
 		 **************************************************************/
 		case MAC_LAYER_PACKET:{
-			MacGenericPacket *macPkt = check_and_cast<MacGenericPacket*>(msg);
+			MacPacket *macPkt = check_and_cast<MacPacket*>(msg);
 
 			int totalSize = macPkt->getByteLength() + PhyFrameOverhead;
 			if (maxPhyFrameSize != 0 && totalSize > maxPhyFrameSize) {
@@ -528,7 +528,7 @@ void Radio::completeStateTransition()
 
 void Radio::finishSpecific()
 {
-	MacGenericPacket *macPkt;
+	MacPacket *macPkt;
 	while (!radioBuffer.empty()) {
 		macPkt = radioBuffer.front();
 		radioBuffer.pop();
@@ -566,7 +566,7 @@ void Radio::finishSpecific()
  */
 double Radio::popAndSendToWirelessChannel()
 {
-	MacGenericPacket *macPkt = radioBuffer.front();
+	MacPacket *macPkt = radioBuffer.front();
 	radioBuffer.pop();
 
 	//Generate begin and end tx messages

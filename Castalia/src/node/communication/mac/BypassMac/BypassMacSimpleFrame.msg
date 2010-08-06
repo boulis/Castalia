@@ -11,19 +11,13 @@
 //****************************************************************************/
 
 cplusplus {{
-#include "MacGenericPacket_m.h"
+#include "MacPacket_m.h"
 }}
 
-class MacGenericPacket;
+class MacPacket;
 
-enum TunableMacFrameTypeDef {
-	DATA_FRAME = 1;
-	BEACON_FRAME = 2;
-}
-
-packet TunableMacSimpleFrame extends MacGenericPacket {
-	int frameType enum (TunableMacFrameTypeDef);	//1 byte
-	int source;		//4 bytes
-	int destination;	//4 bytes
+packet BypassMacSimpleFrame extends MacPacket {
+	int source;
+	int destination;
 }
 

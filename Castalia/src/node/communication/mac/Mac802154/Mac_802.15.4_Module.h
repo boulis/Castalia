@@ -16,7 +16,7 @@
 #include <map>
 #include <vector>
 
-#include "VirtualMacModule.h"
+#include "VirtualMac.h"
 #include "Mac802154Packet_m.h"
 
 #define ACK_PKT_SIZE 6
@@ -51,7 +51,7 @@ enum Timers {
 	FRAME_START = 6,
 };
 
-class Mac802154Module: public VirtualMacModule {
+class Mac802154Module: public VirtualMac {
  private:
     /*--- A map from int value of state to its description (used in debug) ---*/
 	map<int,string> stateDescr;

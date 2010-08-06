@@ -13,7 +13,7 @@
 #ifndef TMACMODULE
 #define TMACMODULE
 
-#include "VirtualMacModule.h"
+#include "VirtualMac.h"
 #include "TMacPacket_m.h"
 
 #define TX_TIME(x)		(phyLayerOverhead + x)*1/(1000*phyDataRate/8.0)	//x are in BYTES
@@ -56,7 +56,7 @@ struct TMacSchedule {
 	int SN;
 };
 
-class TMacModule:public VirtualMacModule {
+class TMacModule:public VirtualMac {
  private:
 	/*--- A map from int value of state to its description (used in debug) ---*/
 	map<int,string> stateDescr;

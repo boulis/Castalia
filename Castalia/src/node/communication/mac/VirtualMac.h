@@ -20,16 +20,17 @@
 #include <omnetpp.h>
 
 #include "RoutingPacket_m.h"
-#include "MacGenericPacket_m.h"
+#include "MacPacket_m.h"
+#include "RadioControlMessage_m.h"
+
 #include "ResourceManager.h"
 #include "Radio.h"
-#include "RadioControlMessage_m.h"
 #include "TimerService.h"
 #include "CastaliaModule.h"
 
 using namespace std;
 
-class VirtualMacModule: public CastaliaModule, public TimerService {
+class VirtualMac: public CastaliaModule, public TimerService {
  private:
 	int disabled;
 	int macBufferSize;

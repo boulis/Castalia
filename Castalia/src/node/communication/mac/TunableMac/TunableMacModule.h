@@ -13,7 +13,7 @@
 #ifndef TUNABLEMACMODULE
 #define TUNABLEMACMODULE
 
-#include "VirtualMacModule.h"
+#include "VirtualMac.h"
 #include "TunableMacControl_m.h"
 #include "TunableMacSimpleFrame_m.h"
 
@@ -41,7 +41,7 @@ enum Timers {
 	SEND_BEACONS_OR_DATA = 5,
 };
 
-class TunableMacModule:public VirtualMacModule {
+class TunableMacModule:public VirtualMac {
  private:
 	/*--- The .ned file's parameters ---*/
 	double dutyCycle;		// sleeping interval / sleeping + listening intervals

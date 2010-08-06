@@ -13,7 +13,7 @@
 #ifndef BaselineBAN_MAC_MODULE_H
 #define BaselineBAN_MAC_MODULE_H
 
-#include "VirtualMacModule.h"
+#include "VirtualMac.h"
 #include "BaselineMacPacket_m.h"
 
 #define TX_TIME(x) (phyLayerOverhead + x)*1/(1000*phyDataRate/8.0) //x are in BYTES
@@ -81,7 +81,7 @@ struct AccessSlot {
 	int polled;
 };
 
-class BaselineBANMac : public VirtualMacModule {
+class BaselineBANMac : public VirtualMac {
 	private:
 	bool isHub;
 	int connectedHID;

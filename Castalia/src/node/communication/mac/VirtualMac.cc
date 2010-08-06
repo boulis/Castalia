@@ -10,9 +10,9 @@
  *                                                                          *  
  ****************************************************************************/
 
-#include "VirtualMacModule.h"
+#include "VirtualMac.h"
 
-void VirtualMacModule::initialize()
+void VirtualMac::initialize()
 {
 	macBufferSize = par("macBufferSize");
 	macFrameOverhead = par("macPacketOverhead");
@@ -38,19 +38,19 @@ void VirtualMacModule::initialize()
 	//declareOutput("Buffer overflow");
 }
 
-int VirtualMacModule::handleControlCommand(cMessage * msg)
+int VirtualMac::handleControlCommand(cMessage * msg)
 {
 	trace() << "WARNING: handleControlCommand not defined in this module";
 	return 0;
 }
 
-int VirtualMacModule::handleRadioControlMessage(cMessage * msg)
+int VirtualMac::handleRadioControlMessage(cMessage * msg)
 {
 	toNetworkLayer(msg);
 	return 1;
 }
 
-int VirtualMacModule::bufferPacket(cPacket * rcvFrame)
+int VirtualMac::bufferPacket(cPacket * rcvFrame)
 {
 	if ((int)TXBuffer.size() >= macBufferSize) {
 		//collectOutput("Buffer overflow");  this is handled in specific MACs
@@ -69,7 +69,7 @@ int VirtualMacModule::bufferPacket(cPacket * rcvFrame)
 	}
 }
 
-void VirtualMacModule::handleMessage(cMessage * msg)
+void VirtualMac::handleMessage(cMessage * msg)
 {
 
 	int msgKind = (int)msg->getKind();
@@ -107,7 +107,7 @@ void VirtualMacModule::handleMessage(cMessage * msg)
 		}
 
 		case MAC_LAYER_PACKET:{
-			MacGenericPacket *pkt = check_and_cast <MacGenericPacket*>(msg);
+			MacPacket *pkt = check_and_cast <MacPacket*>(msg);
 			// trace() << "Received [" << pkt->getName() << "] from Radio layer";
 			fromRadioLayer(pkt, pkt->getMacInteractionControl().RSSI,
 								pkt->getMacInteractionControl().LQI);
@@ -145,7 +145,7 @@ void VirtualMacModule::handleMessage(cMessage * msg)
 	msg = NULL;		// safeguard
 }
 
-void VirtualMacModule::finish()
+void VirtualMac::finish()
 {
 	CastaliaModule::finish();
 	while (!TXBuffer.empty()) {
@@ -154,27 +154,27 @@ void VirtualMacModule::finish()
 	}
 }
 
-void VirtualMacModule::toNetworkLayer(cMessage * macMsg)
+void VirtualMac::toNetworkLayer(cMessage * macMsg)
 {
 	trace() << "Delivering [" << macMsg->getName() << "] to Network layer";
 	send(macMsg, "toNetworkModule");
 }
 
-void VirtualMacModule::toRadioLayer(cMessage * macMsg)
+void VirtualMac::toRadioLayer(cMessage * macMsg)
 {
 	send(macMsg, "toRadioModule");
 }
 
-void VirtualMacModule::encapsulatePacket(cPacket * macPkt, cPacket * netPkt)
+void VirtualMac::encapsulatePacket(cPacket * macPkt, cPacket * netPkt)
 {
 	macPkt->setByteLength(macFrameOverhead);
 	macPkt->setKind(MAC_LAYER_PACKET);
 	macPkt->encapsulate(netPkt);
 }
 
-cPacket *VirtualMacModule::decapsulatePacket(cPacket * pkt)
+cPacket *VirtualMac::decapsulatePacket(cPacket * pkt)
 {
-	MacGenericPacket *macPkt = check_and_cast <MacGenericPacket*>(pkt);
+	MacPacket *macPkt = check_and_cast <MacPacket*>(pkt);
 	RoutingPacket *netPkt = check_and_cast <RoutingPacket*>(macPkt->decapsulate());
 	netPkt->getRoutingInteractionControl().RSSI =
 	    	macPkt->getMacInteractionControl().RSSI;

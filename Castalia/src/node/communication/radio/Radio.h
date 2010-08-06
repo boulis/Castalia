@@ -23,7 +23,7 @@
 #include "RadioSupportFunctions.h"
 #include "WirelessChannelMessages_m.h"
 #include "RadioControlMessage_m.h"
-#include "MacGenericPacket_m.h"
+#include "MacPacket_m.h"
 #include "ResourceManager.h"
 #include "CastaliaModule.h"
 
@@ -165,7 +165,7 @@ class Radio: public CastaliaModule {
 	/* class member variables used internally */
 	int self;		// the node's ID. Can be considered as a full MAC address
 
-	queue<MacGenericPacket*> radioBuffer;
+	queue<MacPacket*> radioBuffer;
 
 	// a list of signals curently being received
 	list<ReceivedSignal_type> receivedSignals;

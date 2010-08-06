@@ -10,14 +10,14 @@
 //*                                                                             *  
 //******************************************************************************/
 
-package node.communication.MAC.TunableMac;
+package node.communication.mac.TunableMac;
 
 // ================================================
 // Default parameter values will result in simple 
 // CSMA behavior (carrier sense then send)
 // ================================================
 
-simple TunableMacModule like node.communication.MAC.MacGenericModule {
+simple TunableMacModule like node.communication.mac.iMac {
  parameters: 
 	bool collectTraceInfo = default (false);
 	bool printStateTransitions = default (false);

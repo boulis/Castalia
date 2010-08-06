@@ -1,7 +1,7 @@
 //****************************************************************************
 //*  Copyright: National ICT Australia,  2007 - 2010                         *
 //*  Developed at the Networks and Pervasive Computing program               *
-//*  Author(s): Athanassios Boulis, Yuriy Tselishchev                        *
+//*  Author(s): Yuriy Tselishchev                                            *
 //*  This file is distributed under the terms in the attached LICENSE file.  *
 //*  If you do not find this file, copies can be found by writing to:        *
 //*                                                                          *
@@ -10,38 +10,20 @@
 //*                                                                          *  
 //****************************************************************************/
 
-cplusplus {{
-#include "MacGenericPacket_m.h"
-}}
+package node.communication.mac.BypassMac;
 
-class MacGenericPacket;
+simple BypassMacModule like node.communication.mac.iMac {
+ parameters:
+	bool collectTraceInfo = default (false);
+	int macMaxPacketSize = default (0);		//BypassMac does not limit packet size
+	int macPacketOverhead = default (8);	//only 2 fields are added in simple MAC frame, 8 bytes in total
+	int macBufferSize = default (0);		//BypassMac does not use buffers
 
-enum MAC802154Packet_type {
-	MAC_802154_BEACON_PACKET = 1001;
-	MAC_802154_ASSOCIATE_PACKET = 1002;
-	MAC_802154_DATA_PACKET = 1003;
-	MAC_802154_ACK_PACKET = 1004;
-	MAC_802154_GTS_REQUEST_PACKET = 1005;
-}
-
-struct GTSspec {
-	int owner;
-	int start;
-	int length;
-}
-
-packet Mac802154Packet extends MacGenericPacket {
-	int Mac802154PacketType enum (MAC802154Packet_type);
-	int PANid;
-	int srcID;
-	int dstID;
-
-	// those fields belong to beacon packet (MAC_802154_BEACON_PACKET)
-	int beaconOrder;
-	int frameOrder;
-	int BSN;
-	int CAPlength;
-	int GTSlength;
-	GTSspec GTSlist[];
+ gates:
+	output toNetworkModule;
+	output toRadioModule;
+	input fromNetworkModule;
+	input fromRadioModule;
+	input fromCommModuleResourceMgr;
 }
 

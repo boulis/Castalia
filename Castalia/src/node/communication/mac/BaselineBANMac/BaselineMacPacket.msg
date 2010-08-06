@@ -11,7 +11,7 @@
 //****************************************************************************/
 
 cplusplus {{
-#include "MacGenericPacket_m.h"
+#include "MacPacket_m.h"
 
 #define BASELINEBAN_HEADER_SIZE 7
 #define BASELINEBAN_BEACON_SIZE 17 + 7
@@ -23,7 +23,7 @@ cplusplus {{
 
 }}
 
-class MacGenericPacket;
+class MacPacket;
 
 enum SecurityLevel_type {
     NOT_SECURED	= 1;
@@ -74,7 +74,7 @@ enum statusCode_type {
     MODIFIED = 7;
 }
 
-packet BaselineMacPacket extends MacGenericPacket {
+packet BaselineMacPacket extends MacPacket {
     //MAC Header fields
     int HID;										//2 bytes, 2 last bytes of full MAC address
     int NID;										//1 byte, short MAC address

@@ -11,10 +11,10 @@
 //****************************************************************************/
 
 cplusplus {{
-#include "MacGenericPacket_m.h"
+#include "MacPacket_m.h"
 }}
 
-class MacGenericPacket;
+class MacPacket;
 
 enum TmacPacket_type {
 	SYNC_TMAC_PACKET = 1;
@@ -26,7 +26,7 @@ enum TmacPacket_type {
 	ACK_TMAC_PACKET = 7;
 }
 
-packet TMacPacket extends MacGenericPacket {
+packet TMacPacket extends MacPacket {
 	// These are basic fields, essential for any packet (9 bytes in total)
 	int type enum (TmacPacket_type);	// 1 byte
 	int source = 0;						// 4 bytes

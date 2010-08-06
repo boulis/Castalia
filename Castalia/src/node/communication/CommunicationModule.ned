@@ -28,7 +28,7 @@ module CommunicationModule {
 
  submodules:
  	Radio: node.communication.radio.Radio;
-	MAC: <MACProtocolName> like node.communication.MAC.MacGenericModule;
+	MAC: <MACProtocolName> like node.communication.mac.iMac;
 	Routing: <RoutingProtocolName> like node.communication.routing.iRouting;
 
  connections:

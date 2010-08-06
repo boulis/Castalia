@@ -1,7 +1,7 @@
 //********************************************************************************
 //*  Copyright: National ICT Australia,  2007 - 2010                             *
 //*  Developed at the Networks and Pervasive Computing program                   *
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis                     *
+//*  Author(s): Yuriy Tselishchev                                                *
 //*  This file is distributed under the terms in the attached LICENSE file.      *
 //*  If you do not find this file, copies can be found by writing to:            *
 //*                                                                              *
@@ -9,21 +9,20 @@
 //*      Attention:  License Inquiry.                                            *
 //*                                                                              *
 //*******************************************************************************/
+enum MacControlMessage_type {
+	MAC_BUFFER_FULL = 1;
+}
 
-package node.communication.MAC;
+struct MacInteractionControl_type {
+	double RSSI;
+	double LQI;
+}
 
-moduleinterface MacGenericModule {
- parameters:
- 	bool collectTraceInfo;
-	int macMaxPacketSize;	// in bytes
-	int macBufferSize;		// in number of messages
-	int macPacketOverhead;
+packet MacPacket {
+	MacInteractionControl_type MacInteractionControl;
+} 
 
- gates: 
- 	output toNetworkModule;
-	output toRadioModule;
-	input fromNetworkModule;
-	input fromRadioModule;
-	input fromCommModuleResourceMgr;
+message MacControlMessage {
+	int macControlMessageKind enum (MacControlMessage_type);
 }
 

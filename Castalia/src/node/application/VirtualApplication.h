@@ -20,7 +20,7 @@
 #include "ApplicationPacket_m.h"
 #include "SensorManagerMessage_m.h"
 #include "ResourceManager.h"
-#include "RadioModule.h"
+#include "Radio.h"
 #include "VirtualMobilityManager.h"
 #include "CastaliaModule.h"
 #include "TimerService.h"
@@ -46,7 +46,7 @@ class VirtualApplication: public CastaliaModule, public TimerService {
 	string selfAddress;
 	ResourceManager *resMgrModule;			//a pointer to the object of the Resource Manager Module
 	VirtualMobilityManager *mobilityModule;	//a pointer to the mobilityModule object
-	RadioModule *radioModule;				//a pointer to the radio module object
+	Radio *radioModule;				//a pointer to the radio module object
 	int disabled;
 	double cpuClockDrift;
 

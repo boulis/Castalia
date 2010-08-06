@@ -10,8 +10,8 @@
  *                                                                          *  
  ****************************************************************************/
 
-#ifndef _RADIOMODULE_H_
-#define _RADIOMODULE_H_
+#ifndef _RADIO_H_
+#define _RADIO_H_
 
 #include <map>
 #include <list>
@@ -132,7 +132,7 @@ struct PktBreakdown {
 			RxFailedModulation(0), RxFailedNoRxState(0), bufferOverflow(0) { }
 };
 
-class RadioModule: public CastaliaModule {
+class Radio: public CastaliaModule {
  private:
 
 	/* class member variables that are derived from module parameters

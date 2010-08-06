@@ -16,7 +16,7 @@
 #include "CastaliaModule.h"
 #include "TimerService.h"
 #include "CastaliaMessages.h"
-#include "RadioModule.h"
+#include "Radio.h"
 #include "ResourceManager.h"
 #include "NetworkGenericPacket_m.h"
 #include "ApplicationPacket_m.h"
@@ -42,7 +42,7 @@ class VirtualNetworkModule: public CastaliaModule, public TimerService {
 	double cpuClockDrift;
 	int disabled;
 
-	RadioModule *radioModule;
+	Radio *radioModule;
 	string selfAddress;
 	int self;
 

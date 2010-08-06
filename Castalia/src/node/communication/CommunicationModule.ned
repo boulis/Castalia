@@ -27,7 +27,7 @@ module CommunicationModule {
 	input fromResourceManager2Radio;
 
  submodules:
- 	Radio: node.communication.Radio.RadioModule;
+ 	Radio: node.communication.radio.Radio;
 	MAC: <MACProtocolName> like node.communication.MAC.MacGenericModule;
 	Routing: <RoutingProtocolName> like node.communication.Network.NetworkGenericModule;
 

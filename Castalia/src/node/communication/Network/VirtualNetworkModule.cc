@@ -22,7 +22,7 @@ void VirtualNetworkModule::initialize()
 	//get a valid reference to the object of the Radio module so that we can make direct 
 	//calls to its public methods instead of using extra messages & message types 
 	//for tighlty couplped operations.
-	radioModule = check_and_cast <RadioModule*>(gate("toMacModule")->getNextGate()->getOwnerModule()->gate("toRadioModule")->getNextGate()->getOwnerModule());
+	radioModule = check_and_cast <Radio*>(gate("toMacModule")->getNextGate()->getOwnerModule()->gate("toRadioModule")->getNextGate()->getOwnerModule());
 
 	//get a valid reference to the object of the Resources Manager module so that
 	//we can make direct calls to its public methods instead of using extra messages 

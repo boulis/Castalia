@@ -33,7 +33,7 @@ void VirtualApplication::initialize()
 	}
 
 	// we make no checks here
-	radioModule = check_and_cast <RadioModule*>(parent->getSubmodule("Communication")->getSubmodule("Radio"));
+	radioModule = check_and_cast <Radio*>(parent->getSubmodule("Communication")->getSubmodule("Radio"));
 
 	self = parent->getIndex();
 	cpuClockDrift = resMgrModule->getCPUClockDrift();

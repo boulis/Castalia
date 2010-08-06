@@ -22,8 +22,8 @@
 #include "NetworkGenericPacket_m.h"
 #include "MacGenericPacket_m.h"
 #include "ResourceManager.h"
+#include "Radio.h"
 #include "RadioControlMessage_m.h"
-#include "RadioModule.h"
 #include "TimerService.h"
 #include "CastaliaModule.h"
 
@@ -42,7 +42,7 @@ class VirtualMacModule: public CastaliaModule, public TimerService {
 	int self;		// the node's ID
 	
 	//a pointer to the object of the Radio Module (used for direct method calls)
-	RadioModule *radioModule;
+	Radio *radioModule;
 	
 	//a pointer to the object of the Resource Manager Module (used for direct method calls)
 	ResourceManager *resMgrModule;	

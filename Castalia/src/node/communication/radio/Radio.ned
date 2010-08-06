@@ -10,9 +10,9 @@
 //*                                                                          *  
 //****************************************************************************/
 
-package node.communication.Radio;
+package node.communication.radio;
 
-simple RadioModule {
+simple Radio {
  parameters:
  	bool collectTraceInfo = default (false);
 

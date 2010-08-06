@@ -10,11 +10,11 @@
  *                                                                          *  
  ****************************************************************************/
 
-#include "RadioModule.h"
+#include "Radio.h"
 
-Define_Module(RadioModule);
+Define_Module(Radio);
 
-void RadioModule::initialize()
+void Radio::initialize()
 {
 	// self can be used as a full MAC address
 	self = getParentModule()->getParentModule()->getIndex();
@@ -38,7 +38,7 @@ void RadioModule::initialize()
 	declareOutput("Buffer overflow");
 }
 
-void RadioModule::handleMessage(cMessage * msg)
+void Radio::handleMessage(cMessage * msg)
 {
 
 	if (disabled) {
@@ -323,7 +323,7 @@ void RadioModule::handleMessage(cMessage * msg)
 	msg = NULL;		// safeguard
 }
 
-void RadioModule::handleRadioControlCommand(RadioControlCommand * radioCmd)
+void Radio::handleRadioControlCommand(RadioControlCommand * radioCmd)
 {
 	switch (radioCmd->getRadioControlCommandKind()) {
 
@@ -462,7 +462,7 @@ void RadioModule::handleRadioControlCommand(RadioControlCommand * radioCmd)
 /* The function handles the messages to delay the transition to another state.
  * The possibility of a state change before the previous one is completed is also taken care of.
  */
-void RadioModule::delayStateTransition(simtime_t delay)
+void Radio::delayStateTransition(simtime_t delay)
 {
 	if (stateTxCompleteMsg) {
 		trace() << "WARNING: command to change to a new state was received before previous state transition was completed";
@@ -474,7 +474,7 @@ void RadioModule::delayStateTransition(simtime_t delay)
 
 /* The function handles the actions needed when entering a new state.
  */
-void RadioModule::completeStateTransition()
+void Radio::completeStateTransition()
 {
 	state = (BasicState_type) changingToState;
 	trace() << "completing transition to " << state << " (" << 
@@ -526,7 +526,7 @@ void RadioModule::completeStateTransition()
 	}
 }
 
-void RadioModule::finishSpecific()
+void Radio::finishSpecific()
 {
 	MacGenericPacket *macPkt;
 	while (!radioBuffer.empty()) {
@@ -564,7 +564,7 @@ void RadioModule::finishSpecific()
 /* Function takes packet from buffer, creates two wireless channel messages to signal
  * the packet transmission and sends them txTime apart.
  */
-double RadioModule::popAndSendToWirelessChannel()
+double Radio::popAndSendToWirelessChannel()
 {
 	MacGenericPacket *macPkt = radioBuffer.front();
 	radioBuffer.pop();
@@ -598,7 +598,7 @@ double RadioModule::popAndSendToWirelessChannel()
 /* Update the history of total power received. Overloaded method
  * This version is used when a new signal is added
  */
-void RadioModule::updateTotalPowerReceived(double newSignalPower)
+void Radio::updateTotalPowerReceived(double newSignalPower)
 {
 	TotalPowerReceived_type newElement;
 	// we are assuming additive power. In reality it is more complex.
@@ -611,7 +611,7 @@ void RadioModule::updateTotalPowerReceived(double newSignalPower)
 /* Update the history of total power received. Overloaded method
  * This version is used when an old signal ends
  */
-void RadioModule::updateTotalPowerReceived(list<ReceivedSignal_type>::iterator endingSignal)
+void Radio::updateTotalPowerReceived(list<ReceivedSignal_type>::iterator endingSignal)
 {
 	TotalPowerReceived_type newElement;
 	// we are assuming additive power. In reality it is more complex.
@@ -624,7 +624,7 @@ void RadioModule::updateTotalPowerReceived(list<ReceivedSignal_type>::iterator e
 /* Update the history of total power received. Overloaded method
  * This version is used when we just enter RX state
  */
-void RadioModule::updateTotalPowerReceived()
+void Radio::updateTotalPowerReceived()
 {
 	TotalPowerReceived_type newElement;
 	newElement.power_dBm = -200.0;	// initialize to a value which is practically 0 mW
@@ -650,7 +650,7 @@ void RadioModule::updateTotalPowerReceived()
  * This version is used when a new signal is added (WC_SIGNAL_START)
  * Note that the last argument is a message
  */
-void RadioModule::updateInterference(list<ReceivedSignal_type>::iterator it1,
+void Radio::updateInterference(list<ReceivedSignal_type>::iterator it1,
 					WirelessChannelSignalBegin * wcMsg)
 {
 	switch (collisionModel) {
@@ -684,7 +684,7 @@ void RadioModule::updateInterference(list<ReceivedSignal_type>::iterator it1,
  * This version is used when a new signal is subtracted (WC_SIGNAL_END)
  * note that the last argument is an iterator to a list
  */
-void RadioModule::updateInterference(list<ReceivedSignal_type>::iterator it1,
+void Radio::updateInterference(list<ReceivedSignal_type>::iterator it1,
 					list<ReceivedSignal_type>::iterator endingSignal)
 {
 	switch (collisionModel) {
@@ -713,7 +713,7 @@ void RadioModule::updateInterference(list<ReceivedSignal_type>::iterator it1,
 
 /* Calculate RSSI based on the history of totalReceivedPower
  */
-double RadioModule::readRSSI()
+double Radio::readRSSI()
 {
 
 	double RSSI = -200.0;
@@ -752,7 +752,7 @@ double RadioModule::readRSSI()
  * is negligibly small and given the current power, CCAthreshold
  * and averaging/integration time for RSSI.
  */
-void RadioModule::updatePossibleCSinterrupt()
+void Radio::updatePossibleCSinterrupt()
 {
 
 	// if we are above the threshold, no point in scheduling an interrupt
@@ -785,7 +785,7 @@ void RadioModule::updatePossibleCSinterrupt()
 
 /* A method to convert SNR to BER for all the modulation types we support
  */
-double RadioModule::SNR2BER(double SNR_dB)
+double Radio::SNR2BER(double SNR_dB)
 {
 	switch (RXmode->modulation) {
 
@@ -831,7 +831,7 @@ double RadioModule::SNR2BER(double SNR_dB)
  * Despite its name it does not return bool (but CLEAR=1 BUSY=0)
  * since it also has to return some possible codes for non-valid
  */
-CCA_result RadioModule::isChannelClear()
+CCA_result Radio::isChannelClear()
 {
 	double value = readRSSI();
 	if (value < CS_NOT_VALID)
@@ -851,7 +851,7 @@ CCA_result RadioModule::isChannelClear()
 /* An advanced way of calculating the number of errors by checking if
  * exactly i errors happened, where i = 0..maxallowed.
  */
-int RadioModule::bitErrors(double BER, int numOfBits, int maxBitErrorsAllowed)
+int Radio::bitErrors(double BER, int numOfBits, int maxBitErrorsAllowed)
 {
 	double cumulativeProbabilityOfUnrealizedEvents = 0.0;
 
@@ -870,7 +870,7 @@ int RadioModule::bitErrors(double BER, int numOfBits, int maxBitErrorsAllowed)
 	return bitErrors;
 }
 
-void RadioModule::readIniFileParameters(void)
+void Radio::readIniFileParameters(void)
 {
 	bufferSize = par("bufferSize");
 	maxPhyFrameSize = par("maxPhyFrameSize");
@@ -909,7 +909,7 @@ void RadioModule::readIniFileParameters(void)
 	completeStateTransition();	// this will complete initialisation of the radio according to startingState parameter
 }
 
-void RadioModule::parseRadioParameterFile(const char *fileName)
+void Radio::parseRadioParameterFile(const char *fileName)
 {
 	if (strlen(fileName) == 0)
 		opp_error("Radio parameters file not specified");
@@ -1167,7 +1167,7 @@ void RadioModule::parseRadioParameterFile(const char *fileName)
 	}
 }
 
-Modulation_type RadioModule::parseModulationType(const char *c)
+Modulation_type Radio::parseModulationType(const char *c)
 {
 	string modulation(c);
 	if (modulation.compare("CUSTOM") == 0)
@@ -1186,7 +1186,7 @@ Modulation_type RadioModule::parseModulationType(const char *c)
 	return CUSTOM;
 }
 
-Encoding_type RadioModule::parseEncodingType(const char *c)
+Encoding_type Radio::parseEncodingType(const char *c)
 {
 	string encodingStr(c);
 	if (encodingStr.compare("NRZ"))
@@ -1203,7 +1203,7 @@ Encoding_type RadioModule::parseEncodingType(const char *c)
 	return NRZ;
 }
 
-list<RXmode_type>::iterator RadioModule::parseRxMode(string modeName)
+list<RXmode_type>::iterator Radio::parseRxMode(string modeName)
 {
 	if (modeName.compare("") == 0)
 		return RXmodeList.begin();
@@ -1218,7 +1218,7 @@ list<RXmode_type>::iterator RadioModule::parseRxMode(string modeName)
 	return RXmodeList.end();
 }
 
-list<TxLevel_type>::iterator RadioModule::parseTxLevel(string txPower)
+list<TxLevel_type>::iterator Radio::parseTxLevel(string txPower)
 {
 	if (txPower.compare("") == 0)
 		return TxLevelList.begin();
@@ -1228,7 +1228,7 @@ list<TxLevel_type>::iterator RadioModule::parseTxLevel(string txPower)
 	return parseTxLevel(txPower_dBm);
 }
 
-list<TxLevel_type>::iterator RadioModule::parseTxLevel(double txPower)
+list<TxLevel_type>::iterator Radio::parseTxLevel(double txPower)
 {
 	list<TxLevel_type>::iterator it1;
 	for (it1 = TxLevelList.begin(); it1 != TxLevelList.end(); it1++) {
@@ -1239,7 +1239,7 @@ list<TxLevel_type>::iterator RadioModule::parseTxLevel(double txPower)
 	return TxLevelList.end();
 }
 
-list<SleepLevel_type>::iterator RadioModule::parseSleepLevel(string sleepLevelName)
+list<SleepLevel_type>::iterator Radio::parseSleepLevel(string sleepLevelName)
 {
 	if (sleepLevelName.compare("") == 0)
 		return sleepLevelList.begin();
@@ -1254,7 +1254,7 @@ list<SleepLevel_type>::iterator RadioModule::parseSleepLevel(string sleepLevelNa
 }
 
 //wrapper function for atoi(...) call. returns 1 on error, 0 on success
-int RadioModule::parseInt(const char *c, int *dst)
+int Radio::parseInt(const char *c, int *dst)
 {
 	while (c[0] && (c[0] == ' ' || c[0] == '\t'))
 		c++;
@@ -1265,7 +1265,7 @@ int RadioModule::parseInt(const char *c, int *dst)
 }
 
 //wrapper function for strtof(...) call. returns 1 on error, 0 on success
-int RadioModule::parseFloat(const char *c, double *dst)
+int Radio::parseFloat(const char *c, double *dst)
 {
 	char *tmp;
 	*dst = strtof(c, &tmp);
@@ -1274,7 +1274,7 @@ int RadioModule::parseFloat(const char *c, double *dst)
 	return 0;
 }
 
-void RadioModule::ReceivedSignalDebug(const char *description)
+void Radio::ReceivedSignalDebug(const char *description)
 {
 	list<ReceivedSignal_type>::iterator it1;
 	trace() << "*** RECEIVED SIGNALS LIST DEBUG AT " << description << " ***";

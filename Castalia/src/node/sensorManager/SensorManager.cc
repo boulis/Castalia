@@ -22,7 +22,7 @@ void SensorManager::initialize()
 	// we can make direct calls to its public methods instead of using extra
 	// messages & message types for tighlty couplped operations.
 //      resMgrModule = check_and_cast<ResourceGenericManager*>(getParentModule()->getSubmodule("nodeResourceMgr"));
-	nodeMobilityModule = check_and_cast<VirtualMobilityManager*>(getParentModule()->getSubmodule("nodeMobilityModule"));
+	nodeMobilityModule = check_and_cast<VirtualMobilityManager*>(getParentModule()->getSubmodule("MobilityManager"));
 	disabled = 1;
 
 	parseStringParams();	//read the string params in omnet.ini and initialize the vectors

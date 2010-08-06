@@ -45,7 +45,7 @@ void BaselineBANMac::startup() {
 	isRadioSleeping = false;
 	phyLayerOverhead = par("phyLayerOverhead");
 	phyDataRate = par("phyDataRate");
-	priority = getParentModule()->getParentModule()->getSubmodule("nodeApplication")->par("priority");
+	priority = getParentModule()->getParentModule()->getSubmodule("Application")->par("priority");
 	mClockAccuracy = par("mClockAccuracy");
 	enhanceGuardTime = par("enhanceGuardTime");
 	enhanceMoreData = par("enhanceMoreData");

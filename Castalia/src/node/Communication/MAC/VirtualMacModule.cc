@@ -27,11 +27,11 @@ void VirtualMacModule::initialize()
 	//get a valid reference to the object of the Resources Manager module so that 
 	//we can make direct calls to its public methods instead of using extra 
 	//messages & message types for tighlty couplped operations.
-	if (getParentModule()->getParentModule()->findSubmodule("nodeResourceMgr") != -1) {
+	if (getParentModule()->getParentModule()->findSubmodule("ResourceManager") != -1) {
 		resMgrModule = check_and_cast <ResourceManager*>
-			(getParentModule()->getParentModule()->getSubmodule("nodeResourceMgr"));
+			(getParentModule()->getParentModule()->getSubmodule("ResourceManager"));
 	} else {
-		opp_error("\n[Mac]:\n Error in geting a valid reference to nodeResourceMgr for direct method calls.");
+		opp_error("\n[Mac]:\n Error in geting a valid reference to ResourceManager for direct method calls.");
 	}
 	setTimerDrift(resMgrModule->getCPUClockDrift());
 	disabled = 1;

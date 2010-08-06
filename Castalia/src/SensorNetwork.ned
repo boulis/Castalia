@@ -39,8 +39,8 @@ network SN {
 	int zGridSize = default (1);
 
 	int numPhysicalProcesses = default (1);
-	string physicalProcessModuleName = default ("CustomizablePhysicalProcess");
-	string debugInfoFilename = default ("Castalia-Trace.txt");
+	string physicalProcessName = default ("CustomizablePhysicalProcess");
+	string debugInfoFileName = default ("Castalia-Trace.txt");
 
  submodules:
 	wirelessChannel:wirelessChannel.WirelessChannel {
@@ -49,7 +49,7 @@ network SN {
 		fromNode[numNodes];
 	} 
 
-	physicalProcess[numPhysicalProcesses]:<physicalProcessModuleName> 
+	physicalProcess[numPhysicalProcesses]: <physicalProcessName> 
 				like physicalProcess.iPhysicalProcess {
 	 gates:
 		toNode[numNodes];

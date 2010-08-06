@@ -107,7 +107,7 @@ void WirelessChannel::initialize(int stage)
 	for (int i = 0; i < numOfNodes; i++) {
 		VirtualMobilityManager *nodeMobilityModule = 
 			check_and_cast<VirtualMobilityManager*>
-			(topo->getNode(i)->getModule()->getSubmodule("nodeMobilityModule"));
+			(topo->getNode(i)->getModule()->getSubmodule("MobilityManager"));
 		nodeLocation[i] = nodeMobilityModule->getLocation();
 		nodeLocation[i].cell = i;
 
@@ -259,7 +259,7 @@ void WirelessChannel::initialize(int stage)
 	 * This makes the code more compact. We also have temporal variations
 	 * so the nodes that are affected are not necessarily the same.
 	 *********************************************************************/
-	nodesAffectedByTransmitter = new list < int >[numOfNodes];
+	nodesAffectedByTransmitter = new list<int>[numOfNodes];
 	if (nodesAffectedByTransmitter == NULL)
 		opp_error("Could not allocate array nodesAffectedByTransmitter\n");
 
@@ -489,7 +489,7 @@ void WirelessChannel::finishSpecific()
 void WirelessChannel::readIniFileParameters(void)
 {
 	DebugInfoWriter::setDebugFileName(
-		getParentModule()->par("debugInfoFilename").stringValue());
+		getParentModule()->par("debugInfoFileName").stringValue());
 
 	onlyStaticNodes = par("onlyStaticNodes");
 	pathLossExponent = par("pathLossExponent");

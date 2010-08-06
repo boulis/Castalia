@@ -28,10 +28,10 @@ void VirtualNetworkModule::initialize()
 	//we can make direct calls to its public methods instead of using extra messages 
 	//& message types for tighlty couplped operations.
 	cModule *parentParent = getParentModule()->getParentModule();
-	if (parentParent->findSubmodule("nodeResourceMgr") != -1) {
-		resMgrModule = check_and_cast <ResourceManager*>(parentParent->getSubmodule("nodeResourceMgr"));
+	if (parentParent->findSubmodule("ResourceManager") != -1) {
+		resMgrModule = check_and_cast <ResourceManager*>(parentParent->getSubmodule("ResourceManager"));
 	} else {
-		opp_error("\n[Network]:\n Error in geting a valid reference to  nodeResourceMgr for direct method calls.");
+		opp_error("\n[Network]:\n Error in geting a valid reference to ResourceManager for direct method calls.");
 	}
 	cpuClockDrift = resMgrModule->getCPUClockDrift();
 	setTimerDrift(cpuClockDrift);

@@ -14,8 +14,8 @@ package node.Communication;
 
 module CommunicationModule {
  parameters:
- 	string macModuleName = default ("BypassMacModule");
-	string networkModuleName = default ("BypassRoutingModule");
+ 	string MACProtocolName = default ("BypassMacModule");
+	string RoutingProtocolName = default ("BypassRoutingModule");
 
  gates:
  	output toApplicationModule;
@@ -28,21 +28,21 @@ module CommunicationModule {
 
  submodules:
  	Radio: node.Communication.Radio.RadioModule;
-	MAC: <macModuleName> like node.Communication.MAC.MacGenericModule;
-	Network: <networkModuleName> like node.Communication.Network.NetworkGenericModule;
+	MAC: <MACProtocolName> like node.Communication.MAC.MacGenericModule;
+	Routing: <RoutingProtocolName> like node.Communication.Network.NetworkGenericModule;
 
  connections:
- 	fromApplicationModule --> Network.fromCommunicationModule;
-	Network.toCommunicationModule --> toApplicationModule;
-	Network.toMacModule --> MAC.fromNetworkModule;
-	MAC.toNetworkModule --> Network.fromMacModule;
+ 	fromApplicationModule --> Routing.fromCommunicationModule;
+	Routing.toCommunicationModule --> toApplicationModule;
+	Routing.toMacModule --> MAC.fromNetworkModule;
+	MAC.toNetworkModule --> Routing.fromMacModule;
 	MAC.toRadioModule --> Radio.fromMacModule;
 	Radio.toMacModule --> MAC.fromRadioModule;
 	
 	fromNodeContainerModule --> Radio.fromCommunicationModule;
 	Radio.toCommunicationModule --> toNodeContainerModule;
 
-	fromResourceManager2Net --> Network.fromCommModuleResourceMgr;
+	fromResourceManager2Net --> Routing.fromCommModuleResourceMgr;
 	fromResourceManager2Mac --> MAC.fromCommModuleResourceMgr;
 	fromResourceManager2Radio --> Radio.fromCommModuleResourceMgr;
 }

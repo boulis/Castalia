@@ -206,10 +206,10 @@ void CastaliaModule::powerDrawn(double power)
 	string name(getName());
 	if (name.compare("Radio") == 0) {
 		sendDirect(drawPowerMsg, 
-			getParentModule()->getParentModule()->getSubmodule("nodeResourceMgr"), "powerConsumption");
-	} else if (name.compare("nodeSensorDevMgr") == 0) {
+			getParentModule()->getParentModule()->getSubmodule("ResourceManager"), "powerConsumption");
+	} else if (name.compare("SensorManager") == 0) {
 		sendDirect(drawPowerMsg,
-			getParentModule()->getSubmodule("nodeResourceMgr"), "powerConsumption");
+			getParentModule()->getSubmodule("ResourceManager"), "powerConsumption");
 	} else {
 		opp_error("%s module has no rights to call drawPower() function", getFullPath().c_str());
 	}

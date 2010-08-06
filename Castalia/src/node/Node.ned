@@ -25,8 +25,8 @@ module Node {
 	double phi = default (0);
 	double theta = default (0);
 
-	string appModuleName;	//the name of the implemented Application Module
-	string mobilityModuleName = default ("NoMobilityManager");	//the name of the implemented Mobility Module
+	string ApplicationName;	//the name of the implemented Application Module
+	string MobilityManagerName = default ("NoMobilityManager");	//the name of the implemented Mobility Module
 
  gates:
 	output toWirelessChannel;
@@ -35,33 +35,33 @@ module Node {
 	input fromPhysicalProcess[];
 
  submodules:
- 	nodeMobilityModule:<mobilityModuleName> like node.mobilityManager.iMobilityManager;
-	nodeResourceMgr:node.resourceManager.ResourceManager;
-	nodeSensorDevMgr:node.sensorManager.SensorManager {
+ 	MobilityManager: <MobilityManagerName> like node.mobilityManager.iMobilityManager;
+	ResourceManager: node.resourceManager.ResourceManager;
+	SensorManager: node.sensorManager.SensorManager {
 	 gates:
 		fromNodeContainerModule[sizeof(toPhysicalProcess)];
 		toNodeContainerModule[sizeof(toPhysicalProcess)];
 	} 
-	networkInterface:node.Communication.CommunicationModule;
-	nodeApplication:<appModuleName> like node.application.iApplication;
+	Communication: node.Communication.CommunicationModule;
+	Application: <ApplicationName> like node.application.iApplication;
 
  connections:
-	networkInterface.toNodeContainerModule --> toWirelessChannel;
-	fromWirelessChannel --> networkInterface.fromNodeContainerModule;
-	nodeApplication.toCommunicationModule --> networkInterface.fromApplicationModule;
-	nodeApplication.toSensorDeviceManager --> nodeSensorDevMgr.fromApplicationModule;
-	networkInterface.toApplicationModule --> nodeApplication.fromCommunicationModule;
-	nodeSensorDevMgr.toApplicationModule --> nodeApplication.fromSensorDeviceManager;
+	Communication.toNodeContainerModule --> toWirelessChannel;
+	fromWirelessChannel --> Communication.fromNodeContainerModule;
+	Application.toCommunicationModule --> Communication.fromApplicationModule;
+	Application.toSensorDeviceManager --> SensorManager.fromApplicationModule;
+	Communication.toApplicationModule --> Application.fromCommunicationModule;
+	SensorManager.toApplicationModule --> Application.fromSensorDeviceManager;
 
 	for i = 0..sizeof(toPhysicalProcess) - 1 {
-		fromPhysicalProcess[i] --> nodeSensorDevMgr.fromNodeContainerModule[i];
-		nodeSensorDevMgr.toNodeContainerModule[i] --> toPhysicalProcess[i];
+		fromPhysicalProcess[i] --> SensorManager.fromNodeContainerModule[i];
+		SensorManager.toNodeContainerModule[i] --> toPhysicalProcess[i];
 	}
 
-	nodeResourceMgr.toSensorDevManager --> nodeSensorDevMgr.fromResourceManager;
-	nodeResourceMgr.toApplication --> nodeApplication.fromResourceManager;
-	nodeResourceMgr.toNetwork --> networkInterface.fromResourceManager2Net;
-	nodeResourceMgr.toMac --> networkInterface.fromResourceManager2Mac;
-	nodeResourceMgr.toRadio --> networkInterface.fromResourceManager2Radio;
+	ResourceManager.toSensorDevManager --> SensorManager.fromResourceManager;
+	ResourceManager.toApplication --> Application.fromResourceManager;
+	ResourceManager.toNetwork --> Communication.fromResourceManager2Net;
+	ResourceManager.toMac --> Communication.fromResourceManager2Mac;
+	ResourceManager.toRadio --> Communication.fromResourceManager2Radio;
 }
 

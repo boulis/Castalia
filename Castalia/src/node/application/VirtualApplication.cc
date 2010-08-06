@@ -20,20 +20,20 @@ void VirtualApplication::initialize()
 	 */
 	cModule *parent = getParentModule();
 
-	if (parent->findSubmodule("nodeResourceMgr") != -1) {
-		resMgrModule = check_and_cast <ResourceManager*>(parent->getSubmodule("nodeResourceMgr"));
+	if (parent->findSubmodule("ResourceManager") != -1) {
+		resMgrModule = check_and_cast <ResourceManager*>(parent->getSubmodule("ResourceManager"));
 	} else {
-		opp_error("\n[Application]:\n Error in geting a valid reference to nodeResourceMgr for direct method calls.");
+		opp_error("\n[Application]:\n Error in geting a valid reference to ResourceManager for direct method calls.");
 	}
 
-	if (parent->findSubmodule("nodeMobilityModule") != -1) {
-		mobilityModule = check_and_cast <VirtualMobilityManager*>(parent->getSubmodule("nodeMobilityModule"));
+	if (parent->findSubmodule("MobilityManager") != -1) {
+		mobilityModule = check_and_cast <VirtualMobilityManager*>(parent->getSubmodule("MobilityManager"));
 	} else {
-		opp_error("\n[Application]:\n Error in geting a valid reference to nodeMobilityModule for direct method calls.");
+		opp_error("\n[Application]:\n Error in geting a valid reference to MobilityManager for direct method calls.");
 	}
 
 	// we make no checks here
-	radioModule = check_and_cast <RadioModule*>(parent->getSubmodule("networkInterface")->getSubmodule("Radio"));
+	radioModule = check_and_cast <RadioModule*>(parent->getSubmodule("Communication")->getSubmodule("Radio"));
 
 	self = parent->getIndex();
 	cpuClockDrift = resMgrModule->getCPUClockDrift();

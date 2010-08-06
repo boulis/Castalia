@@ -14,7 +14,7 @@ package node.communication;
 
 module CommunicationModule {
  parameters:
- 	string MACProtocolName = default ("BypassMacModule");
+ 	string MACProtocolName = default ("BypassMAC");
 	string RoutingProtocolName = default ("BypassRouting");
 
  gates:

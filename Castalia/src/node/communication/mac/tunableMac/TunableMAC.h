@@ -15,7 +15,7 @@
 
 #include "VirtualMac.h"
 #include "TunableMacControl_m.h"
-#include "TunableMacSimpleFrame_m.h"
+#include "TunableMacPacket_m.h"
 
 using namespace std;
 
@@ -33,7 +33,7 @@ enum MacStates {
 	MAC_STATE_RX = 4
 };
 
-enum Timers {
+enum TunableMacTimers {
 	START_SLEEPING = 1,
 	START_LISTENING = 2,
 	START_CARRIER_SENSING = 3,
@@ -41,7 +41,7 @@ enum Timers {
 	SEND_BEACONS_OR_DATA = 5,
 };
 
-class TunableMacModule:public VirtualMac {
+class TunableMAC: public VirtualMac {
  private:
 	/*--- The .ned file's parameters ---*/
 	double dutyCycle;		// sleeping interval / sleeping + listening intervals

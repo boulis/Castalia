@@ -10,8 +10,8 @@
  *                                                                          *  
  ****************************************************************************/
 
-#ifndef MAC_802154_MODULE
-#define MAC_802154_MODULE
+#ifndef MAC_802154_H_
+#define MAC_802154_H_
 
 #include <map>
 #include <vector>
@@ -42,7 +42,7 @@ enum MacStates {
 	MAC_STATE_PROCESSING = 1011
 };
 
-enum Timers {
+enum Mac802154Timers {
 	PERFORM_CCA = 1,
 	ATTEMPT_TX = 2,
 	BEACON_TIMEOUT = 3,
@@ -51,7 +51,7 @@ enum Timers {
 	FRAME_START = 6,
 };
 
-class Mac802154Module: public VirtualMac {
+class Mac802154: public VirtualMac {
  private:
     /*--- A map from int value of state to its description (used in debug) ---*/
 	map<int,string> stateDescr;

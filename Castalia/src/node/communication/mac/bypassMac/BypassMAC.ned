@@ -10,20 +10,20 @@
 //*                                                                          *  
 //****************************************************************************/
 
-cplusplus {{
-#include "MacPacket_m.h"
-}}
+package node.communication.mac.bypassMac;
 
-class MacPacket;
+simple BypassMAC like node.communication.mac.iMac {
+ parameters:
+	bool collectTraceInfo = default (false);
+	int macMaxPacketSize = default (0);		//BypassMac does not limit packet size
+	int macPacketOverhead = default (8);	//only 2 fields are added in simple MAC frame, 8 bytes in total
+	int macBufferSize = default (0);		//BypassMac does not use buffers
 
-enum TunableMacFrameTypeDef {
-	DATA_FRAME = 1;
-	BEACON_FRAME = 2;
-}
-
-packet TunableMacSimpleFrame extends MacPacket {
-	int frameType enum (TunableMacFrameTypeDef);	//1 byte
-	int source;		//4 bytes
-	int destination;	//4 bytes
+ gates:
+	output toNetworkModule;
+	output toRadioModule;
+	input fromNetworkModule;
+	input fromRadioModule;
+	input fromCommModuleResourceMgr;
 }
 

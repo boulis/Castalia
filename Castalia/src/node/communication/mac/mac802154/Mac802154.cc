@@ -10,11 +10,11 @@
  *                                                                          *  
  ****************************************************************************/
 
-#include "Mac_802.15.4_Module.h"
+#include "Mac802154.h"
 
-Define_Module(Mac802154Module);
+Define_Module(Mac802154);
 
-void Mac802154Module::startup()
+void Mac802154::startup()
 {
 	readIniFileParameters();
 
@@ -81,7 +81,7 @@ void Mac802154Module::startup()
 	}
 }
 
-void Mac802154Module::timerFiredCallback(int index)
+void Mac802154::timerFiredCallback(int index)
 {
 	switch (index) {
 
@@ -241,7 +241,7 @@ void Mac802154Module::timerFiredCallback(int index)
  * is stored in transmission buffer. We dont need to encapsulate the message here - it will
  * be done separately for each transmission attempt
  */
-void Mac802154Module::fromNetworkLayer(cPacket * pkt, int dstMacAddress)
+void Mac802154::fromNetworkLayer(cPacket * pkt, int dstMacAddress)
 {
 	Mac802154Packet *macPacket = new Mac802154Packet("802.15.4 MAC data packet", MAC_LAYER_PACKET);
 	macPacket->setSrcID(SELF_MAC_ADDRESS);	//if we are connected, we would have short MAC address assigned, 
@@ -259,7 +259,7 @@ void Mac802154Module::fromNetworkLayer(cPacket * pkt, int dstMacAddress)
 	}
 }
 
-void Mac802154Module::finishSpecific()
+void Mac802154::finishSpecific()
 {
 	if (nextPacket)
 		cancelAndDelete(nextPacket);
@@ -303,7 +303,7 @@ void Mac802154Module::finishSpecific()
 	}
 }
 
-void Mac802154Module::readIniFileParameters(void)
+void Mac802154::readIniFileParameters(void)
 {
 	printStateTransitions = par("printStateTransitions");
 
@@ -351,7 +351,7 @@ void Mac802154Module::readIniFileParameters(void)
 }
 
 /* Helper function to change internal MAC state and print a debug statement if neccesary */
-void Mac802154Module::setMacState(int newState)
+void Mac802154::setMacState(int newState)
 {
 	if (macState == newState)
 		return;
@@ -362,7 +362,7 @@ void Mac802154Module::setMacState(int newState)
 
 /* This function will handle a MAC frame received from the lower layer (physical or radio)
  */
-void Mac802154Module::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
+void Mac802154::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 {
 	Mac802154Packet *rcvPacket = dynamic_cast < Mac802154Packet * >(pkt);
 	if (!rcvPacket)
@@ -571,7 +571,7 @@ void Mac802154Module::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 	}
 }
 
-void Mac802154Module::handleAckPacket(Mac802154Packet * rcvPacket)
+void Mac802154::handleAckPacket(Mac802154Packet * rcvPacket)
 {
 	switch (macState) {
 
@@ -625,7 +625,7 @@ void Mac802154Module::handleAckPacket(Mac802154Packet * rcvPacket)
 }
 
 // This function will initiate a transmission (or retransmission) attempt after a given delay
-void Mac802154Module::attemptTransmission()
+void Mac802154::attemptTransmission()
 {
 	cancelTimer(ATTEMPT_TX);
 
@@ -685,7 +685,7 @@ void Mac802154Module::attemptTransmission()
 }
 
 // initiate CSMA-CA algorithm, initialising retries, next state and response values
-void Mac802154Module::initiateCSMACA(int retries, int nextState, simtime_t response)
+void Mac802154::initiateCSMACA(int retries, int nextState, simtime_t response)
 {
 	trace() << "Initiating new transmission of [" << nextPacket->getName() << 
 		"], retries left: " << retries;
@@ -696,7 +696,7 @@ void Mac802154Module::initiateCSMACA(int retries, int nextState, simtime_t respo
 }
 
 // initiate CSMA-CA algorithm
-void Mac802154Module::initiateCSMACA()
+void Mac802154::initiateCSMACA()
 {
 	if (requestGTS && lockedGTS && currentFrameStart + GTSstart < getClock()
 	    && currentFrameStart + GTSend > getClock()) {
@@ -719,7 +719,7 @@ void Mac802154Module::initiateCSMACA()
 }
 
 // continue CSMA-CA algorithm
-void Mac802154Module::continueCSMACA()
+void Mac802154::continueCSMACA()
 {
 	if (macState != MAC_STATE_CSMA_CA) {
 		trace() << "WARNING: continueCSMACA called not in MAC_STATE_CSMA_CA";
@@ -743,7 +743,7 @@ void Mac802154Module::continueCSMACA()
 }
 
 /* Transmit a packet by sending it to the radio */
-void Mac802154Module::transmitNextPacket()
+void Mac802154::transmitNextPacket()
 {
 	//check if transmission is allowed given current time and tx time
 	double txTime = TX_TIME(nextPacket->getByteLength());
@@ -780,7 +780,7 @@ void Mac802154Module::transmitNextPacket()
 }
 
 /* Create a GTS request packet and schedule it for transmission */
-void Mac802154Module::issueGTSrequest()
+void Mac802154::issueGTSrequest()
 {
 	if (nextPacket) {
 		if (collectPacketState("NoPAN"))
@@ -798,7 +798,7 @@ void Mac802154Module::issueGTSrequest()
 	initiateCSMACA(9999, MAC_STATE_WAIT_FOR_GTS, ackWaitDuration + TX_TIME(COMMAND_PKT_SIZE));
 }
 
-int Mac802154Module::collectPacketState(const char *s)
+int Mac802154::collectPacketState(const char *s)
 {
 	if (!nextPacket)
 		opp_error("MAC 802.15.4 internal error: collectPacketState called while nextPacket pointer is NULL");

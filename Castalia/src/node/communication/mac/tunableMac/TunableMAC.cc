@@ -9,11 +9,11 @@
  *      Attention:  License Inquiry.                                       *
  ***************************************************************************/
 
-#include "TunableMacModule.h"
+#include "TunableMAC.h"
 
-Define_Module(TunableMacModule);
+Define_Module(TunableMAC);
 
-void TunableMacModule::startup()
+void TunableMAC::startup()
 {
 	dutyCycle = par("dutyCycle");
 	listenInterval = ((double)par("listenInterval")) / 1000.0;	// convert msecs to secs
@@ -70,7 +70,7 @@ void TunableMacModule::startup()
 	backoffTimes = 0;
 }
 
-void TunableMacModule::timerFiredCallback(int timer)
+void TunableMAC::timerFiredCallback(int timer)
 {
 	switch (timer) {
 
@@ -108,7 +108,7 @@ void TunableMacModule::timerFiredCallback(int timer)
 	}
 }
 
-void TunableMacModule::handleCarrierSenseResult(int returnCode)
+void TunableMAC::handleCarrierSenseResult(int returnCode)
 {
 	switch (returnCode) {
 
@@ -184,9 +184,9 @@ void TunableMacModule::handleCarrierSenseResult(int returnCode)
 	}
 }
 
-void TunableMacModule::fromNetworkLayer(cPacket * netPkt, int destination)
+void TunableMAC::fromNetworkLayer(cPacket * netPkt, int destination)
 {
-	TunableMacSimpleFrame *macPkt = new TunableMacSimpleFrame("TunableMac data frame", MAC_LAYER_PACKET);
+	TunableMacPacket *macPkt = new TunableMacPacket("TunableMac data packet", MAC_LAYER_PACKET);
 	macPkt->setSource(SELF_MAC_ADDRESS);
 	macPkt->setDestination(destination);
 	macPkt->setFrameType(DATA_FRAME);
@@ -219,7 +219,7 @@ void TunableMacModule::fromNetworkLayer(cPacket * netPkt, int destination)
 	}
 }
 
-void TunableMacModule::attemptTx()
+void TunableMAC::attemptTx()
 {
 	trace() << "attemptTx(), buffer size: " << TXBuffer.size() << ", numTxTries: " << numTxTries;
 
@@ -267,14 +267,14 @@ void TunableMacModule::attemptTx()
 	}
 }
 
-void TunableMacModule::sendBeaconsOrData()
+void TunableMAC::sendBeaconsOrData()
 {
 
 	if (remainingBeaconsToTx > 0) {
 		remainingBeaconsToTx--;
 
-		TunableMacSimpleFrame *beaconFrame =
-			new TunableMacSimpleFrame("TunableMac beacon frame", MAC_LAYER_PACKET);
+		TunableMacPacket *beaconFrame =
+			new TunableMacPacket("TunableMac beacon packet", MAC_LAYER_PACKET);
 		beaconFrame->setSource(SELF_MAC_ADDRESS);
 		beaconFrame->setDestination(BROADCAST_MAC_ADDRESS);
 		beaconFrame->setFrameType(BEACON_FRAME);
@@ -318,9 +318,9 @@ void TunableMacModule::sendBeaconsOrData()
 	}
 }
 
-void TunableMacModule::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
+void TunableMAC::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 {
-	TunableMacSimpleFrame *macFrame = dynamic_cast <TunableMacSimpleFrame*>(pkt);
+	TunableMacPacket *macFrame = dynamic_cast <TunableMacPacket*>(pkt);
 	if (macFrame == NULL)
 		return;
 
@@ -338,7 +338,7 @@ void TunableMacModule::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 				cancelTimer(START_CARRIER_SENSING);
 				cancelTimer(ATTEMPT_TX);
 			} else if (macState == MAC_STATE_TX) {
-				/* We ignore the received beacon frame because we
+				/* We ignore the received beacon packet because we
 				 * are in the process of sending our own data
 				 */
 				break;
@@ -373,7 +373,7 @@ void TunableMacModule::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 	}
 }
 
-int TunableMacModule::handleControlCommand(cMessage * msg)
+int TunableMAC::handleControlCommand(cMessage * msg)
 {
 	TunableMacControlCommand *cmd = check_and_cast <TunableMacControlCommand*>(msg);
 

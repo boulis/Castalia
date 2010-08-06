@@ -10,21 +10,21 @@
  *                                                                          *  
  ****************************************************************************/
 
-#include "BypassMacModule.h"
+#include "BypassMAC.h"
 
-Define_Module(BypassMacModule);
+Define_Module(BypassMAC);
 
 /* We handle packet received from upper (network) layer. 
- * Here we need to create a packet, specific for this particular MAC (BypassMacSimpleFrame used)
- * and encapsulate the received network frame before forwarding it to RadioLayer
+ * Here we need to create a packet, specific for this particular MAC (BypassMacPacket used)
+ * and encapsulate the received network packet before forwarding it to RadioLayer
  */
-void BypassMacModule::fromNetworkLayer(cPacket * pkt, int destination)
+void BypassMAC::fromNetworkLayer(cPacket * pkt, int destination)
 {
 	//First step is creating a wrapper packet. Note that MAC_DATA_FRAME is used as message kind. This is generic
 	//constant defined in CastaliaMessages.h to ensure that all Castalia modules are working with a single set
 	//of unique message kinds
-	BypassMacSimpleFrame *macFrame =
-	    new BypassMacSimpleFrame("BypassRouting simple frame", MAC_LAYER_PACKET);
+	BypassMacPacket *macFrame =
+	    new BypassMacPacket("BypassRouting packet", MAC_LAYER_PACKET);
 	encapsulatePacket(macFrame, pkt);
 	macFrame->setSource(SELF_MAC_ADDRESS);
 	macFrame->setDestination(destination);
@@ -33,14 +33,14 @@ void BypassMacModule::fromNetworkLayer(cPacket * pkt, int destination)
 }
 
 /* We handle packet received from lower (radio) layer. Values of RSSI and LQI are ignored.
- * Since we only sent BypassMacSimpleFrame packets to the radio, we can assume that we will only 
+ * Since we only sent BypassMACSimpleFrame packets to the radio, we can assume that we will only 
  * receive the same type of packet back. However for various reasons (e.g. if someone decides to use 
  * two or more different MAC protocols in a single simulation we will use dynamic_cast here and 
- * only decapsulate and forward packets of type BypassMacSimpleFrame.
+ * only decapsulate and forward packets of type BypassMACSimpleFrame.
  */
-void BypassMacModule::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
+void BypassMAC::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 {
-	BypassMacSimpleFrame *macPkt = dynamic_cast <BypassMacSimpleFrame*>(pkt);
+	BypassMacPacket *macPkt = dynamic_cast <BypassMacPacket*>(pkt);
 	if (macPkt == NULL)
 		return;
 	if (macPkt->getDestination() == SELF_MAC_ADDRESS ||

@@ -12,7 +12,7 @@
 
 package node.communication.mac.mac802154;
 
-simple Mac802154Module like node.communication.mac.iMac {
+simple Mac802154 like node.communication.mac.iMac {
  parameters:
     //debug parameters
 	bool collectTraceInfo = default (false);

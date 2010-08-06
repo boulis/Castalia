@@ -10,16 +10,16 @@
  *                                                                          *  
  ****************************************************************************/
 
-#ifndef BYPASSMACMODULE
-#define BYPASSMACMODULE
+#ifndef _BYPASSMAC_H_
+#define _BYPASSMAC_H_
 
 #include <omnetpp.h>
-#include "BypassMacSimpleFrame_m.h"
+#include "BypassMacPacket_m.h"
 #include "VirtualMac.h"
 
 using namespace std;
 
-class BypassMacModule: public VirtualMac {
+class BypassMAC: public VirtualMac {
     /**
      * In order to create a MAC based on VirtualMacModule, we need to define only two functions:
      * to handle a packet received from layer above (network) and layer below (radio)

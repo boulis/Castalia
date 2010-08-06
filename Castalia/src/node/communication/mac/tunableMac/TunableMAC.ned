@@ -17,7 +17,7 @@ package node.communication.mac.tunableMac;
 // CSMA behavior (carrier sense then send)
 // ================================================
 
-simple TunableMacModule like node.communication.mac.iMac {
+simple TunableMAC like node.communication.mac.iMac {
  parameters: 
 	bool collectTraceInfo = default (false);
 	bool printStateTransitions = default (false);

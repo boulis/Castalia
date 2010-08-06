@@ -11,11 +11,11 @@
  ****************************************************************************/
 
 #include <cmath>
-#include "TMacModule.h"
+#include "TMAC.h"
 
-Define_Module(TMacModule);
+Define_Module(TMAC);
 
-void TMacModule::startup()
+void TMAC::startup()
 {
 	printStateTransitions = par("printStateTransitions");
 	ackPacketSize = par("ackPacketSize");
@@ -89,7 +89,7 @@ void TMacModule::startup()
 	toRadioLayer(createRadioCommand(SET_CS_INTERRUPT_ON));
 }
 
-void TMacModule::timerFiredCallback(int timer)
+void TMAC::timerFiredCallback(int timer)
 {
 	switch (timer) {
 
@@ -279,7 +279,7 @@ void TMacModule::timerFiredCallback(int timer)
 	}
 }
 
-int TMacModule::handleRadioControlMessage(cMessage * msg)
+int TMAC::handleRadioControlMessage(cMessage * msg)
 {
 	RadioControlMessage *radioMsg = check_and_cast <RadioControlMessage*>(msg);
 	if (radioMsg->getRadioControlMessageKind() == CARRIER_SENSE_INTERRUPT)
@@ -289,7 +289,7 @@ int TMacModule::handleRadioControlMessage(cMessage * msg)
 	return 1;
 }
 
-void TMacModule::fromNetworkLayer(cPacket * netPkt, int destination)
+void TMAC::fromNetworkLayer(cPacket * netPkt, int destination)
 {
 	// Create a new MAC frame from the received packet and buffer it (if possible)
 	TMacPacket *macPkt = new TMacPacket("TMAC data packet", MAC_LAYER_PACKET);
@@ -307,7 +307,7 @@ void TMacModule::fromNetworkLayer(cPacket * netPkt, int destination)
 	}
 }
 
-void TMacModule::finishSpecific()
+void TMAC::finishSpecific()
 {
 	if (packetsSent.size() > 0) {
 		trace() << "Sent packets breakdown: ";
@@ -326,7 +326,7 @@ void TMacModule::finishSpecific()
  *	of either SYNC, RTS or DATA packets after a random contention offset.
  * 3 -  IF this is not primary wakeup, MAC can only listen, thus set state to MAC_STATE_ACTIVE_SILENT
  */
-void TMacModule::resetDefaultState(const char *descr)
+void TMAC::resetDefaultState(const char *descr)
 {
 	if (descr)
 		trace() << "Resetting MAC state to default, reason: " << descr;
@@ -380,14 +380,14 @@ void TMacModule::resetDefaultState(const char *descr)
  * This function will only schedule a self message to resycnronise the newly created
  * schedule
  */
-void TMacModule::createPrimarySchedule()
+void TMAC::createPrimarySchedule()
 {
 	updateScheduleTable(frameTime, self, 0);
 	setTimer(SYNC_RENEW, resyncTime);
 }
 
 /* Helper function to change internal MAC state and print a debug statement if neccesary */
-void TMacModule::setMacState(int newState, const char *descr)
+void TMAC::setMacState(int newState, const char *descr)
 {
 	if (macState == newState)
 		return;
@@ -405,7 +405,7 @@ void TMacModule::setMacState(int newState, const char *descr)
 /* This function will update schedule table with the given values for wakeup time,
  * schedule ID and schedule SN
  */
-void TMacModule::updateScheduleTable(simtime_t wakeup, int ID, int SN)
+void TMAC::updateScheduleTable(simtime_t wakeup, int ID, int SN)
 {
 	// First, search through existing schedules
 	for (int i = 0; i < (int)scheduleTable.size(); i++) {
@@ -491,7 +491,7 @@ void TMacModule::updateScheduleTable(simtime_t wakeup, int ID, int SN)
  * We try to see if the received packet is TMacPacket, otherwise we discard it
  * TMAC ignores values of RSSI and LQI
  */
-void TMacModule::fromRadioLayer(cPacket * pkt, double RSSI, double LQI)
+void TMAC::fromRadioLayer(cPacket * pkt, double RSSI, double LQI)
 {
 	TMacPacket *macPkt = dynamic_cast < TMacPacket * >(pkt);
 	if (macPkt == NULL)
@@ -628,7 +628,7 @@ void TMacModule::fromRadioLayer(cPacket * pkt, double RSSI, double LQI)
 	}
 }
 
-void TMacModule::carrierIsBusy()
+void TMAC::carrierIsBusy()
 {
 	/* Since we are hearing some communication on the radio we need to do two things:
 	 * 1 - extend our active period
@@ -657,7 +657,7 @@ void TMacModule::carrierIsBusy()
 /* This function handles carrier clear message, received from the radio module.
  * That is sent in a response to previous request to perform a carrier sense
  */
-void TMacModule::carrierIsClear()
+void TMAC::carrierIsClear()
 {
 	switch (macState) {
 
@@ -744,7 +744,7 @@ void TMacModule::carrierIsClear()
 	}
 }
 
-void TMacModule::sendDataPacket()
+void TMAC::sendDataPacket()
 {
 	if (TXBuffer.empty()) {
 		trace() << "WARNING: Invalid MAC_CARRIER_SENSE_FOR_TX_DATA while TX buffer is empty";
@@ -788,7 +788,7 @@ void TMacModule::sendDataPacket()
  * delay allows to perform a carrier sense after a choosen delay (useful for
  * randomisation of transmissions)
  */
-void TMacModule::performCarrierSense(int newState, simtime_t delay)
+void TMAC::performCarrierSense(int newState, simtime_t delay)
 {
 	setMacState(newState);
 	setTimer(CARRIER_SENSE, delay);
@@ -798,7 +798,7 @@ void TMacModule::performCarrierSense(int newState, simtime_t delay)
  * time it is not less than listenTimeout value. Also a check TA message is scheduled here
  * to allow the node to go to sleep if activation timeout expires
  */
-void TMacModule::extendActivePeriod(simtime_t extra)
+void TMAC::extendActivePeriod(simtime_t extra)
 {
 	simtime_t curTime = getClock();
 	if (conservativeTA) {
@@ -818,7 +818,7 @@ void TMacModule::extendActivePeriod(simtime_t extra)
 /* This function will check the transmission buffer, and if it is not empty, it will update
  * current communication parameters: txAddr and txRetries
  */
-void TMacModule::checkTxBuffer()
+void TMAC::checkTxBuffer()
 {
 	if (TXBuffer.empty())
 		return;
@@ -831,7 +831,7 @@ void TMacModule::checkTxBuffer()
 /* This function will remove the first packet from MAC transmission buffer
  * checkTxBuffer is called in case there are still packets left in the buffer to transmit
  */
-void TMacModule::popTxBuffer()
+void TMAC::popTxBuffer()
 {
 	cancelAndDelete(TXBuffer.front());
 	TXBuffer.pop();

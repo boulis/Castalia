@@ -10,8 +10,8 @@
  *                                                                          *  
  ****************************************************************************/
 
-#ifndef TMACMODULE
-#define TMACMODULE
+#ifndef _TMAC_H_
+#define _TMAC_H_
 
 #include "VirtualMac.h"
 #include "TMacPacket_m.h"
@@ -37,7 +37,7 @@ enum MacStates {
 	MAC_STATE_WAIT_FOR_ACK = 122,
 };
 
-enum Timers {
+enum TMacTimers {
 	SYNC_SETUP = 1,
 	SYNC_CREATE = 2,
 	SYNC_RENEW = 3,
@@ -56,7 +56,7 @@ struct TMacSchedule {
 	int SN;
 };
 
-class TMacModule:public VirtualMac {
+class TMAC: public VirtualMac {
  private:
 	/*--- A map from int value of state to its description (used in debug) ---*/
 	map<int,string> stateDescr;

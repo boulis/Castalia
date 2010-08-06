@@ -12,7 +12,7 @@
 
 package node.communication.mac.tMac;
 
-simple TMacModule like node.communication.mac.iMac {
+simple TMAC like node.communication.mac.iMac {
  parameters:
     //debug parameters
 	bool collectTraceInfo = default (false);

@@ -10,7 +10,7 @@
 //*                                                                              *
 //*******************************************************************************/
 
-package node.Communication;
+package node.communication;
 
 module CommunicationModule {
  parameters:
@@ -27,9 +27,9 @@ module CommunicationModule {
 	input fromResourceManager2Radio;
 
  submodules:
- 	Radio: node.Communication.Radio.RadioModule;
-	MAC: <MACProtocolName> like node.Communication.MAC.MacGenericModule;
-	Routing: <RoutingProtocolName> like node.Communication.Network.NetworkGenericModule;
+ 	Radio: node.communication.Radio.RadioModule;
+	MAC: <MACProtocolName> like node.communication.MAC.MacGenericModule;
+	Routing: <RoutingProtocolName> like node.communication.Network.NetworkGenericModule;
 
  connections:
  	fromApplicationModule --> Routing.fromCommunicationModule;

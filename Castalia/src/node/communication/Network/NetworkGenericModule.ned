@@ -1,7 +1,7 @@
 //********************************************************************************
 //*  Copyright: National ICT Australia,  2007 - 2010                             *
 //*  Developed at the Networks and Pervasive Computing program                   *
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis                     *
+//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis, Yuriy Tselishchev  *
 //*  This file is distributed under the terms in the attached LICENSE file.      *
 //*  If you do not find this file, copies can be found by writing to:            *
 //*                                                                              *
@@ -10,20 +10,20 @@
 //*                                                                              *
 //*******************************************************************************/
 
-package node.Communication.MAC;
+package node.communication.Network;
 
-moduleinterface MacGenericModule {
+moduleinterface NetworkGenericModule {
  parameters:
- 	bool collectTraceInfo;
-	int macMaxPacketSize;	// in bytes
-	int macBufferSize;		// in number of messages
-	int macPacketOverhead;
+	bool collectTraceInfo;
+	int maxNetFrameSize;		// in bytes
+	int netDataFrameOverhead;	// in bytes
+	int netBufferSize;			// in number of messages
 
  gates: 
- 	output toNetworkModule;
-	output toRadioModule;
-	input fromNetworkModule;
-	input fromRadioModule;
+	output toCommunicationModule;
+	output toMacModule;
+	input fromCommunicationModule;
+	input fromMacModule;
 	input fromCommModuleResourceMgr;
 }
 

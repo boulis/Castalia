@@ -1,7 +1,7 @@
 //********************************************************************************
 //*  Copyright: National ICT Australia,  2007 - 2010                             *
 //*  Developed at the Networks and Pervasive Computing program                   *
-//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis, Yuriy Tselishchev  *
+//*  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis                     *
 //*  This file is distributed under the terms in the attached LICENSE file.      *
 //*  If you do not find this file, copies can be found by writing to:            *
 //*                                                                              *
@@ -10,22 +10,20 @@
 //*                                                                              *
 //*******************************************************************************/
 
-package node.Communication.Network.multipathRingsRouting;
+package node.communication.MAC;
 
-simple multipathRingsRoutingModule like node.Communication.Network.NetworkGenericModule {
+moduleinterface MacGenericModule {
  parameters:
-	bool collectTraceInfo = default (false);
-	int maxNetFrameSize = default (0);					// bytes, 0 means no limit
-	int netBufferSize = default (32);					// number of messages
-	int netDataFrameOverhead = default (14);			// bytes
-	int mpathRingsSetupFrameOverhead = default (13);	// bytes
-	int netSetupTimeout = default (50);					// msec
+ 	bool collectTraceInfo;
+	int macMaxPacketSize;	// in bytes
+	int macBufferSize;		// in number of messages
+	int macPacketOverhead;
 
- gates:
-	output toCommunicationModule;
-	output toMacModule;
-	input fromCommunicationModule;
-	input fromMacModule;
+ gates: 
+ 	output toNetworkModule;
+	output toRadioModule;
+	input fromNetworkModule;
+	input fromRadioModule;
 	input fromCommModuleResourceMgr;
 }
 

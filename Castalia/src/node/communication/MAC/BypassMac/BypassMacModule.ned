@@ -10,9 +10,9 @@
 //*                                                                          *  
 //****************************************************************************/
 
-package node.Communication.MAC.BypassMac;
+package node.communication.MAC.BypassMac;
 
-simple BypassMacModule like node.Communication.MAC.MacGenericModule {
+simple BypassMacModule like node.communication.MAC.MacGenericModule {
  parameters:
 	bool collectTraceInfo = default (false);
 	int macMaxPacketSize = default (0);		//BypassMac does not limit packet size

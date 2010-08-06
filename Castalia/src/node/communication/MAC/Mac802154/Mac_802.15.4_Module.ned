@@ -10,9 +10,9 @@
 //*                                                                          *  
 //****************************************************************************/
 
-package node.Communication.MAC.Mac802154;
+package node.communication.MAC.Mac802154;
 
-simple Mac802154Module like node.Communication.MAC.MacGenericModule {
+simple Mac802154Module like node.communication.MAC.MacGenericModule {
  parameters:
     //debug parameters
 	bool collectTraceInfo = default (false);

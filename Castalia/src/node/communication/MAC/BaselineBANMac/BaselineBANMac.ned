@@ -10,9 +10,9 @@
 //*                                                                          *  
 //****************************************************************************/
 
-package node.Communication.MAC.BaselineBANMac;
+package node.communication.MAC.BaselineBANMac;
 
-simple BaselineBANMac like node.Communication.MAC.MacGenericModule
+simple BaselineBANMac like node.communication.MAC.MacGenericModule
 {
 	parameters:
 		bool collectTraceInfo = default(false);

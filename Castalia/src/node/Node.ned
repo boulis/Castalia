@@ -42,7 +42,7 @@ module Node {
 		fromNodeContainerModule[sizeof(toPhysicalProcess)];
 		toNodeContainerModule[sizeof(toPhysicalProcess)];
 	} 
-	Communication: node.Communication.CommunicationModule;
+	Communication: node.communication.CommunicationModule;
 	Application: <ApplicationName> like node.application.iApplication;
 
  connections:

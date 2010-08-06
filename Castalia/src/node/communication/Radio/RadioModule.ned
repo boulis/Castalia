@@ -10,7 +10,7 @@
 //*                                                                          *  
 //****************************************************************************/
 
-package node.Communication.Radio;
+package node.communication.Radio;
 
 simple RadioModule {
  parameters:

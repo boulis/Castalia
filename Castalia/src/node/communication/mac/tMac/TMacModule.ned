@@ -10,7 +10,7 @@
 //*                                                                          *  
 //****************************************************************************/
 
-package node.communication.mac.TMac;
+package node.communication.mac.tMac;
 
 simple TMacModule like node.communication.mac.iMac {
  parameters:

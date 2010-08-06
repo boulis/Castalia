@@ -10,7 +10,7 @@
 //*                                                                          *  
 //****************************************************************************/
 
-package node.communication.mac.Mac802154;
+package node.communication.mac.mac802154;
 
 simple Mac802154Module like node.communication.mac.iMac {
  parameters:

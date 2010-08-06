@@ -10,7 +10,7 @@
 //*                                                                          *  
 //****************************************************************************/
 
-package node.communication.mac.BypassMac;
+package node.communication.mac.bypassMac;
 
 simple BypassMacModule like node.communication.mac.iMac {
  parameters:

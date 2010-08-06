@@ -10,7 +10,7 @@
 //*                                                                             *  
 //******************************************************************************/
 
-package node.communication.mac.TunableMac;
+package node.communication.mac.tunableMac;
 
 // ================================================
 // Default parameter values will result in simple 

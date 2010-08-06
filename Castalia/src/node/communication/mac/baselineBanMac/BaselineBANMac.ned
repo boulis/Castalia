@@ -10,7 +10,7 @@
 //*                                                                          *  
 //****************************************************************************/
 
-package node.communication.mac.BaselineBANMac;
+package node.communication.mac.baselineBanMac;
 
 simple BaselineBANMac like node.communication.mac.iMac {
  parameters:

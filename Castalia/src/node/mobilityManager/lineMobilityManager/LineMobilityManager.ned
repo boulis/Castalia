@@ -16,8 +16,8 @@ simple LineMobilityManager like node.mobilityManager.iMobilityManager {
  parameters:
 	bool collectTraceInfo = default (false);
 	double updateInterval = default (1000);
-	double xCoorDestination;
-	double yCoorDestination;
-	double zCoorDestination;
-	double speed;
+	double xCoorDestination = default (0);
+	double yCoorDestination = default (0);
+	double zCoorDestination = default (0);
+	double speed = default (1);
 }

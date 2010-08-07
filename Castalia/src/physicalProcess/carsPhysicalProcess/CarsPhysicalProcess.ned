@@ -10,7 +10,7 @@
 //*                                                                              *
 //*******************************************************************************/
 
-package physicalProcess.CarsPhysicalProcess;
+package physicalProcess.carsPhysicalProcess;
 
 // The physical process module simulates a physical process that could be measured/sampled
 // by a sensing device on the nodes. Different sensing devices (e.g temperature, pressure,

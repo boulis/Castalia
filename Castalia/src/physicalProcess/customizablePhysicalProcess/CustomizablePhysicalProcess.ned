@@ -10,7 +10,7 @@
 //*                                                                              *
 //*******************************************************************************/
 
-package physicalProcess.CustomizablePhysicalProcess;
+package physicalProcess.customizablePhysicalProcess;
 
 //=======================================================================================
 // The physical process module simulates a physical process that could be measured/sampled

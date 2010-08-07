@@ -1,6 +1,0 @@
-BANtest
-connectivityMap
-mobilityTest
-simpleAggregation
-valuePropagation
-valueReporting

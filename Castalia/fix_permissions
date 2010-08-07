@@ -1,5 +1,0 @@
-#!/bin/bash
-
-chmod u+x ./makemake
-chmod u+x Tests/runTests
-chmod u+x bin/extractOmnetppINI

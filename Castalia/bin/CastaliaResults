@@ -45,7 +45,7 @@ def _generate_index(str):
 	current_fragment = ''
 	# group a string into digit and non-digit parts
 	for char in str:
-		curr_isdigit = char.isdigit()
+		curr_isdigit = char.isdigit() or char == '.'
 		if curr_isdigit == prev_isdigit:
 			current_fragment += char
 		else:
@@ -103,7 +103,7 @@ class Table():
 							# according to column widths
 			
 			# initialise 'header' and 'line' variables
-			if no_header == 0:
+			if no_header == 0 and self.width != 0:
 				header += "|" + " "*(self.width + 2)
 				line += "+" + "-"*(self.width + 2)
 			
@@ -128,7 +128,7 @@ class Table():
 						first_row = 0
 					
 					# print row header, if needed
-					if no_header == 0:
+					if no_header == 0 and self.width != 0:
 						print "|", row.ljust(self.width),
 					
 					# print all cells of this row by looping through columns

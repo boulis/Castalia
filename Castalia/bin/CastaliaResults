@@ -7,20 +7,20 @@ z_values = {99:2.577,98.5:2.43,97.5:2.243,95:1.96,90:1.645,85:1.439,75:1.151}
 parser = OptionParser(usage="usage: %prog [options]")
 parser.add_option("-c","--confidence", dest="confidence", type="float", metavar="CL", help="Select desired confidence level (CL) and display confidence intervals where possible, supported values of CL: " + str(sorted(z_values.keys())))
 parser.add_option("-f","--filter", dest="filter", type="string", metavar="RE", help="Select a subset of available outputs by applying RE (regular expression) filter")
-#parser.add_option("-h","--header", dest="header", type="string", metavar="RE", help="Use RE (regular expression) to create additional row headers, useful for data plotting")
 parser.add_option("-i","--input", dest="input", type="string", metavar="FILE[,FILE]", help="Load results from each FILE")
 parser.add_option("-l","--long", dest="long", default=False, action="store_true", help="Display long (full) labels for table rows")
 parser.add_option("-n","--node", dest="pernode", default=False, action="store_true", help="Display results for each node individually")
 parser.add_option("-o","--output", dest="output", type="int", default=1, metavar="[1|2]", help="Choose output type, supported values are 1 (visual) and 2 (compact)")
 parser.add_option("-p","--percentage", dest="percentage", default=False, action="store_true", help="Display breakdowns as percentage of total amounts where possible")
 parser.add_option("-r","--row", dest="row_filter", type="string", metavar="RE", help="Select a subset of rows by applying RE (regular expression) filter")
-parser.add_option("-s","--split", dest="split", type="int", default=-1, metavar="INDEX", help="If the resulting table has no column headers, row headers will be split by comma to produce an array. INDEX element from this array will be taken to become column header (default:-1)")
+parser.add_option("--order", dest="order", type="string", metavar="STRING", help="Select label ordering for the table, first label will become column headers")
 (options,args) = parser.parse_args()
 
 if options.confidence and options.confidence not in z_values:
 	quit("ERROR: supported values of confidence level are " + str(sorted(z_values.keys())))
 
 # reworked from http://code.activestate.com/recipes/135435-sort-a-string-using-numeric-order/
+# to take into account negative and floating point numbers too ;)
 def sorted_copy(alist):
 	indices = map(_generate_index, alist)
 	decorated = zip(indices, alist)
@@ -308,6 +308,42 @@ def printModules():
 	table.printTable(1,["Module","Output"])
 	print "NOTE: select from the avaliable outputs using -f option\n"
 
+def matchLabel(label,pattern):
+	if "=" in label:
+		return pattern in label
+	else:
+		return pattern == 'configs'
+
+def createHeaders(label,order):
+	labels = label.split(",")
+	if order == None:
+		col = labels[-1]
+		del labels[-1]
+		row = ",".join(labels)
+		return (col,row)
+	
+	order = order.split(",")
+	col_labels = []
+	for label in labels:
+		if matchLabel(label,order[0]):
+			col_labels.append(label)
+	if len(col_labels) > 0:
+		col = ",".join(col_labels)
+	else:
+		col = labels[-1]
+	
+	row_labels = []
+	for label_order in order:
+		for label in labels:
+			if matchLabel(label,label_order) and label not in col:
+				row_labels.append(label)
+
+	for label in labels:
+		if label not in row_labels and label not in col:
+			row_labels.append(label)
+	row = ",".join(row_labels)
+	return (col,row)
+	
 # this function will analyze the output and print it depending on its contents
 # 1st argument - name of the output to be printed
 # 2nd argument - output object to be printed
@@ -416,8 +452,8 @@ def printOutput(name,o):
 			# By default, node dimension is primary, but if index has more values
 			# index will become primary. Primary dimension will determine columns
 			# of the table
-			primary_i = 0
-			if (o.max_i - o.min_i > o.max_n - o.min_n): primary_i = 1
+			primary_i = "node"
+			if (o.max_i - o.min_i > o.max_n - o.min_n): primary_i = "index"
 			
 			# go through each tuple (label,node,index) in the output
 			for label in data:
@@ -429,12 +465,9 @@ def printOutput(name,o):
 					
 						# determine row and column headers depending on which dimension is primary
 						row = short(label)
-						if primary_i:
-							if print_n: row = label + ",node="+str(n)
-							col = "Index="+str(i)
-						else:
-							if print_i: row = label + ",index="+str(i)
-							col = "Node="+str(n)
+						if print_n: row += ",node="+str(n)
+						if print_i: row += ",index="+str(i)
+						(col,row) = createHeaders(row,options.order or primary_i)
 						
 						load(row,col,data[label][key],o.pernode_total(label))
 		
@@ -442,13 +475,8 @@ def printOutput(name,o):
 		else:
 			# go through each label in the output
 			for label in data:
-				# split the label by the first semicolon
-				# first part will be the column header and second part will be the row header
-				labels = short(label).split(",")
-				col = labels[options.split]
-				del labels[options.split]
-				row = ",".join(labels)
-				
+				(row,col) = createHeaders(short(label),options.order)				
+								
 				# aggregate node and index information into tmp_table
 				all_values = []
 				for n in range(o.min_n,o.max_n+1):

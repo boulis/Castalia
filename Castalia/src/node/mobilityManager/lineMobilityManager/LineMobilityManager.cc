@@ -53,12 +53,12 @@ void LineMobilityManager::handleMessage(cMessage * msg)
 				nodeLocation.x += incr_x;
 				nodeLocation.y += incr_y;
 				nodeLocation.z += incr_z;
-				if (incr_x > 0 && nodeLocation.x > loc2_x
-					|| incr_x < 0 && nodeLocation.x < loc2_x
-					|| incr_y > 0 && nodeLocation.y > loc2_y
-					|| incr_y < 0 && nodeLocation.y < loc2_y
-					|| incr_z > 0 && nodeLocation.z > loc2_z
-					|| incr_z < 0 && nodeLocation.z < loc2_z) {
+				if (   (incr_x > 0 && nodeLocation.x > loc2_x)
+				    || (incr_x < 0 && nodeLocation.x < loc2_x)
+				    || (incr_y > 0 && nodeLocation.y > loc2_y)
+				    || (incr_y < 0 && nodeLocation.y < loc2_y)
+				    || (incr_z > 0 && nodeLocation.z > loc2_z)
+				    || (incr_z < 0 && nodeLocation.z < loc2_z)) {
 					direction = 0;
 					nodeLocation.x -= (nodeLocation.x - loc2_x) * 2;
 					nodeLocation.y -= (nodeLocation.y - loc2_y) * 2;
@@ -68,12 +68,12 @@ void LineMobilityManager::handleMessage(cMessage * msg)
 				nodeLocation.x -= incr_x;
 				nodeLocation.y -= incr_y;
 				nodeLocation.z -= incr_z;
-				if (incr_x > 0 && nodeLocation.x < loc1_x
-				    || incr_x < 0 && nodeLocation.x > loc1_x
-				    || incr_y > 0 && nodeLocation.y < loc1_y
-				    || incr_y < 0 && nodeLocation.y > loc1_y
-				    || incr_z > 0 && nodeLocation.z < loc1_z
-				    || incr_z < 0 && nodeLocation.z > loc1_z) {
+				if (   (incr_x > 0 && nodeLocation.x < loc1_x)
+				    || (incr_x < 0 && nodeLocation.x > loc1_x)
+				    || (incr_y > 0 && nodeLocation.y < loc1_y)
+				    || (incr_y < 0 && nodeLocation.y > loc1_y)
+				    || (incr_z > 0 && nodeLocation.z < loc1_z)
+				    || (incr_z < 0 && nodeLocation.z > loc1_z)) {
 					direction = 1;
 					nodeLocation.x -= (nodeLocation.x - loc1_x) * 2;
 					nodeLocation.y -= (nodeLocation.y - loc1_y) * 2;

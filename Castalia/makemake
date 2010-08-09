@@ -12,5 +12,18 @@
 
 #!/bin/bash
 
-opp_makemake -r -f ./config/omnetpp.config
-make ROOT=`pwd` MAKEMAKE=opp_makemake EXT= -f ./config/makemake.config
+ROOT=`pwd`
+
+# The following options are used by OMNeT's opp_makemake tool
+# For explanation and a complete list of options run: opp_makemake -h
+OPTS=" -f -r --deep -o CastaliaBin -u Cmdenv -P $ROOT -M debug"
+
+# -X excludes a directory from being considered
+EXCLUDEDIRS=" -X Simulations -X out -X bin"
+
+# Use options -I -L -l to include external header files or libraries
+EXTOPTS=""
+
+# Run OMNeT's opp_makemake tool with the above options
+opp_makemake $OPTS $EXCLUDEDIRS $EXTOPTS
+

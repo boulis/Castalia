@@ -16,59 +16,119 @@ Define_Module(VirtualMobilityManager);
 
 void VirtualMobilityManager::initialize()
 {
-	cModule *node = getParentModule();
-	cModule *network = node->getParentModule();
+	node = getParentModule();
+	index = node->getIndex();
+	network = node->getParentModule();
 	wchannel = network->getSubmodule("wirelessChannel");
+	
+	if (!network)
+		opp_error("Unable to obtain SN pointer for deployment parameter");
+		
 	if (!wchannel)
 		opp_error("Unable to obtain wchannel pointer");
+	
+	parseDeployment();	
+	trace() << "initial location(x:y:z) is " << nodeLocation.x << ":" << 
+			nodeLocation.y << ":" << nodeLocation.z;
+}
 
-	int deploymentType = network->par("deploymentType");
-	int index = node->getIndex();
-
-	int field_x = network->par("field_x");
-	int field_y = network->par("field_y");
-	int field_z = network->par("field_z");
-	int xGridSize = network->par("xGridSize");
-	int yGridSize = network->par("yGridSize");
-	int zGridSize = network->par("zGridSize");
-
+void VirtualMobilityManager::parseDeployment() {
+	const char *ct;
+	char *c; 
+	int xlen = network->par("field_x");
+	int ylen = network->par("field_y");
+	int zlen = network->par("field_z");
 	nodeLocation.phi = node->par("phi");
 	nodeLocation.theta = node->par("theta");
 
-	if (deploymentType == 0) {
-		nodeLocation.x = uniform(0, field_x);
-		nodeLocation.y = uniform(0, field_y);
-		nodeLocation.z = uniform(0, field_z);
-	} else if (deploymentType == 1) {
-		nodeLocation.x = (index % xGridSize) * (field_x / (xGridSize - 1));
-		nodeLocation.y = ((int)floor(index / xGridSize) % yGridSize) * 
-				(field_y / (yGridSize - 1));
-		if (zGridSize < 2 || field_z < 2) {
-			nodeLocation.z = 1;
-		} else {
-			nodeLocation.z = ((int)floor(index / (xGridSize * yGridSize)) % zGridSize) * 
-					(field_z / (zGridSize - 1));
+	
+	string deployment = network->par("deployment");
+	cStringTokenizer t(deployment.c_str(), ";");
+	ct = t.nextToken();
+	while (ct != NULL) {
+		c = (char*)ct;
+		while (c[0] && c[0] == ' ')
+			c++;
+		if (!c[0] || c[0] != '[' || !c[1] || c[1] < '0' || c[1] > '9')
+			opp_error("Bad syntax of SN.deployment parameter: expecing a digit at\n%s", c);
+		int start_range, end_range;
+		start_range = strtol(c + 1, &c, 10);
+		if (!c[0] || (c[0] != ']' && c[0] != '.'))
+			opp_error("Bad syntax of SN.deployment parameter: expecing a ']' or '.' at\n%s", c);
+		if (c[0] == ']' && start_range != index) {
+			ct = t.nextToken();
+			continue;
+		} else if (c[0] == '.' && c[1] && c[1] == '.') {
+			c += 2;
+			if (c[0] < '0' || c[0] > '9')
+				opp_error("Bad syntax of SN.deployment parameter: expecing a digit at\n%s", c);
+			end_range = strtol(c, &c, 10);
+			if (index > end_range || index < start_range)
+				continue;
 		}
-	} else if (deploymentType == 2) {
-		double randomFactor = network->par("randomFactor");
-		nodeLocation.x = (index % xGridSize) * (field_x / (xGridSize - 1)) +
-				normal(0, (field_x / (xGridSize - 1)) * randomFactor);
-		nodeLocation.y = ((int)floor(index / xGridSize) % yGridSize) * (field_y / 
-				(yGridSize - 1)) + normal(0, (field_y / (yGridSize - 1)) * randomFactor);
-		if (zGridSize < 2 || field_z < 2) {
-			nodeLocation.z = 1;
-		} else {
-			nodeLocation.z = ((int)floor(index / (xGridSize * yGridSize)) % zGridSize) * 
-					(field_z / (zGridSize - 1)) + normal(0, (field_z / (zGridSize - 1)) * randomFactor);
+		if (!c[0] || c[0] != ']')
+			opp_error("Bad syntax of SN.deployment parameter: expecing a ']' at\n%s", c);
+		c++;
+		if (c[0] != '-' || !c[1] || c[1] != '>')
+			opp_error("Bad syntax of SN.deployment parameter: expecing a '->' at\n%s", c);
+		c += 2;
+		
+		int random_flag = 0;
+		if (strncmp(c, "uniform", strlen("uniform")) == 0) {
+			nodeLocation.x = uniform(0, xlen);
+			nodeLocation.y = uniform(0, ylen);
+			nodeLocation.z = uniform(0, zlen);
+			return;
+		} else if (strncmp(c, "center", strlen("center")) == 0) {
+			nodeLocation.x = xlen/2;
+			nodeLocation.y = ylen/2;
+			nodeLocation.z = zlen/2;
+			return; 			
+		} else if (strncmp(c, "randomized_", strlen("randomized_")) == 0) {
+			c += strlen("randomized_");
+			random_flag = 1;
 		}
-	} else {
-		nodeLocation.x = node->par("xCoor");
-		nodeLocation.y = node->par("yCoor");
-		nodeLocation.z = node->par("zCoor");
+		
+		int gridx, gridy, gridz, gridi;
+		gridi = index - start_range;
+		if (c[0] < '0' || c[0] > '9')
+			opp_error("Bad syntax of SN.deployment parameter: expecing 'uniform', 'center', 'NxN[xN]' or 'randomized_NxN[xN]' at\n%s", c);
+		gridx = strtol(c, &c, 10);
+		if (c[0] != 'x' || !c[1] || c[1] < '0' || c[1] > '9')
+			opp_error("Bad syntax of SN.deployment parameter: expecing 'x' followed by a digit at\n%s", c);
+		c++;
+		gridy = strtol(c, &c, 10);
+		if (c[0]) {
+			if (c[0] != 'x' || !c[1] || c[1] < '0' || c[1] > '9') {
+				opp_error("Bad syntax of SN.deployment parameter: expecing 'x' followed by a digit at\n%s", c);
+			} else {
+				c++;
+				gridz = strtol(c, &c, 10);
+			}
+		} else {
+			gridz = 0;
+		}
+		
+		nodeLocation.x = (0.5 + gridi % gridx) * (xlen / gridx);
+		nodeLocation.y = (0.5 + (int)floor(gridi / gridx) % gridy) * (ylen / gridy);
+		if (gridz > 0 && zlen > 0) {
+			nodeLocation.z = (0.5 + (int)floor(gridi / (gridx * gridy)) % gridz) * (zlen / gridz);
+		} else {
+			nodeLocation.z = 0;
+		}
+		
+		if (random_flag) {
+			nodeLocation.x += normal(0, (xlen / gridx) * 0.3);
+			nodeLocation.y += normal(0, (ylen / gridy) * 0.3);
+			if (gridz > 0 && zlen > 0) {
+				nodeLocation.z += normal(0, (zlen / gridz) * 0.3);
+			}
+		}
+		return;
 	}
-
-	trace() << "initial location(x:y:z) is " << nodeLocation.x << ":" << 
-			nodeLocation.y << ":" << nodeLocation.z;
+	nodeLocation.x = node->par("xCoor");
+	nodeLocation.y = node->par("yCoor");
+	nodeLocation.z = node->par("zCoor");
 }
 
 void VirtualMobilityManager::setLocation(double x, double y, double z, double phi, double theta)

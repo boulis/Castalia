@@ -30,14 +30,16 @@ struct NodeLocation_type {
 class VirtualMobilityManager: public CastaliaModule {
  protected:
 	NodeLocation_type nodeLocation;
-
-	cModule *wchannel;
+	int index;
+	
+	cModule *node, *wchannel, *network;
 	WirelessChannelNodeMoveMessage *positionUpdateMsg;
 
 	virtual void initialize();
 	virtual void notifyWirelessChannel();
 	virtual void setLocation(double x, double y, double z, double phi = 0, double theta = 0);
 	virtual void setLocation(NodeLocation_type);
+	void parseDeployment();
 
  public:
 	 virtual NodeLocation_type getLocation();

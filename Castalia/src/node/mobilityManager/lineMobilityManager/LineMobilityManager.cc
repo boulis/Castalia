@@ -22,9 +22,9 @@ void LineMobilityManager::initialize()
 	updateInterval = par("updateInterval");
 	updateInterval = updateInterval / 1000;
 
-	loc1_x = node->par("xCoor");
-	loc1_y = node->par("yCoor");
-	loc1_z = node->par("zCoor");
+	loc1_x = nodeLocation.x;
+	loc1_y = nodeLocation.y;
+	loc1_z = nodeLocation.z;
 	loc2_x = par("xCoorDestination");
 	loc2_y = par("yCoorDestination");
 	loc2_z = par("zCoorDestination");

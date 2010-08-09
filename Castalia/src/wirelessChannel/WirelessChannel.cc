@@ -506,9 +506,9 @@ void WirelessChannel::readIniFileParameters(void)
 	xFieldSize = getParentModule()->par("field_x");
 	yFieldSize = getParentModule()->par("field_y");
 	zFieldSize = getParentModule()->par("field_z");
-	xCellSize = getParentModule()->par("xCellSize");
-	yCellSize = getParentModule()->par("yCellSize");
-	zCellSize = getParentModule()->par("zCellSize");
+	xCellSize = par("xCellSize");
+	yCellSize = par("yCellSize");
+	zCellSize = par("zCellSize");
 
 	maxTxPower = 0.0;
 

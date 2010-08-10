@@ -1,19 +1,20 @@
-# ********************************************************************************
-# *  Copyright: National ICT Australia, 2009, 2010                               *
-# *  Developed at the Networks and Pervasive Computing program                   *
-# *  Author(s): Athanassios Boulis, Yuriy Tselishchev                            *
-# *  This file is distributed under the terms in the attached LICENSE file.      *
-# *  If you do not find this file, copies can be found by writing to:            *
-# *                                                                              *
-# *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia                 *
-# *      Attention:  License Inquiry.                                            *
-# *                                                                              *
-# *******************************************************************************/
+# ****************************************************************************
+# *  Copyright: National ICT Australia,  2009 - 2010                         *
+# *  Developed at the ATP lab, Networked Systems research theme              *
+# *  Author(s): Athanassios Boulis, Yuriy Tselishchev                        *
+# *  This file is distributed under the terms in the attached LICENSE file.  *
+# *  If you do not find this file, copies can be found by writing to:        *
+# *                                                                          *
+# *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
+# *      Attention:  License Inquiry.                                        *
+# *                                                                          *
+# ***************************************************************************/
 
 RX MODES
 # Name, dataRate(kbps), modulationType, bitsPerSymbol, bandwidth(MHz), noiseBandwidth(MHz), noiseFloor(dBm), sensitivity(dBm), powerConsumed(mW)
 high, 1024, DIFFQPSK, 2, 20, 1000, -104, -87, 3.1
 low, 512, DIFFBPSK, 1, 20, 1000, -104, -91, 3.1
+IDEAL, 1024, IDEAL, 2, 20, 1000, -104, -87, 3.1
 
 TX LEVELS
 Tx_dBm -10 -12 -15 -20 -25

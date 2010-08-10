@@ -6,13 +6,13 @@ z_values = {99:2.577,98.5:2.43,97.5:2.243,95:1.96,90:1.645,85:1.439,75:1.151}
 
 parser = OptionParser(usage="usage: %prog [options]")
 parser.add_option("-c","--confidence", dest="confidence", type="float", metavar="CL", help="Select desired confidence level (CL) and display confidence intervals where possible, supported values of CL: " + str(sorted(z_values.keys())))
-parser.add_option("-f","--filter", dest="filter", type="string", metavar="RE", help="Select a subset of available outputs by applying RE (regular expression) filter")
+parser.add_option("-s","--show", dest="filter", type="string", metavar="RE", help="Select a subset of available outputs by applying RE (regular expression)")
 parser.add_option("-i","--input", dest="input", type="string", metavar="FILE[,FILE]", help="Load results from each FILE")
 parser.add_option("-l","--long", dest="long", default=False, action="store_true", help="Display long (full) labels for table rows")
 parser.add_option("-n","--node", dest="pernode", default=False, action="store_true", help="Display results for each node individually")
 parser.add_option("-o","--output", dest="output", type="int", default=1, metavar="[1|2]", help="Choose output type, supported values are 1 (visual) and 2 (compact)")
 parser.add_option("-p","--percentage", dest="percentage", default=False, action="store_true", help="Display breakdowns as percentage of total amounts where possible")
-parser.add_option("-r","--row", dest="row_filter", type="string", metavar="RE", help="Select a subset of rows by applying RE (regular expression) filter")
+parser.add_option("-f","--filter", dest="row_filter", type="string", metavar="RE", help="Select a subset of rows by applying RE (regular expression) filter")
 parser.add_option("--order", dest="order", type="string", metavar="STRING", help="Select label ordering for the table, first label will become column headers")
 (options,args) = parser.parse_args()
 
@@ -306,7 +306,7 @@ def printModules():
 			table.addCell(row,"Dimensions",d)		# add dimensions
 			
 	table.printTable(1,["Module","Output"])
-	print "NOTE: select from the avaliable outputs using -f option\n"
+	print "NOTE: select from the avaliable outputs using -s option\n"
 
 def matchLabel(label,pattern):
 	if "=" in label:
@@ -624,7 +624,7 @@ def findFiles():
 	if row > 1:
 		print "Castalia output files in current directory:"
 		table.printTable()
-		print ""
+		print "NOTE: select from the avaliable files using -i option\n"
 	else: print "No castalia output files found in current directory\n"
 
 print ""

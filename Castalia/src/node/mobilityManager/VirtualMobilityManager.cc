@@ -47,32 +47,39 @@ void VirtualMobilityManager::parseDeployment() {
 	ct = t.nextToken();
 	while (ct != NULL) {
 		c = (char*)ct;
+		int start_range, end_range;
 		while (c[0] && c[0] == ' ')
 			c++;
-		if (!c[0] || c[0] != '[' || !c[1] || c[1] < '0' || c[1] > '9')
-			opp_error("Bad syntax of SN.deployment parameter: expecing a digit at\n%s", c);
-		int start_range, end_range;
-		start_range = strtol(c + 1, &c, 10);
-		if (!c[0] || (c[0] != ']' && c[0] != '.'))
-			opp_error("Bad syntax of SN.deployment parameter: expecing a ']' or '.' at\n%s", c);
-		if (c[0] == ']' && start_range != index) {
-			ct = t.nextToken();
-			continue;
-		} else if (c[0] == '.' && c[1] && c[1] == '.') {
-			c += 2;
-			if (c[0] < '0' || c[0] > '9')
+		if (c[0] && c[0] == '[') {
+			c++;
+			if (!c[0] || c[0] < '0' || c[0] > '9')
 				opp_error("Bad syntax of SN.deployment parameter: expecing a digit at\n%s", c);
-			end_range = strtol(c, &c, 10);
-			if (index > end_range || index < start_range)
+			start_range = strtol(c, &c, 10);
+			if (!c[0] || (c[0] != ']' && c[0] != '.'))
+				opp_error("Bad syntax of SN.deployment parameter: expecing a ']' or '.' at\n%s", c);
+			if (c[0] == ']' && start_range != index) {
+				ct = t.nextToken();
 				continue;
+			} else if (c[0] == '.' && c[1] && c[1] == '.') {
+				c += 2;
+				if (c[0] < '0' || c[0] > '9')
+					opp_error("Bad syntax of SN.deployment parameter: expecing a digit at\n%s", c);
+				end_range = strtol(c, &c, 10);
+				if (index > end_range || index < start_range) {
+					ct = t.nextToken();
+					continue;
+				}
+			}
+			if (!c[0] || c[0] != ']')
+				opp_error("Bad syntax of SN.deployment parameter: expecing a ']' at\n%s", c);
+			c++;
+			if (c[0] != '-' || !c[1] || c[1] != '>')
+				opp_error("Bad syntax of SN.deployment parameter: expecing a '->' at\n%s", c);
+			c += 2;
+		} else {
+			start_range = 0;
 		}
-		if (!c[0] || c[0] != ']')
-			opp_error("Bad syntax of SN.deployment parameter: expecing a ']' at\n%s", c);
-		c++;
-		if (c[0] != '-' || !c[1] || c[1] != '>')
-			opp_error("Bad syntax of SN.deployment parameter: expecing a '->' at\n%s", c);
-		c += 2;
-		
+			
 		int random_flag = 0;
 		if (strncmp(c, "uniform", strlen("uniform")) == 0) {
 			nodeLocation.x = uniform(0, xlen);
@@ -109,19 +116,31 @@ void VirtualMobilityManager::parseDeployment() {
 			gridz = 0;
 		}
 		
-		nodeLocation.x = (0.5 + gridi % gridx) * (xlen / gridx);
-		nodeLocation.y = (0.5 + (int)floor(gridi / gridx) % gridy) * (ylen / gridy);
+		nodeLocation.x = (gridi % gridx) * (xlen / (gridx - 1));
+		nodeLocation.y = ((int)floor(gridi / gridx) % gridy) * (ylen / (gridy - 1));
 		if (gridz > 0 && zlen > 0) {
-			nodeLocation.z = (0.5 + (int)floor(gridi / (gridx * gridy)) % gridz) * (zlen / gridz);
+			nodeLocation.z = ((int)floor(gridi / (gridx * gridy)) % gridz) * (zlen / (gridz - 1));
 		} else {
 			nodeLocation.z = 0;
 		}
 		
 		if (random_flag) {
 			nodeLocation.x += normal(0, (xlen / gridx) * 0.3);
+			if (nodeLocation.x > xlen)
+				nodeLocation.x = xlen;
+			if (nodeLocation.x < 0)
+				nodeLocation.x = 0;
 			nodeLocation.y += normal(0, (ylen / gridy) * 0.3);
+			if (nodeLocation.y > ylen)
+				nodeLocation.y = ylen;
+			if (nodeLocation.y < 0)
+				nodeLocation.y = 0;
 			if (gridz > 0 && zlen > 0) {
 				nodeLocation.z += normal(0, (zlen / gridz) * 0.3);
+				if (nodeLocation.z > zlen)
+					nodeLocation.z = zlen;
+				if (nodeLocation.z < 0)
+					nodeLocation.z = 0;
 			}
 		}
 		return;

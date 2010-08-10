@@ -475,7 +475,7 @@ def printOutput(name,o):
 		else:
 			# go through each label in the output
 			for label in data:
-				(row,col) = createHeaders(short(label),options.order)				
+				(col,row) = createHeaders(short(label),options.order)				
 								
 				# aggregate node and index information into tmp_table
 				all_values = []

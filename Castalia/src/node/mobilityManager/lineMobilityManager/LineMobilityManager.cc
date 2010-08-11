@@ -17,7 +17,6 @@ Define_Module(LineMobilityManager);
 void LineMobilityManager::initialize()
 {
 	VirtualMobilityManager::initialize();
-	cModule *node = getParentModule();
 
 	updateInterval = par("updateInterval");
 	updateInterval = updateInterval / 1000;

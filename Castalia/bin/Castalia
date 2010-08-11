@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # ****************************************************************************
-# *  Copyright: National ICT Australia,  2007 - 2010                         *
+# *  Copyright: National ICT Australia,  2009 - 2010                         *
 # *  Developed at the ATP lab, Networked Systems research theme              *
 # *  Author(s): Yuriy Tselishchev                                            *
 # *  This file is distributed under the terms in the attached LICENSE file.  *
@@ -60,7 +60,7 @@ def generateConfig(dictionary,base,interleaved = []):
 	result = {}
 	for c in interleaved:
 		if (c not in dictionary):
-			quit("\nERROR: no such configuration, '" + c + "'\nAvaliable configurations: " + ", ".join(dictionary.keys()) + "\n")
+			quit("\nERROR: no such configuration, '" + c + "'\nAvailable configurations: " + ", ".join(dictionary.keys()) + "\n")
 		config = dictionary[c]
 		for k in config.keys():
 			if result.has_key(k) and result[k] != config[k]:
@@ -70,7 +70,7 @@ def generateConfig(dictionary,base,interleaved = []):
 	result2 = {}
 	for c in base:
 		if (c not in dictionary):
-			quit("\nERROR: no such configuration, '" + c + "'\nAvaliable configurations: " + ", ".join(dictionary.keys()) + "\n")
+			quit("\nERROR: no such configuration, '" + c + "'\nAvailable configurations: " + ", ".join(dictionary.keys()) + "\n")
 		config = dictionary[c]
 		for k in config.keys():
 			if result2.has_key(k) and result2[k] != config[k]:

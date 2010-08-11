@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # ****************************************************************************
-# *  Copyright: National ICT Australia,  2007 - 2010                         *
+# *  Copyright: National ICT Australia,  2009 - 2010                         *
 # *  Developed at the ATP lab, Networked Systems research theme              *
 # *  Author(s): Yuriy Tselishchev                                            *
 # *  This file is distributed under the terms in the attached LICENSE file.  *
@@ -318,7 +318,7 @@ def printModules():
 			table.addCell(row,"Dimensions",d)		# add dimensions
 			
 	table.printTable(1,["Module","Output"])
-	print "NOTE: select from the avaliable outputs using -s option\n"
+	print "NOTE: select from the available outputs using the -s option\n"
 
 def matchLabel(label,pattern):
 	if "=" in label:
@@ -636,7 +636,7 @@ def findFiles():
 	if row > 1:
 		print "Castalia output files in current directory:"
 		table.printTable()
-		print "NOTE: select from the avaliable files using -i option\n"
+		print "NOTE: select from the available files using the -i option\n"
 	else: print "No castalia output files found in current directory\n"
 
 print ""

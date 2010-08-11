@@ -1,4 +1,16 @@
 #!/usr/bin/python
+# ****************************************************************************
+# *  Copyright: National ICT Australia,  2007 - 2010                         *
+# *  Developed at the ATP lab, Networked Systems research theme              *
+# *  Author(s): Yuriy Tselishchev                                            *
+# *  This file is distributed under the terms in the attached LICENSE file.  *
+# *  If you do not find this file, copies can be found by writing to:        *
+# *                                                                          *
+# *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
+# *      Attention:  License Inquiry.                                        *
+# *                                                                          *
+# ***************************************************************************/
+
 import os, sys, commands, getopt, re, math
 from optparse import OptionParser
 
@@ -33,8 +45,8 @@ def _generate_index(str):
 	index = []
 	
 	def _append(fragment, alist=index):
-		if fragment.isdigit(): 
-			fragment = int(fragment)
+		if fragment[0].isdigit(): 
+			fragment = float(fragment)
 			if len(alist) > 0 and alist[-1][-1] == "-": 
 				fragment = -fragment
 				alist[-1] = alist[-1][:-1]

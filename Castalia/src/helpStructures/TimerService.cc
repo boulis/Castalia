@@ -23,18 +23,36 @@ void TimerService::timerFiredCallback(int timerIndex)
 
 void TimerService::cancelTimer(int timerIndex)
 {
-	std::map<int,TimerServiceMessage*>::iterator iter = timerMessages.find(timerIndex);
-	if (iter != timerMessages.end()) {
-		if (timerMessages[timerIndex] != NULL && timerMessages[timerIndex]->isScheduled()) {
-			cancelAndDelete(timerMessages[timerIndex]);
-		}
-		timerMessages.erase(iter);
-	}
+	if (timerIndex < 0)
+		opp_error("cancelTimer(): timerIndex=%i negative index is not allowed",timerIndex);
+	if (timerIndex >= TIMER_MAX_SIZE)
+		opp_error("cancelTimer(): timerIndex=%i is too large",timerIndex);
+	if (timerIndex > timerMessages.size())
+		return;
+	TimerServiceMessage* tmp = timerMessages[timerIndex];
+	if (tmp != NULL && tmp->isScheduled())
+		cancelAndDelete(tmp);
+	timerMessages[timerIndex] = NULL;
 }
 
 void TimerService::setTimer(int timerIndex, simtime_t time)
 {
+	if (timerIndex < 0)
+		opp_error("setTimer(): timerIndex=%i negative index is not allowed",timerIndex);
+	if (timerIndex >= TIMER_MAX_SIZE)
+		opp_error("setTimer(): timerIndex=%i is too large",timerIndex);
 	cancelTimer(timerIndex);
+	fprintf(stderr,"%i @ %f\n",timerIndex,SIMTIME_DBL(time));
+	if (timerIndex > timerMessages.size()) {
+		int newSize = timerMessages.size() * 2;
+		if (newSize < TIMER_MIN_SIZE)
+			newSize = TIMER_MIN_SIZE;
+		if (newSize > TIMER_MAX_SIZE)
+			newSize = TIMER_MAX_SIZE;
+		if (newSize < timerIndex)
+			newSize = timerIndex;
+		timerMessages.resize(newSize,NULL);
+	}
 	timerMessages[timerIndex] = new TimerServiceMessage("Timer message", TIMER_SERVICE);
 	timerMessages[timerIndex]->setTimerIndex(timerIndex);
 	scheduleAt(simTime() + timerDrift * time, timerMessages[timerIndex]);
@@ -46,12 +64,23 @@ void TimerService::handleTimerMessage(cMessage * msg)
 	if (msgKind == TIMER_SERVICE) {
 		TimerServiceMessage *timerMsg = check_and_cast<TimerServiceMessage*>(msg);
 		int timerIndex = timerMsg->getTimerIndex();
-		std::map<int,TimerServiceMessage*>::iterator iter = timerMessages.find(timerIndex);
-		if (iter != timerMessages.end()) {
-			timerMessages.erase(iter);
+		if (timerMessages[timerIndex] != NULL) {
+			timerMessages[timerIndex] = NULL;
 			timerFiredCallback(timerIndex);
-		}
+		} 
 	}
+}
+
+simtime_t TimerService::getTimer(int timerIndex) 
+{
+	if (timerIndex < 0)
+		opp_error("getTimer(): timerIndex=%i negative index is not allowed",timerIndex);
+	if (timerIndex >= TIMER_MAX_SIZE)
+		opp_error("getTimer(): timerIndex=%i is too large",timerIndex);
+	if (timerMessages[timerIndex] == NULL)
+		return -1;
+	else
+		return timerMessages[timerIndex]->getArrivalTime() * timerDrift;
 }
 
 simtime_t TimerService::getClock()

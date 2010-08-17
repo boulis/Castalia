@@ -16,7 +16,7 @@ ROOT=`pwd`
 
 # The following options are used by OMNeT's opp_makemake tool
 # For explanation and a complete list of options run: opp_makemake -h
-OPTS=" -f -r --deep -o CastaliaBin -u Cmdenv -P $ROOT -M debug"
+OPTS=" -f -r --deep -o CastaliaBin -u Cmdenv -P $ROOT -M release"
 
 # -X excludes a directory from being considered
 EXCLUDEDIRS=" -X Simulations -X out -X bin"

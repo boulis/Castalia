@@ -35,41 +35,46 @@ struct nullstream:ostream {
 	nullstream():ios(&m_sbuf), ostream(&m_sbuf) { }
 };
 
-struct outputKeyDef {
-	string descr;
-	int index;
-	outputKeyDef(const char *d, const int i):descr(d), index(i) {	} 
-	bool operator<(const outputKeyDef & A) const {
-		return (index < A.index || descr < A.descr);
-	}
-};
-
 struct simpleOutputTypeDef {
 	map <string,double> data;
 };
 
 struct histogramOutputTypeDef {
+	vector <int> buckets;
+};
+
+struct simpleOutputByIndex {
+	map <int, simpleOutputTypeDef> byIndex;
+};
+
+struct histogramOutputByIndex {
 	double min;
 	double max;
 	double cell;
 	int numBuckets;
 	bool active;
-	vector <int>buckets;
+	map <int, histogramOutputTypeDef> byIndex;
 };
 
-typedef map <outputKeyDef, simpleOutputTypeDef> simpleOutputMapType;
-typedef map <outputKeyDef, histogramOutputTypeDef> histogramOutputMapType;
+struct classPointersType {
+	cModule *resourceManager;
+
+	/* initialize the struct (C++ syntax) */
+	classPointersType():resourceManager(NULL) { }
+};
+
+typedef map <string, simpleOutputByIndex> simpleOutputMapType;
+typedef map <string, histogramOutputByIndex> histogramOutputMapType;
 
 class CastaliaModule: public virtual cSimpleModule {
  private:
 	simpleOutputMapType simpleoutputs;
 	histogramOutputMapType histograms;
 
-	cModule *resourceManager;
+	classPointersType classPointers;
 
 	void collectOutputNocheck(const char *, int, const char *, double);
 	void collectHistogramNocheck(const char *, int, double);
-	void declareHistogramNocheck(const char *, double, double, int, int);
 
  protected:
 	virtual void finish();
@@ -80,7 +85,6 @@ class CastaliaModule: public virtual cSimpleModule {
 	nullstream empty;
 
 	void declareOutput(const char *);
-	void declareOutput(const char *, int);
 
 	void collectOutput(const char *, int);
 	void collectOutput(const char *, int, const char *);
@@ -96,11 +100,7 @@ class CastaliaModule: public virtual cSimpleModule {
 		collectOutputNocheck(descr, -1, label, amt);
 	}
 
-	void declareHistogram(const char *descr, double min, double max, int buckets) {
-		declareHistogramNocheck(descr, min, max, buckets, -1);
-	}
-	void declareHistogram(const char *, double, double, int, int);
-
+	void declareHistogram(const char *, double, double, int);
 	void collectHistogram(const char *, int, double);
 	void collectHistogram(const char *descr, double value) {
 		collectHistogramNocheck(descr, -1, value);

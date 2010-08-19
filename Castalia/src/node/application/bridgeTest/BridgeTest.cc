@@ -144,8 +144,8 @@ void BridgeTest::handleSensorReading(SensorReadingMessage * sensorMsg)
 void BridgeTest::finishSpecific()
 {
 	if (isSink) {
+		declareOutput("Report reception");
 		for (int i = 0; i < (int)report_info_table.size(); i++) {
-			declareOutput("Report reception", report_info_table[i].source);
 			collectOutput("Report reception", report_info_table[i].source, 
 					"Success", report_info_table[i].parts.size());
 			collectOutput("Report reception", report_info_table[i].source, 

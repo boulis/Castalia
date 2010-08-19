@@ -31,6 +31,8 @@ void ThroughputTest::startup()
 		setTimer(SEND_PACKET, packet_spacing + startupDelay);
 	else
 		trace() << "Not sending packets";
+
+	declareOutput("Packets received");
 }
 
 void ThroughputTest::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
@@ -62,9 +64,6 @@ void ThroughputTest::timerFiredCallback(int index)
 // This method updates the number of packets received by node 0 from other nodes
 void ThroughputTest::update_packets_received(int srcID, int SN)
 {
-	map < int, packet_info >::iterator i = packet_info_table.find(srcID);
-	if (i == packet_info_table.end())
-		declareOutput("Packets received", srcID);
 	packet_info_table[srcID].packets_received[SN]++;
 	if (packet_info_table[srcID].packets_received[SN] == 1)
 		collectOutput("Packets received", srcID);

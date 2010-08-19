@@ -59,8 +59,8 @@ void ConnectivityMap::timerFiredCallback(int timerIndex)
 
 void ConnectivityMap::finishSpecific()
 {
+	declareOutput("Packets received");
 	for (int i = 0; i < (int)neighborTable.size(); i++) {
-		declareOutput("Packets received", neighborTable[i].id);
 		collectOutput("Packets received", neighborTable[i].id,
 			      "Success", neighborTable[i].receivedPackets);
 	}

@@ -45,6 +45,7 @@ def _generate_index(str):
 	index = []
 	
 	def _append(fragment, alist=index):
+		if not fragment: quit("ERROR: Malformed output file")
 		if fragment[0].isdigit(): 
 			fragment = float(fragment)
 			if len(alist) > 0 and alist[-1][-1] == "-": 
@@ -57,7 +58,7 @@ def _generate_index(str):
 	current_fragment = ''
 	# group a string into digit and non-digit parts
 	for char in str:
-		curr_isdigit = char.isdigit() or char == '.'
+		curr_isdigit = char.isdigit() or char == '.' and prev_isdigit and '.' not in current_fragment
 		if curr_isdigit == prev_isdigit:
 			current_fragment += char
 		else:

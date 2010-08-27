@@ -56,12 +56,31 @@ parser.add_option("-d","--debug", dest="debug", default=False, action="store_tru
 parser.add_option("-r","--repeat", dest="repeat", type="int", metavar="N", default=1, help="Number of repetitions for each unique scenario")
 (options,args) = parser.parse_args()
 
+def makeConfig(c,dictionary):
+	name,value = c.split('=',1)
+	quit(value)
+	matches = []
+	regexp = re.compile(name)
+	for c in dictionary:
+		for k in dictionary[c].keys():
+			if regexp.search(k) and k not in matches:
+				matches.append(k)
+	if len(matches) == 0:
+		quit("\nERROR: no parameters found to match: " + name)
+	if len(matches) > 1:
+		quit("\nERROR: ambiguious parameter: " + name + ", candidates are:\n" + "\n".join(matches))
+	return { matches[0]:value }
+	
 def generateConfig(dictionary,base,interleaved = []):
 	result = {}
 	for c in interleaved:
-		if (c not in dictionary):
+		if c in dictionary:
+			config = dictionary[c]
+# temporary removed functionality
+#		elif '=' in c:
+#			config = makeConfig(c,dictionary)
+		else:
 			quit("\nERROR: no such configuration, '" + c + "'\nAvailable configurations: " + ", ".join(dictionary.keys()) + "\n")
-		config = dictionary[c]
 		for k in config.keys():
 			if result.has_key(k) and result[k] != config[k]:
 				quit("\nERROR: conflicting values for parameter '" + k + "' in interleaved congigurations: '"+ result[k] +"' and '"+ config[k] +"'\n")
@@ -69,9 +88,13 @@ def generateConfig(dictionary,base,interleaved = []):
 	
 	result2 = {}
 	for c in base:
-		if (c not in dictionary):
+		if (c in dictionary):
+			config = dictionary[c]
+# temporary removed functionality
+#		elif '=' in c:
+#			config = makeConfig(c,dictionary)
+		else:
 			quit("\nERROR: no such configuration, '" + c + "'\nAvailable configurations: " + ", ".join(dictionary.keys()) + "\n")
-		config = dictionary[c]
 		for k in config.keys():
 			if result2.has_key(k) and result2[k] != config[k]:
 				quit("\nERROR: conflicting values for parameter '" + k + "' in base congigurations: '"+ result2[k] +"' and '"+ config[k] +"'\n")
@@ -106,9 +129,9 @@ def detectCPUs():
 	return 1 # Default
 
 ini = commands.getoutput(pathToExtract + " " + options.input).split("\n")
-if len(ini) < 2: quit("Unable to read configuration")
+if len(ini) < 2: quit("\nERROR: Unable to read configuration")
 if not os.path.exists(pathToCastaliaBin) or not os.path.isfile(pathToCastaliaBin):
-	quit("CastaliaBin not found (need to run make?)")
+	quit("\nERROR: CastaliaBin not found (need to run make?)")
 
 section = ""
 configDictionary = {}
@@ -126,7 +149,7 @@ for line in ini:
 
 	k = re.split("\s=\s",line,1)
 	if (len(k) != 2):
-		quit("Unexpected line in configuration file:\n" + line)
+		quit("\nERROR: Unexpected line in configuration file:\n" + line)
 		
 	currentConfig = {}
 	if (configDictionary.has_key(section)):
@@ -141,6 +164,9 @@ baseConfigList = []
 interleavedConfigList = []
 config = options.config
 
+if config[0] == ',' or config[-1] == ',':
+	quit("\nERROR: Configuration parameter cannot start or end with a comma\n\t" + config)
+
 while (config != ""):
 	m = re.match(r"^([^\[]*[^,\[]),?(.*)$",config)
 	if (m):
@@ -154,7 +180,7 @@ while (config != ""):
 		config = m.group(2)
 		continue
 
-	quit("Unknown configuration syntax: " + config)
+	quit("\nERROR: Unknown configuration syntax at\n\t" + config)
 
 #print baseConfigList
 #print interleavedConfigList
@@ -217,8 +243,11 @@ for ini in iniList:
 		if (m):
 			raw_result = []
 			has_result = 0
-			line = m.group(1).replace("$","").strip(" ,")
-			if len(line) > 0: label = baselabel + "," + line
+			line = m.group(1).replace("$","").replace(" ","").strip(",")
+			if len(line) > 0: 
+				if len(baselabel): label = baselabel + "," + line
+				else: label = line
+			if len(label) == 0: label = "None"
 			fr.write("Castalia| label:"+label+"\n")
 			continue
 		if (re.match("^Castalia|\s+(.*)$",line)):

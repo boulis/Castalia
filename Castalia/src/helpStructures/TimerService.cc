@@ -42,7 +42,6 @@ void TimerService::setTimer(int timerIndex, simtime_t time)
 	if (timerIndex >= TIMER_MAX_SIZE)
 		opp_error("setTimer(): timerIndex=%i is too large",timerIndex);
 	cancelTimer(timerIndex);
-	fprintf(stderr,"%i @ %f\n",timerIndex,SIMTIME_DBL(time));
 	if (timerIndex > timerMessages.size()) {
 		int newSize = timerMessages.size() * 2;
 		if (newSize < TIMER_MIN_SIZE)

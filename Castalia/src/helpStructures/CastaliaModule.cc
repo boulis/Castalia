@@ -162,12 +162,12 @@ void CastaliaModule::collectHistogramNocheck(const char *descr, int index, doubl
 		num = (int)floor((value - i1->second.min) / i1->second.cell);
 	map <int,histogramOutputTypeDef>::iterator i2 = i1->second.byIndex.find(index);
 	if (i2 == i1->second.byIndex.end()) {
-		histogramOutputTypeDef *histBuckets = &i2->second;
-		histBuckets->buckets.resize(i1->second.numBuckets + 1);
+		histogramOutputTypeDef histBuckets;
+		histBuckets.buckets.resize(i1->second.numBuckets + 1);
 		for (int i = 0; i <= i1->second.numBuckets; i++)
-			histBuckets->buckets[i] = 0;
+			histBuckets.buckets[i] = 0;
+		i1->second.byIndex[index] = histBuckets;
 	}
-	
 	i1->second.byIndex[index].buckets[num]++;
 	i1->second.active = true;
 }

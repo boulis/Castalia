@@ -69,7 +69,7 @@ def makeConfig(c,dictionary):
 	if len(matches) == 0:
 		quit("\nERROR: no parameters found to match: " + name)
 	if len(matches) > 1:
-		quit("\nERROR: ambiguious parameter: " + name + ", candidates are:\n" + "\n".join(matches))
+		quit("\nERROR: ambiguous  parameter: '" + name + "', candidates are:\n" + "\n".join(matches))
 	if not customConfigList[int(value)]:
 		quit("\nERROR: unable to create internal configuration for\n" + c)
 	return { matches[0]:customConfigList[int(value)] }

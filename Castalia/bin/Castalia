@@ -56,11 +56,12 @@ parser.add_option("-d","--debug", dest="debug", default=False, action="store_tru
 parser.add_option("-r","--repeat", dest="repeat", type="int", metavar="N", default=1, help="Number of repetitions for each unique scenario")
 (options,args) = parser.parse_args()
 
+customConfigList = []
+
 def makeConfig(c,dictionary):
 	name,value = c.split('=',1)
-	quit(value)
 	matches = []
-	regexp = re.compile(name)
+	regexp = re.compile(name, re.I)
 	for c in dictionary:
 		for k in dictionary[c].keys():
 			if regexp.search(k) and k not in matches:
@@ -69,16 +70,17 @@ def makeConfig(c,dictionary):
 		quit("\nERROR: no parameters found to match: " + name)
 	if len(matches) > 1:
 		quit("\nERROR: ambiguious parameter: " + name + ", candidates are:\n" + "\n".join(matches))
-	return { matches[0]:value }
+	if not customConfigList[int(value)]:
+		quit("\nERROR: unable to create internal configuration for\n" + c)
+	return { matches[0]:customConfigList[int(value)] }
 	
 def generateConfig(dictionary,base,interleaved = []):
 	result = {}
 	for c in interleaved:
 		if c in dictionary:
 			config = dictionary[c]
-# temporary removed functionality
-#		elif '=' in c:
-#			config = makeConfig(c,dictionary)
+		elif '=' in c:
+			config = makeConfig(c,dictionary)
 		else:
 			quit("\nERROR: no such configuration, '" + c + "'\nAvailable configurations: " + ", ".join(dictionary.keys()) + "\n")
 		for k in config.keys():
@@ -90,9 +92,8 @@ def generateConfig(dictionary,base,interleaved = []):
 	for c in base:
 		if (c in dictionary):
 			config = dictionary[c]
-# temporary removed functionality
-#		elif '=' in c:
-#			config = makeConfig(c,dictionary)
+		elif '=' in c:
+			config = makeConfig(c,dictionary)
 		else:
 			quit("\nERROR: no such configuration, '" + c + "'\nAvailable configurations: " + ", ".join(dictionary.keys()) + "\n")
 		for k in config.keys():
@@ -167,6 +168,40 @@ config = options.config
 if config[0] == ',' or config[-1] == ',':
 	quit("\nERROR: Configuration parameter cannot start or end with a comma\n\t" + config)
 
+tmpconfig = config
+config = ""
+
+while (tmpconfig != ""):
+	m = re.match(r"^([^=]*=)(\"[^\"]*\")(.*)$",tmpconfig)
+	if (m):
+		config += m.group(1)
+		config += str(len(customConfigList))
+		customConfigList.append(m.group(2))
+		tmpconfig = m.group(3)
+		continue
+	
+	m = re.match(r"^([^=]*=)(\$\{[^\}]*\})(.*)$",tmpconfig)
+	if (m):
+		print m.group(1), m.group(2), m.group(3)
+		config += m.group(1)
+		config += str(len(customConfigList))
+		customConfigList.append(m.group(2))
+		tmpconfig = m.group(3)
+		continue
+	
+	m = re.match(r"^([^=]*=)([^,\[]*)(.*)$",tmpconfig)
+	if (m):
+		config += m.group(1)
+		config += str(len(customConfigList))
+		customConfigList.append(m.group(2))
+		tmpconfig = m.group(3)
+		continue
+	
+	m = re.match(r"^([^=]*)$",tmpconfig)
+	if (m):
+		config += m.group(1)
+		tmpconfig = ""
+
 while (config != ""):
 	m = re.match(r"^([^\[]*[^,\[]),?(.*)$",config)
 	if (m):
@@ -184,6 +219,7 @@ while (config != ""):
 
 #print baseConfigList
 #print interleavedConfigList
+#print customConfigList
 
 iniList = []
 labelList = []

@@ -45,8 +45,7 @@ def _generate_index(str):
 	index = []
 	
 	def _append(fragment, alist=index):
-		if not fragment: quit("ERROR: Malformed output file")
-		if fragment[0].isdigit(): 
+		if fragment and fragment[0].isdigit(): 
 			fragment = float(fragment)
 			if len(alist) > 0 and alist[-1][-1] == "-": 
 				fragment = -fragment
@@ -129,7 +128,7 @@ class Table():
 			
 			# loop through all rows of the table
 			first_row = 1
-			for row in sorted_copy(self.rows):
+			for row in sorted_copy(self.rows.keys()):
 				# check if we have row filter. If yes, it has to match for row to be displayed
 				if regexp == None or regexp.search(row):
 					
@@ -160,7 +159,7 @@ class Table():
 		elif self.output == 2:
 			first_row = 1
 			# loop through all rows of the table
-			for row in sorted_copy(self.rows):
+			for row in sorted_copy(self.rows.keys()):
 				# check if we have row filter. If yes, it has to match for row to be displayed
 				if regexp == None or regexp.search(row):
 					

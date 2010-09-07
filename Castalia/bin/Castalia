@@ -60,19 +60,12 @@ customConfigList = []
 
 def makeConfig(c,dictionary):
 	name,value = c.split('=',1)
-	matches = []
-	regexp = re.compile(name, re.I)
-	for c in dictionary:
-		for k in dictionary[c].keys():
-			if regexp.search(k) and k not in matches:
-				matches.append(k)
-	if len(matches) == 0:
-		quit("\nERROR: no parameters found to match: " + name)
-	if len(matches) > 1:
-		quit("\nERROR: ambiguous  parameter: '" + name + "', candidates are:\n" + "\n".join(matches))
-	if not customConfigList[int(value)]:
-		quit("\nERROR: unable to create internal configuration for\n" + c)
-	return { matches[0]:customConfigList[int(value)] }
+	if name not in dictionary:
+		quit("\nERROR: no such configuration, '" + name + "'\nAvailable configurations: " + ", ".join(dictionary.keys()))
+	c = dictionary[name]
+	if len(c.keys()) > 1:
+		quit("\nERROR: configuration '" + name + "' has more than one parameter and cannot be used with '=' syntax")
+	return { c.keys()[0]:customConfigList[int(value)] }
 	
 def generateConfig(dictionary,base,interleaved = []):
 	result = {}

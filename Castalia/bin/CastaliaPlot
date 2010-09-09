@@ -1,0 +1,139 @@
+#!/usr/bin/python
+# ****************************************************************************
+# *  Copyright: National ICT Australia,  2009 - 2010                         *
+# *  Developed at the ATP lab, Networked Systems research theme              *
+# *  Author(s): Yuriy Tselishchev                                            *
+# *  This file is distributed under the terms in the attached LICENSE file.  *
+# *  If you do not find this file, copies can be found by writing to:        *
+# *                                                                          *
+# *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
+# *      Attention:  License Inquiry.                                        *
+# *                                                                          *
+# ***************************************************************************/
+
+import os, sys, commands, getopt, re
+from optparse import OptionParser
+
+styles = ["linespoints","histogram","rowstacked"]
+
+parser = OptionParser(usage="usage: %prog [options]")
+parser.add_option("-d","--debug", dest="debug", default=False, action="store_true", help="Debug mode, will display gnuplot commands as they are dispatched")
+parser.add_option("-l","--legend", dest="legend", type="string", help="Set legend position (passed to gnuplot directly with 'set key')")
+parser.add_option("-o","--output", dest="output", type="string", default="plot.ps", metavar="FILE", help="Select output file, default is 'plot.png'")
+parser.add_option("-s","--style", dest="style", type="string", default="linespoints", help="Plot style to be used, supported values: " + ", ".join(styles))
+parser.add_option("--gnuplot", dest="gnuplot", type="string", default="gnuplot", help="Path to gnuplot executable, default is 'gnuplot'")
+parser.add_option("--xtics", dest="xtics", type="string", help="Set xtics (passed to gnuplot directly with 'set xtics')")
+parser.add_option("--xtitle", dest="xtitle", type="string", help="Set title of x-axis, will be determined automatically by default")
+parser.add_option("--ytitle", dest="ytitle", type="string", help="Set title of y-axis, not displayed by deafult")
+(options,args) = parser.parse_args()
+
+lines = sys.stdin.readlines()
+title = ""
+xtitle = ""
+xlabels = []
+labels = []
+table = []
+
+for line in lines:
+	m = re.match(r"[-+ \n]+$",line)
+	if (m): continue
+	data = line.strip().strip("|").split("|")
+	if len(data) == 0: continue
+	if len(data) == 1:
+		if not title:
+			title = data[0].split(":")[1]
+		else:
+			quit("\nERROR: unable to plot this table or bad input syntax\n")
+	elif title and not xlabels:
+		for name in data:
+			name = name.strip().replace("\"","")
+			if len(name) < 1: continue
+			m = re.match(r"^([^\=]+)\=([^\=]+)$",name)
+			if (m):
+				if xtitle == "":
+					xtitle = m.group(1)
+				elif xtitle != m.group(1):
+					xtitle = ""
+					break
+				xlabels.append(m.group(2))
+			else:
+				break
+		if xtitle == "":
+			xlabels = []
+			for name in data:
+				name = name.strip()
+				if len(name) > 0:
+					xlabels.append(name)
+	else:
+		labels.append(data.pop(0).strip())
+		row = 0
+		for d in data:
+			if row >= len(table): table.append([])
+			table[row].append(d.strip())
+			row += 1
+
+fname = "data" + str(os.getpid()) + ".dat"
+fr = open(fname,"w")
+
+if (options.style == 'rowstacked'):
+	fr.write("title \"" + "\" \"".join(xlabels) + "\"\n")
+	while len(labels) > 0:
+		fr.write("\"" + labels.pop(0) + "\"");
+		for d in table:
+			fr.write(" " + d[len(d) - len(labels) - 1])
+		fr.write("\n")
+	fr.close()
+else:
+	fr.write("title \"" + "\" \"".join(labels) + "\"\n")
+	while len(xlabels) > 0:
+		fr.write("\"" + xlabels.pop(0) + "\" " + " ".join(table.pop(0)) + "\n")
+	fr.close()
+
+if options.style not in styles:
+	quit("\nERROR: unknown style, supported values: " + ", ".join(styles))
+	
+f = os.popen(options.gnuplot,'w')
+print >>f, "set term postscript enhanced color"
+print >>f, "set output \"" + options.output + "\""
+print >>f, "set title '" + title + "'"
+if options.xtics: print >>f, "set xtics " + options.xtics
+if options.legend: print >>f, "set key " + options.legend
+if options.xtitle: print >>f, "set xlabel '" + options.xtitle + "'"
+elif xtitle != "": print >>f, "set xlabel '" + xtitle + "'"
+if options.ytitle: print >>f, "set ylabel '" + options.ytitle + "'"
+
+if options.style == "linespoints":
+	print >>f, "set style data linespoints"
+	plotcmd = "plot './" + fname + "' using 2:xtic(1) ti col"
+	i = 2
+	while i <= len(labels):
+		i += 1
+		plotcmd += ", '' u " + str(i) + " ti col"
+	print >>f, plotcmd
+elif options.style == "histogram":
+	print >>f, "set style data histogram"
+	print >>f, "set style histogram cluster gap 1"
+	print >>f, "set style fill solid border -1"
+	plotcmd = "plot './" + fname + "' using 2:xtic(1) ti col"
+	i = 2
+	while i <= len(labels):
+		i += 1
+		plotcmd += ", '' u " + str(i) + " ti col"
+	print >>f, plotcmd
+elif options.style == "rowstacked":
+	print >>f, "set style data histogram"
+	print >>f, "set style histogram rowstacked"
+	print >>f, "set style fill solid border -1"
+	plotcmd = "plot './" + fname + "' using 2:xtic(1) ti col"
+	i = 2
+	while i <= len(xlabels):
+		i += 1
+		plotcmd += ", '' u " + str(i) + " ti col"
+	print >>f, plotcmd
+
+f.flush()
+f.close()
+
+commands.getoutput("rm " + fname)
+
+

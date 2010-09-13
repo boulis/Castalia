@@ -19,7 +19,7 @@ styles = ["linespoints","histogram","rowstacked"]
 parser = OptionParser(usage="usage: %prog [options]")
 parser.add_option("-d","--debug", dest="debug", default=False, action="store_true", help="Debug mode, will display gnuplot commands as they are dispatched")
 parser.add_option("-l","--legend", dest="legend", type="string", help="Set legend position (passed to gnuplot directly with 'set key')")
-parser.add_option("-o","--output", dest="output", type="string", default="plot.ps", metavar="FILE", help="Select output file, default is 'plot.png'")
+parser.add_option("-o","--output", dest="output", type="string", default="plot.png", metavar="FILE", help="Select output file, default is 'plot.png'")
 parser.add_option("-s","--style", dest="style", type="string", default="linespoints", help="Plot style to be used, supported values: " + ", ".join(styles))
 parser.add_option("--gnuplot", dest="gnuplot", type="string", default="gnuplot", help="Path to gnuplot executable, default is 'gnuplot'")
 parser.add_option("--xtics", dest="xtics", type="string", help="Set xtics (passed to gnuplot directly with 'set xtics')")
@@ -33,6 +33,7 @@ xtitle = ""
 xlabels = []
 labels = []
 table = []
+datasets = 0
 
 for line in lines:
 	m = re.match(r"[-+ \n]+$",line)
@@ -65,7 +66,11 @@ for line in lines:
 				if len(name) > 0:
 					xlabels.append(name)
 	else:
-		labels.append(data.pop(0).strip())
+		datasets += 1
+		if len(labels) > len(xlabels):
+			labels.append(data.pop(0).strip())
+		else:
+			labels.append("row " + str(datasets))
 		row = 0
 		for d in data:
 			if row >= len(table): table.append([])
@@ -91,10 +96,16 @@ else:
 
 if options.style not in styles:
 	quit("\nERROR: unknown style, supported values: " + ", ".join(styles))
+
+name,ext = options.output.split(".")
+if ext != 'ps' and ext != 'eps':
+	name += ".ps"
+else:
+	name = options.output
 	
 f = os.popen(options.gnuplot,'w')
 print >>f, "set term postscript enhanced color"
-print >>f, "set output \"" + options.output + "\""
+print >>f, "set output \"" + name + "\""
 print >>f, "set title '" + title + "'"
 if options.xtics: print >>f, "set xtics " + options.xtics
 if options.legend: print >>f, "set key " + options.legend
@@ -134,6 +145,15 @@ elif options.style == "rowstacked":
 f.flush()
 f.close()
 
+if name != options.output:
+	r = commands.getoutput("convert -rotate 90 " + name + " " + options.output + " 2>&1")
+	commands.getoutput("rm " + name)	
+else:
+	r = ""
+
 commands.getoutput("rm " + fname)
+if r and r != "":
+	quit("\nERROR:\n" + r)
+	
 
 

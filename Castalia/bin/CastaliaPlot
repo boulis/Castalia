@@ -18,8 +18,8 @@ styles = ["linespoints","histogram","rowstacked"]
 
 parser = OptionParser(usage="usage: %prog [options]")
 parser.add_option("-d","--debug", dest="debug", default=False, action="store_true", help="Debug mode, will display gnuplot commands as they are dispatched")
-parser.add_option("-l","--legend", dest="legend", type="string", help="Set legend position (passed to gnuplot directly with 'set key')")
-parser.add_option("-o","--output", dest="output", type="string", default="plot.png", metavar="FILE", help="Select output file, default is 'plot.png'")
+parser.add_option("-l","--legend", dest="legend", type="string", default="", help="Set legend position (passed to gnuplot directly with 'set key')")
+parser.add_option("-o","--output", dest="output", type="string", default="plot.ps", metavar="FILE", help="Select output file, default is 'plot.ps'")
 parser.add_option("-s","--style", dest="style", type="string", default="linespoints", help="Plot style to be used, supported values: " + ", ".join(styles))
 parser.add_option("--gnuplot", dest="gnuplot", type="string", default="gnuplot", help="Path to gnuplot executable, default is 'gnuplot'")
 parser.add_option("--xtics", dest="xtics", type="string", help="Set xtics (passed to gnuplot directly with 'set xtics')")
@@ -34,6 +34,31 @@ xlabels = []
 labels = []
 table = []
 datasets = 0
+longlabels = 0
+
+def extract_common(llist):
+	common = ""
+	result = []
+	for l in llist:
+		l = l.strip().replace("\"","")
+		if len(l) < 1: continue
+		m = re.match(r"^([^\=]+)\=([^\=]+)$",l)
+		if (m):
+			if common == "":
+				common = m.group(1)
+			elif common != m.group(1):
+				common = ""
+				break
+			result.append(m.group(2))
+		else:
+			break
+	if common == "":
+		result = []
+		for l in llist:
+			l = l.strip()
+			if len(l) > 0:
+				result.append(l)
+	return result,common
 
 for line in lines:
 	m = re.match(r"[-+ \n]+$",line)
@@ -46,28 +71,10 @@ for line in lines:
 		else:
 			quit("\nERROR: unable to plot this table or bad input syntax\n")
 	elif title and not xlabels:
-		for name in data:
-			name = name.strip().replace("\"","")
-			if len(name) < 1: continue
-			m = re.match(r"^([^\=]+)\=([^\=]+)$",name)
-			if (m):
-				if xtitle == "":
-					xtitle = m.group(1)
-				elif xtitle != m.group(1):
-					xtitle = ""
-					break
-				xlabels.append(m.group(2))
-			else:
-				break
-		if xtitle == "":
-			xlabels = []
-			for name in data:
-				name = name.strip()
-				if len(name) > 0:
-					xlabels.append(name)
+		xlabels,xtitle = extract_common(data)
 	else:
 		datasets += 1
-		if len(labels) > len(xlabels):
+		if len(data) > len(xlabels):
 			labels.append(data.pop(0).strip())
 		else:
 			labels.append("row " + str(datasets))
@@ -77,21 +84,35 @@ for line in lines:
 			table[row].append(d.strip())
 			row += 1
 
+labels,ltitle = extract_common(labels)
+
 fname = "data" + str(os.getpid()) + ".dat"
 fr = open(fname,"w")
 
-if (options.style == 'rowstacked'):
-	fr.write("title \"" + "\" \"".join(xlabels) + "\"\n")
+def myprint(fr,line):
+	if options.debug:
+		print line
+	print >>fr, line
+
+if options.debug:
+	print("\n===DEBUG: input data file===")
+if options.style == 'rowstacked':
+	myprint(fr, "title \"" + "\" \"".join(xlabels) + "\"")
 	while len(labels) > 0:
-		fr.write("\"" + labels.pop(0) + "\"");
+		if len(labels[0]) > 5: longlabels = 1
+		line = "\"" + labels.pop(0) + "\""
 		for d in table:
-			fr.write(" " + d[len(d) - len(labels) - 1])
-		fr.write("\n")
+			line += " " + d[len(d) - len(labels) - 1]
+		myprint(fr, line)
 	fr.close()
+	tmp = xtitle
+	xtitle = ltitle
+	ltitle = tmp
 else:
-	fr.write("title \"" + "\" \"".join(labels) + "\"\n")
+	myprint(fr, "title \"" + "\" \"".join(labels) + "\"")
 	while len(xlabels) > 0:
-		fr.write("\"" + xlabels.pop(0) + "\" " + " ".join(table.pop(0)) + "\n")
+		if len(xlabels[0]) > 5: longlabels = 1
+		myprint(fr, "\"" + xlabels.pop(0) + "\" " + " ".join(table.pop(0)))
 	fr.close()
 
 if options.style not in styles:
@@ -102,45 +123,50 @@ if ext != 'ps' and ext != 'eps':
 	name += ".ps"
 else:
 	name = options.output
-	
+
+if options.debug:
+	print("\n===DEBUG: gnuplot commands===")	
 f = os.popen(options.gnuplot,'w')
-print >>f, "set term postscript enhanced color"
-print >>f, "set output \"" + name + "\""
-print >>f, "set title '" + title + "'"
-if options.xtics: print >>f, "set xtics " + options.xtics
-if options.legend: print >>f, "set key " + options.legend
-if options.xtitle: print >>f, "set xlabel '" + options.xtitle + "'"
-elif xtitle != "": print >>f, "set xlabel '" + xtitle + "'"
-if options.ytitle: print >>f, "set ylabel '" + options.ytitle + "'"
+myprint(f, "set term postscript enhanced color")
+myprint(f, "set output \"" + name + "\"")
+myprint(f, "set title \"" + title + "\"")
+if options.xtics: myprint(f, "set xtics " + options.xtics)
+elif longlabels: myprint(f, "set xtics nomirror rotate by -45")
+key = "set key "
+if ltitle != "": key += "title \"" + ltitle + "\" "
+if ltitle != "" or options.legend: myprint(f, key + options.legend)
+if options.xtitle: myprint(f, "set xlabel '" + options.xtitle + "'")
+elif xtitle != "": myprint(f, "set xlabel '" + xtitle + "'")
+if options.ytitle: myprint(f, "set ylabel '" + options.ytitle + "'")
 
 if options.style == "linespoints":
-	print >>f, "set style data linespoints"
+	myprint(f, "set style data linespoints")
 	plotcmd = "plot './" + fname + "' using 2:xtic(1) ti col"
 	i = 2
 	while i <= len(labels):
 		i += 1
 		plotcmd += ", '' u " + str(i) + " ti col"
-	print >>f, plotcmd
+	myprint(f, plotcmd)
 elif options.style == "histogram":
-	print >>f, "set style data histogram"
-	print >>f, "set style histogram cluster gap 1"
-	print >>f, "set style fill solid border -1"
+	myprint(f, "set style data histogram")
+	myprint(f, "set style histogram cluster gap 1")
+	myprint(f, "set style fill solid border -1")
 	plotcmd = "plot './" + fname + "' using 2:xtic(1) ti col"
 	i = 2
 	while i <= len(labels):
 		i += 1
 		plotcmd += ", '' u " + str(i) + " ti col"
-	print >>f, plotcmd
+	myprint(f, plotcmd)
 elif options.style == "rowstacked":
-	print >>f, "set style data histogram"
-	print >>f, "set style histogram rowstacked"
-	print >>f, "set style fill solid border -1"
+	myprint(f, "set style data histogram")
+	myprint(f, "set style histogram rowstacked")
+	myprint(f, "set style fill solid border -1")
 	plotcmd = "plot './" + fname + "' using 2:xtic(1) ti col"
 	i = 2
 	while i <= len(xlabels):
 		i += 1
 		plotcmd += ", '' u " + str(i) + " ti col"
-	print >>f, plotcmd
+	myprint(f, plotcmd)
 
 f.flush()
 f.close()

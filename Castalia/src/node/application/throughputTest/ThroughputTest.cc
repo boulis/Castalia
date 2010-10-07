@@ -32,7 +32,8 @@ void ThroughputTest::startup()
 	else
 		trace() << "Not sending packets";
 
-	declareOutput("Packets received");
+	declareOutput("Packets received per node");
+	declareOutput("total packets received");
 }
 
 void ThroughputTest::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
@@ -42,6 +43,7 @@ void ThroughputTest::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket,
 
 	if (recipientAddress.compare(SELF_NETWORK_ADDRESS) == 0) {
 		trace() << "Received packet from node " << source << ", SN = " << sequenceNumber;
+		collectOutput("total packets received");
 		update_packets_received(atoi(source), sequenceNumber);
 	} else {
 		toNetworkLayer(rcvPacket->dup(), recipientAddress.c_str());
@@ -66,7 +68,7 @@ void ThroughputTest::update_packets_received(int srcID, int SN)
 {
 	packet_info_table[srcID].packets_received[SN]++;
 	if (packet_info_table[srcID].packets_received[SN] == 1)
-		collectOutput("Packets received", srcID);
+		collectOutput("Packets received per node", srcID);
 }
 
 

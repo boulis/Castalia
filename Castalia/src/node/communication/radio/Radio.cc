@@ -740,6 +740,12 @@ double Radio::readRSSI()
 	if (currentTime > limitTime)
 		return CS_NOT_VALID_YET;
 
+	// special case when a naive model is needed: the current total signal power returned immediately
+	if (rssiIntegrationTime <= 0) {
+		RSSI = it1->power_dBm;
+		it1++;
+	}
+
 	// the rest of the elements are now irrelevant and should be deleted
 	totalPowerReceived.erase(it1, totalPowerReceived.end());
 	return RSSI;

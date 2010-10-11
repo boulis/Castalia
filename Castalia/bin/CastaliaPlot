@@ -168,12 +168,13 @@ else:
 	if options.grey:
 		myprint(f, "set style fill pattern border -1")
 	else:
-		myprint(f, "set style fill solid border -1")
+		myprint(f, "set style fill solid 0.5 noborder")
 
 plots = []
 if options.style == "rowstacked":
 	for i in range(0,len(labels)):
-		plots.append("using " + str(i+2) + ":key(1) title col")
+		if i == 0: plots.append("using " + str(i+2) + ":key(1) ti col")
+		else: plots.append("using " + str(i+2) + " ti col")
 else:
 	for i in range(0,len(labels)):
 		if ci != 0 and i >= ci:

@@ -477,7 +477,6 @@ def printOutput(name,o):
 						# key is used to retrieve data from the output
 						key = str(n)+":"+str(i)
 						if key not in data[label]: continue
-					
 						# determine row and column headers depending on which dimension is primary
 						row = short(label)
 						if print_n: row += ",node="+str(n)
@@ -528,92 +527,119 @@ def readFile(file):
 	f.close()
 
 	# parse the input 
-	bl = "Unknown"
+	bl = module = "Unknown"
+	n = i = -1
+	level = 0
+	# levels:
+	# 0 - none, expect 'label'
+	# 1 - label, expect 'module'
+	# 2 - module, expect 'output', 'output+index', 'histogram'
+	# 3 - output, expect data
+	# 4 - histogram, expect min, values
 	for line in lines:
 		# check the 'Castalia|' prefix
 		m = re.match(r"^Castalia\|\s+(.+)$",line)
 		if (m): line = m.group(1)
 		else: continue
 
-		# check for label declaration
-		m = re.match(r"^label:(.+)$",line)
-		if (m):
-			bl = m.group(1)
-			if not options.long:
-				list = bl.split(",")
-				i = 0
-				for l in list:
-					if i not in labels: labels[i] = []
-					if l not in labels[i]: labels[i].append(l)
-					i += 1
-			continue
-
-		# check for module declaration
-		m = re.match(r"^module:SN\.(.+)$",line)
-		if (m):
-			line = m.group(1)
-			i = -1
-			# within module declaration look for node information
-			m = re.match(r"^node\[(\d+)\]\.(.+)$",line)
+		if level == 3:
+			# check for output data
+			m = re.match(r"^([-+]?[0-9]*\.?[0-9]+)\s*(.*)$",line);
 			if (m):
-				n = m.group(1)
-				module = m.group(2)
+				saveOutput(module,n,i,o,bl,m.group(2),m.group(1))
+				continue
 			else:
-				module = line
-				n = -1
-			continue
-
-		# check for simple output declaration
-		m = re.match(r"^simple output name:(.+)$",line)
-		if (m):
-			o = m.group(1)
-			continue
-
-		# check for simple output declaration with an index
-		m = re.match(r"^index:(\d+) simple output name:(.+)$",line)
-		if (m):
-			i = m.group(1)
-			o = m.group(2)
-			continue
-
-		# check for output data
-		m = re.match(r"^([-+]?[0-9]*\.?[0-9]+)\s*(.*)$",line);
-		if (m):
-			saveOutput(module,n,i,o,bl,m.group(2),m.group(1))
-			continue
+				level = 2
+				
+				
+		if level == 4: 
+			# check for histogram parameters
+			m = re.match(r"histogram_min:([-+]?[0-9]*\.?[0-9]+) histogram_max:([-+]?[0-9]*\.?[0-9]+)$",line)
+			if (m):
+				histogram_min = float(m.group(1))
+				histogram_max = float(m.group(2))
+				continue
 	
-		# check for histogram declaration
-		m = re.match(r"^histogram name:(.+)$", line)
-		if (m):
-			o = m.group(1)
-			continue
-	
-		# check for histogram parameters
-		m = re.match(r"histogram_min:([-+]?[0-9]*\.?[0-9]+) histogram_max:([-+]?[0-9]*\.?[0-9]+)$",line)
-		if (m):
-			histogram_min = float(m.group(1))
-			histogram_max = float(m.group(2))
-			continue
-	
-		# check for histogram values, calculate histogram properties and save values
-		m = re.match(r"histogram_values\s(.+)$",line)
-		if (m):
-			vals = m.group(1).split(" ")
-			size = len(vals) - 1
-			step = float(histogram_max - histogram_min)/size
-			curr = histogram_min
-			if is_int(step): step = int(step)
-			if is_int(curr): curr = int(curr)
-			for val in vals:
-				next = curr+step
-				if is_int(next): next = int(next)
-				if next > histogram_max: next = "inf"
-				saveOutput(module,n,i,o,bl,"["+str(curr)+","+str(next)+")",val)
-				curr += step
-			continue
+			# check for histogram values, calculate histogram properties and save values
+			m = re.match(r"histogram_values\s(.+)$",line)
+			if (m):
+				vals = m.group(1).split(" ")
+				size = len(vals) - 1
+				step = float(histogram_max - histogram_min)/size
+				curr = histogram_min
+				if is_int(step): step = int(step)
+				if is_int(curr): curr = int(curr)
+				for val in vals:
+					next = curr+step
+					if is_int(next): next = int(next)
+					if next > histogram_max: next = "inf"
+					saveOutput(module,n,i,o,bl,"["+str(curr)+","+str(next)+")",val)
+					curr += step
+				level = 2
+				continue
 		
+		if level == 2:
+			# check for simple output declaration
+			m = re.match(r"^simple output name:(.+)$",line)
+			if (m):
+				i = -1
+				o = m.group(1)
+				level = 3
+				continue
+
+			# check for simple output declaration with an index
+			m = re.match(r"^index:(\d+) simple output name:(.+)$",line)
+			if (m):
+				i = m.group(1)
+				o = m.group(2)
+				level = 3
+				continue
+
+			# check for histogram declaration
+			m = re.match(r"^histogram name:(.+)$", line)
+			if (m):
+				o = m.group(1)
+				level = 4
+				continue
+			
+			level = 1
+	
+		if level == 1:
+			# check for module declaration
+			m = re.match(r"^module:SN\.(.+)$",line)
+			if (m):
+				line = m.group(1)
+				i = -1
+				# within module declaration look for node information
+				m = re.match(r"^node\[(\d+)\]\.(.+)$",line)
+				if (m):
+					n = m.group(1)
+					module = m.group(2)
+				else:
+					module = line
+					n = -1
+				level = 2
+				continue
+
+			level = 0	
+
+		if level == 0:	
+			# check for label declaration
+			m = re.match(r"^label:(.+)$",line)
+			if (m):
+				bl = m.group(1)
+				if not options.long:
+					list = bl.split(",")
+					i = 0
+					for l in list:
+						if i not in labels: labels[i] = []
+						if l not in labels[i]: labels[i].append(l)
+						i += 1
+				level = 1
+				continue
+	
 		if re.match(r"what:(.+)$",line) or re.match(r"when:(.+)$",line): continue
-		print "Unknown input: " + line
+		print "Unknown input at level " + str(level) + ": " + line
 
 # find and print list of input files
 def findFiles():

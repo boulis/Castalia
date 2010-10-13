@@ -526,6 +526,20 @@ def readFile(file):
 	lines = f.readlines()
 	f.close()
 
+	# prepare regex
+	r_castalia = re.compile("^Castalia\|\s+(.+)$")
+	r_output = re.compile("^([-+]?[0-9]*\.?[0-9]+)\s*(.*)$")
+	r_histogram = re.compile("^histogram name:(.+)$")
+	r_histogram_params = re.compile("histogram_min:([-+]?[0-9]*\.?[0-9]+) histogram_max:([-+]?[0-9]*\.?[0-9]+)$")
+	r_histogram_values = re.compile("histogram_values\s(.+)$")
+	r_simple = re.compile("^simple output name:(.+)$")
+	r_simple_index = re.compile("^index:(\d+) simple output name:(.+)$")
+	r_module = re.compile("^module:SN\.(.+)$")
+	r_node = re.compile("^node\[(\d+)\]\.(.+)$")
+	r_label = re.compile("^label:(.+)$")
+	r_what = re.compile("what:(.+)$")
+	r_when = re.compile("when:(.+)$")
+	
 	# parse the input 
 	bl = module = "Unknown"
 	n = i = -1
@@ -538,13 +552,13 @@ def readFile(file):
 	# 4 - histogram, expect min, values
 	for line in lines:
 		# check the 'Castalia|' prefix
-		m = re.match(r"^Castalia\|\s+(.+)$",line)
+		m = r_castalia.match(line)
 		if (m): line = m.group(1)
 		else: continue
 
 		if level == 3:
 			# check for output data
-			m = re.match(r"^([-+]?[0-9]*\.?[0-9]+)\s*(.*)$",line);
+			m = r_output.match(line)
 			if (m):
 				saveOutput(module,n,i,o,bl,m.group(2),m.group(1))
 				continue
@@ -554,14 +568,14 @@ def readFile(file):
 				
 		if level == 4: 
 			# check for histogram parameters
-			m = re.match(r"histogram_min:([-+]?[0-9]*\.?[0-9]+) histogram_max:([-+]?[0-9]*\.?[0-9]+)$",line)
+			m = r_histogram_params.match(line)
 			if (m):
 				histogram_min = float(m.group(1))
 				histogram_max = float(m.group(2))
 				continue
 	
 			# check for histogram values, calculate histogram properties and save values
-			m = re.match(r"histogram_values\s(.+)$",line)
+			m = r_histogram_values.match(line)
 			if (m):
 				vals = m.group(1).split(" ")
 				size = len(vals) - 1
@@ -580,7 +594,7 @@ def readFile(file):
 		
 		if level == 2:
 			# check for simple output declaration
-			m = re.match(r"^simple output name:(.+)$",line)
+			m = r_simple.match(line)
 			if (m):
 				i = -1
 				o = m.group(1)
@@ -588,7 +602,7 @@ def readFile(file):
 				continue
 
 			# check for simple output declaration with an index
-			m = re.match(r"^index:(\d+) simple output name:(.+)$",line)
+			m = r_simple_index.match(line)
 			if (m):
 				i = m.group(1)
 				o = m.group(2)
@@ -596,7 +610,7 @@ def readFile(file):
 				continue
 
 			# check for histogram declaration
-			m = re.match(r"^histogram name:(.+)$", line)
+			m = r_histogram.match(line)
 			if (m):
 				o = m.group(1)
 				level = 4
@@ -606,12 +620,12 @@ def readFile(file):
 	
 		if level == 1:
 			# check for module declaration
-			m = re.match(r"^module:SN\.(.+)$",line)
+			m = r_module.match(line)
 			if (m):
 				line = m.group(1)
 				i = -1
 				# within module declaration look for node information
-				m = re.match(r"^node\[(\d+)\]\.(.+)$",line)
+				m = r_node.match(line)
 				if (m):
 					n = m.group(1)
 					module = m.group(2)
@@ -625,7 +639,7 @@ def readFile(file):
 
 		if level == 0:	
 			# check for label declaration
-			m = re.match(r"^label:(.+)$",line)
+			m = r_label.match(line)
 			if (m):
 				bl = m.group(1)
 				if not options.long:
@@ -638,7 +652,7 @@ def readFile(file):
 				level = 1
 				continue
 	
-		if re.match(r"what:(.+)$",line) or re.match(r"when:(.+)$",line): continue
+		if r_what.match(line) or r_when.match(line): continue
 		print "Unknown input at level " + str(level) + ": " + line
 
 # find and print list of input files

@@ -23,15 +23,21 @@ parser.add_option("-l","--legend", dest="legend", type="string", default="", hel
 parser.add_option("-o","--output", dest="output", type="string", default="plot.ps", metavar="FILE", help="Select output file, default is 'plot.ps'")
 parser.add_option("-s","--style", dest="style", type="string", default="linespoints", help="Plot style to be used, supported values: " + ", ".join(styles))
 parser.add_option("--gnuplot", dest="gnuplot", type="string", default="gnuplot", help="Path to gnuplot executable, default is 'gnuplot'")
-parser.add_option("--histogram-gap", dest="histgap", type="string", default="1", help="Set gap between histogram columns")
+parser.add_option("--histogram-gap", dest="histgap", type="float", help="Set gap between histogram columns")
+parser.add_option("--histogram-box", dest="boxwidth", type="float", default="0.9", help="Set boxwidth of histogram columns")
 parser.add_option("--xrange", dest="xrange", type="string", metavar="[MIN:]MAX", help="Set range of x-axis")
 parser.add_option("--yrange", dest="yrange", type="string", metavar="[MIN:]MAX", help="Set range of y-axis")
-parser.add_option("--xtics", dest="xtics", type="string", help="Set xtics (passed to gnuplot directly with 'set xtics')")
+parser.add_option("--rotate", dest="rotate", type="int", help="Set xtics rotation, in degrees (e.g. 45)")
 parser.add_option("--xtitle", dest="xtitle", type="string", help="Set title of x-axis, will be determined automatically by default")
 parser.add_option("--ytitle", dest="ytitle", type="string", help="Set title of y-axis, not displayed by deafult")
-(options,args) = parser.parse_args()
 
 lines = sys.stdin.readlines()
+
+try:
+	options,args = parser.parse_args()
+except getopt.GetoptError, err:
+	quit(str(err))
+
 title = ""
 fulltitle = ""
 xtitle = ""
@@ -77,8 +83,11 @@ for line in lines:
 			fulltitle = data[0]
 			title = data[0].split(":")[1]
 		elif data[0] == fulltitle + " - confidence intervals":
-			ci = datasets
-			xlabels = []
+			if options.style == "linespoints":
+				ci = datasets
+				xlabels = []
+			else:
+				quit("\nERROR: confidence intervals can only be plotted with linespoints style")
 		else:
 			quit("\nERROR: unable to plot this table or bad input syntax\n")
 	elif title and not xlabels:
@@ -114,8 +123,13 @@ if options.debug:
 	print("\n===DEBUG: input data file===")
 
 myprint(fr, "title \"" + "\" \"".join(labels) + "\"")
-while len(xlabels) > 0:
-	myprint(fr, "\"" + xlabels.pop(0) + "\" " + " ".join(table.pop(0)))
+xtics_add = []
+for x in range(len(xlabels)):
+	if options.style != "rowstacked":
+		xtics_add.append('"' + xlabels[x] + '" ' + str(x) + " 0") 
+		myprint(fr, str(x) + " " + " ".join(table.pop(0)))
+	else:
+		myprint(fr, "\"" + xlabels[x] + "\" " + " ".join(table.pop(0)))
 fr.close()
 
 if options.style not in styles:
@@ -138,16 +152,24 @@ else:
 	
 myprint(f, "set output \"" + name + "\"")
 myprint(f, "set title \"" + title + "\"")
+
 if options.xrange:
-	rmin,rmax = options.xrange.split(":")
-	if rmax: myprint(f, "set xrange ["+rmin+":"+rmax+"]")
-	else: myprint(f, "set xrange [0:"+rmin+"]")
+	if ":" in options.xrange: 
+		rmin,rmax = options.xrange.split(":")
+	else:
+		rmin = "0"
+		rmax = options.xrange
+	myprint(f, "set xrange ["+rmin+":"+rmax+"]")
 if options.yrange:
-	rmin,rmax = options.yrange.split(":")
-	if rmax: myprint(f, "set yrange ["+rmin+":"+rmax+"]")
-	else: myprint(f, "set yrange [0:"+rmin+"]")
-if options.xtics: myprint(f, "set xtics " + options.xtics)
-#elif: myprint(f, "set xtics nomirror rotate by -45")
+	if ":" in options.yrange: 
+		rmin,rmax = options.yrange.split(":")
+	else:
+		rmin = "0"
+		rmax = options.yrange
+	myprint(f, "set yrange ["+rmin+":"+rmax+"]")
+	
+if options.rotate: myprint(f, "set xtics nomirror rotate by -" + str(options.rotate) + " (" + ', '.join(xtics_add) + ")")
+else: myprint(f, "set xtics (" + ', '.join(xtics_add) + ")")
 key = "set key "
 if ltitle != "": key += "title \"" + ltitle + "\" "
 if ltitle != "" or options.legend: myprint(f, key + options.legend)
@@ -160,7 +182,12 @@ if options.style == "linespoints":
 else:
 	myprint(f, "set style data histogram")
 	if options.style == "histogram":
-		myprint(f, "set style histogram cluster gap " + options.histgap)
+		if options.histgap:
+			myprint(f, "set style histogram cluster gap " + str(options.histgap))
+		elif len(labels) > 1:
+			myprint(f, "set style histogram cluster gap 1")
+		else:
+			myprint(f, "set style histogram cluster gap 0")
 	elif options.style == "rowstacked":
 		myprint(f, "set style histogram columnstacked")
 	elif options.style == "columnstacked":
@@ -169,21 +196,34 @@ else:
 		myprint(f, "set style fill pattern border -1")
 	else:
 		myprint(f, "set style fill solid 0.5 noborder")
+	myprint(f, "set boxwidth " + str(options.boxwidth))
 
 plots = []
+plots_ci = []
 if options.style == "rowstacked":
 	for i in range(0,len(labels)):
-		if i == 0: plots.append("using " + str(i+2) + ":key(1) ti col")
-		else: plots.append("using " + str(i+2) + " ti col")
+		if i == 0: plots.append("using " + str(i+2) + ":key(1) title col")
+		else: plots.append("using " + str(i+2) + " title col")
 else:
 	for i in range(0,len(labels)):
-		if ci != 0 and i >= ci:
-			break;
-			plots.append("using :" + str(i-ci+2) + ":" + str(i+1) + ":xtic(1) notitle with yerrorbars")
+		if options.style == "linespoints":
+			if ci != 0 and i >= ci:
+				plots_ci.append("using 1:" + str(i-ci+2) + ":" + str(i+2) + " notitle with yerrorbars")
+			else:
+				plots.append("using 1:" + str(i+2) + " title col")
 		else:
-			plots.append("using " + str(i+2) + ":xtic(1) title col")	
+			plots.append("using " + str(i+2) + " title col")	
 
-myprint(f, "plot './" + fname + "' " + ", '' ".join(plots))
+if len(plots_ci):
+	myprint(f, "set multiplot")
+	if not options.yrange: myprint(f, "set yrange [] writeback")
+	myprint(f, "plot './" + fname + "' " + ", '' ".join(plots))
+	myprint(f, "unset key")
+	if not options.yrange: myprint(f, "set yrange restore")
+	myprint(f, "plot './" + fname + "' " + ", '' ".join(plots_ci))
+	myprint(f, "unset multiplot")
+else:
+	myprint(f, "plot './" + fname + "' " + ", '' ".join(plots))
 
 f.flush()
 f.close()

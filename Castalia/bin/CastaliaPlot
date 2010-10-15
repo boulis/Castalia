@@ -31,14 +31,12 @@ parser.add_option("--rotate", dest="rotate", type="int", help="Set xtics rotatio
 parser.add_option("--xtitle", dest="xtitle", type="string", help="Set title of x-axis, will be determined automatically by default")
 parser.add_option("--ytitle", dest="ytitle", type="string", help="Set title of y-axis, not displayed by deafult")
 
+options,args = parser.parse_args()
+
 lines = sys.stdin.readlines()
 
-try:
-	options,args = parser.parse_args()
-except getopt.GetoptError, err:
-	quit(str(err))
-
 title = ""
+extratitle = []
 fulltitle = ""
 xtitle = ""
 xlabels = []
@@ -48,30 +46,45 @@ datasets = 0
 ci = 0
 
 def extract_common(llist):
-	common = ""
+	common_l = []
+	common_t = []
+	raw = []
+	raw_extra = []
 	result = []
+	maxlen = 0	
+	
 	for l in llist:
 		l = l.strip().replace("\"","")
 		if len(l) < 1: continue
-		m = re.match(r"^([^\=]+)\=([^\=]+)$",l)
-		if (m):
-			if common == "":
-				common = m.group(1)
-			elif common != m.group(1):
-				common = ""
-				break
-			result.append(m.group(2))
+		l = l.split(",")
+		if maxlen == 0: 
+			maxlen = len(l)
+			for i in l: raw.append([i])
+		elif maxlen != len(l):
+			print "CastaliaPlot: WARNING confusing graph labels" 
+			return llist,"",[]
 		else:
-			break
-	if common == "":
-		result = []
-		for l in llist:
-			l = l.strip()
-			if len(l) > 0:
-				result.append(l)
-	else:
-		common = common.split(",")[-1]
-	return result,common
+			for i in range(len(l)):	raw[i].append(l[i])
+	
+	for l in raw:
+		common = os.path.commonprefix(l)
+		if common == l[0]: common_t.append(common)
+		elif "=" in common:
+			common_l.append(common.split("=",1)[0])
+			if len(result) == 0:
+				for i in l: result.append(i.split("=",1)[1])
+			else:
+				for i in range(len(l)):
+					result[i] = result[i] + "," + l[i].split("=",1)[1]
+		else: raw_extra.append(l)
+
+	for l in raw_extra:
+		if len(result) == 0: result = l
+		else:
+			for i in range(len(l)):
+				result[i] = result[i] + "," + l[i]
+				
+	return result,",".join(common_l),common_t
 
 for line in lines:
 	m = re.match(r"[-+ \n]+$",line)
@@ -91,7 +104,8 @@ for line in lines:
 		else:
 			quit("\nERROR: unable to plot this table or bad input syntax\n")
 	elif title and not xlabels:
-		xlabels,xtitle = extract_common(data)
+		xlabels,xtitle,extra = extract_common(data)
+		extratitle.extend(extra)
 	else:
 		datasets += 1
 		if len(data) > len(xlabels):
@@ -104,7 +118,11 @@ for line in lines:
 			table[row].append(d.strip())
 			row += 1
 
-labels,ltitle = extract_common(labels)
+labels,ltitle,extra = extract_common(labels)
+extratitle.extend(extra)
+
+if len(extratitle):
+	title = title + " (" + ",".join(extratitle) + ")" 
 
 if options.style == "rowstacked":
 	tmp = ltitle;

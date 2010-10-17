@@ -19,16 +19,18 @@ styles = ["linespoints","histogram","rowstacked","columnstacked"]
 parser = OptionParser(usage="usage: %prog [options]")
 parser.add_option("-d","--debug", dest="debug", default=False, action="store_true", help="Debug mode, will display gnuplot commands as they are dispatched")
 parser.add_option("-g","--greyscale", dest="grey", default=False, action="store_true", help="Use greyscale colors only")
-parser.add_option("-l","--legend", dest="legend", type="string", default="", help="Set legend position (passed to gnuplot directly with 'set key')")
+parser.add_option("-l","--legend", dest="legend", type="string", default="", help="Set legend position, default is 'top right')")
 parser.add_option("-o","--output", dest="output", type="string", default="plot.ps", metavar="FILE", help="Select output file, default is 'plot.ps'")
 parser.add_option("-s","--style", dest="style", type="string", default="linespoints", help="Plot style to be used, supported values: " + ", ".join(styles))
 parser.add_option("--gnuplot", dest="gnuplot", type="string", default="gnuplot", help="Path to gnuplot executable, default is 'gnuplot'")
 parser.add_option("--histogram-gap", dest="histgap", type="float", help="Set gap between histogram columns")
 parser.add_option("--histogram-box", dest="boxwidth", type="float", default="0.9", help="Set boxwidth of histogram columns")
+parser.add_option("--linewidth", dest="linewidth", type="float", default="1", help="Set linewidth, only with linespoints style")
+parser.add_option("--ratio", dest="ratio", type="float", help="Set aspect ratio of the graph")
+parser.add_option("--rotate", dest="rotate", type="float", help="Set xtics rotation, in degrees (e.g. 45)")
 parser.add_option("--xrange", dest="xrange", type="string", metavar="[MIN:]MAX", help="Set range of x-axis")
-parser.add_option("--yrange", dest="yrange", type="string", metavar="[MIN:]MAX", help="Set range of y-axis")
-parser.add_option("--rotate", dest="rotate", type="int", help="Set xtics rotation, in degrees (e.g. 45)")
 parser.add_option("--xtitle", dest="xtitle", type="string", help="Set title of x-axis, will be determined automatically by default")
+parser.add_option("--yrange", dest="yrange", type="string", metavar="[MIN:]MAX", help="Set range of y-axis")
 parser.add_option("--ytitle", dest="ytitle", type="string", help="Set title of y-axis, not displayed by deafult")
 
 options,args = parser.parse_args()
@@ -56,16 +58,20 @@ def extract_common(llist):
 	for l in llist:
 		l = l.strip().replace("\"","")
 		if len(l) < 1: continue
+		result.append(l)
 		l = l.split(",")
-		if maxlen == 0: 
+		if maxlen == -1: continue
+		elif maxlen == 0: 
 			maxlen = len(l)
 			for i in l: raw.append([i])
 		elif maxlen != len(l):
-			print "CastaliaPlot: WARNING confusing graph labels" 
-			return llist,"",[]
+			maxlen = -1
 		else:
 			for i in range(len(l)):	raw[i].append(l[i])
 	
+	if maxlen == -1: return result,"",[]
+
+	result = []
 	for l in raw:
 		common = os.path.commonprefix(l)
 		if common == l[0]: common_t.append(common)
@@ -83,7 +89,7 @@ def extract_common(llist):
 		else:
 			for i in range(len(l)):
 				result[i] = result[i] + "," + l[i]
-				
+	
 	return result,",".join(common_l),common_t
 
 for line in lines:
@@ -108,10 +114,8 @@ for line in lines:
 		extratitle.extend(extra)
 	else:
 		datasets += 1
-		if len(data) > len(xlabels):
-			labels.append(data.pop(0).strip())
-		else:
-			labels.append("row " + str(datasets))
+		if len(data) > len(xlabels): labels.append(data.pop(0).strip())
+		else: labels.append("row " + str(datasets))
 		row = 0
 		for d in data:
 			if row >= len(table): table.append([])
@@ -171,6 +175,8 @@ else:
 myprint(f, "set output \"" + name + "\"")
 myprint(f, "set title \"" + title + "\"")
 
+if options.ratio:
+	myprint(f, "set size ratio " + options.ratio)
 if options.xrange:
 	if ":" in options.xrange: 
 		rmin,rmax = options.xrange.split(":")
@@ -186,8 +192,9 @@ if options.yrange:
 		rmax = options.yrange
 	myprint(f, "set yrange ["+rmin+":"+rmax+"]")
 	
-if options.rotate: myprint(f, "set xtics nomirror rotate by -" + str(options.rotate) + " (" + ', '.join(xtics_add) + ")")
-else: myprint(f, "set xtics (" + ', '.join(xtics_add) + ")")
+if options.rotate:
+	myprint(f, "set xtics nomirror rotate by -" + str(options.rotate) + " (" + ', '.join(xtics_add) + ")")
+elif len(xtics_add): myprint(f, "set xtics (" + ', '.join(xtics_add) + ")")
 key = "set key "
 if ltitle != "": key += "title \"" + ltitle + "\" "
 if ltitle != "" or options.legend: myprint(f, key + options.legend)
@@ -226,9 +233,9 @@ else:
 	for i in range(0,len(labels)):
 		if options.style == "linespoints":
 			if ci != 0 and i >= ci:
-				plots_ci.append("using 1:" + str(i-ci+2) + ":" + str(i+2) + " notitle with yerrorbars")
+				plots_ci.append("using 1:" + str(i-ci+2) + ":" + str(i+2) + " notitle with yerrorbars lw " + str(options.linewidth))
 			else:
-				plots.append("using 1:" + str(i+2) + " title col")
+				plots.append("using 1:" + str(i+2) + " title col lw " + str(options.linewidth))
 		else:
 			plots.append("using " + str(i+2) + " title col")	
 

@@ -27,10 +27,10 @@ parser.add_option("-g","--greyscale", dest="grey", default=False, action="store_
 parser.add_option("-l","--legend", dest="legend", type="string", default="", help="Set legend position, default is 'top right')")
 parser.add_option("-o","--output", dest="output", type="string", default="plot.ps", metavar="FILE", help="Select output file, default is 'plot.ps'")
 parser.add_option("-s","--style", dest="style", type="string", default="linespoints", help="Plot style to be used, supported values: " + ", ".join(styles))
+parser.add_option("--color-opacity", dest="opacity", type="float", default=0.65, help="Set box colour opacity, default is 0.65")
 parser.add_option("--colors", dest="colors", type="string", help="Specify a comma-seprated list of colors to be used in the plot, or use '?' for full list available, arbitrary RGB values are supported with #RRGGBB format")
 parser.add_option("--gnuplot", dest="gnuplot", type="string", default="gnuplot", help="Path to gnuplot executable, default is 'gnuplot'")
 parser.add_option("--hist-box", dest="boxwidth", type="float", default="0.9", help="Set boxwidth of histogram columns")
-parser.add_option("--hist-density", dest="histdens", type="float", default=0.5, help="Set histogram box colour density, default is 0.5")
 parser.add_option("--hist-gap", dest="histgap", type="float", help="Set gap between histogram columns")
 parser.add_option("--linewidth", dest="linewidth", type="float", default="1", help="Set linewidth, only with linespoints style")
 parser.add_option("--ratio", dest="ratio", type="float", help="Set aspect ratio of the graph")
@@ -123,9 +123,9 @@ for line in lines:
 				ci = datasets
 				xlabels = []
 			else:
-				quit("\nERROR: confidence intervals can only be plotted with linespoints style")
+				quit("\nCastaliaPlot: ERROR confidence intervals can only be plotted with linespoints style")
 		else:
-			quit("\nERROR: unable to plot this table or bad input syntax\n")
+			quit("\nCastaliaPlot: ERROR unable to plot this table or bad input syntax at\n\t"+data[0])
 	elif title and not xlabels:
 		xlabels,xtitle,extra = extract_common(data)
 		extratitle.extend(extra)
@@ -237,45 +237,36 @@ else:
 	if options.grey:
 		myprint(f, "set style fill pattern border -1")
 	else:
-		myprint(f, "set style fill solid " + str(options.histdens) + " noborder")
+		myprint(f, "set style fill solid " + str(options.opacity) + " noborder")
 	myprint(f, "set boxwidth " + str(options.boxwidth))
 
 colors = []
-color = ""
 if options.colors:
+	myprint(f, "set style increment user")
 	colors = options.colors.split(",")
 	for i in range(len(colors)):
 		if colors[i] in col_sh:
 			colors[i] = col_sh[colors[i]]
 		elif len(colors[i]) < 3:
-			print "CastaliaPlot: ERROR invalid color '" + colors[i] + "'"
-			sys.exit(0)
-			
-if len(colors) > 0 and len(colors) < len(labels):
-	print "CastaliaPlot: WARNING insufficient length of colors list, some colors will be repeated"
-	while len(colors) < len(labels): colors.extend(colors)
+			print "\nCastaliaPlot: WARNING invalid color '" + colors[i] + "'"
+			continue
+		myprint(f, "set style line " + str(i+1) + " lt rgb \"" + colors[i] + "\"")
 
 plots = []
 plots_ci = []
 if options.style == "rowstacked":
-	if len(colors): myprint(f, "set style increment user")
 	for i in range(0,len(labels)):
-		if len(colors): 
-			myprint(f, "set style line " + str(i+1) + " lt rgb \"" + colors[i] + "\"")
-			color = " ls " + str(i+1)
-		if i == 0: plots.append("using " + str(i+2) + ":key(1) title col" + color)
-		else: plots.append("using " + str(i+2) + " title col" + color)
+		if i == 0: plots.append("using " + str(i+2) + ":key(1) title col")
+		else: plots.append("using " + str(i+2) + " title col")
 else:
 	for i in range(0,len(labels)):
-		if len(colors): color = " lt rgb \"" + colors[i] + "\""
 		if options.style == "linespoints":
 			if ci != 0 and i >= ci:
-				if len(colors): color = " lt rgb \"" + colors[i-ci] + "\""
-				plots_ci.append("using 1:" + str(i-ci+2) + ":" + str(i+2) + " notitle with yerrorbars lw " + str(options.linewidth) + color)
+				plots_ci.append("using 1:" + str(i-ci+2) + ":" + str(i+2) + " notitle with yerrorbars lw " + str(options.linewidth))
 			else:
-				plots.append("using 1:" + str(i+2) + " title col lw " + str(options.linewidth) + color)
+				plots.append("using 1:" + str(i+2) + " title col lw " + str(options.linewidth))
 		else:
-			plots.append("using " + str(i+2) + " title col" + color)	
+			plots.append("using " + str(i+2) + " title col")	
 
 if len(plots_ci):
 	myprint(f, "set multiplot")
@@ -299,7 +290,7 @@ else:
 
 commands.getoutput("rm " + fname)
 if r and r != "":
-	quit("\nERROR:\n" + r)
+	quit("\nCastaliaPlot: ERROR\n" + r)
 	
 
 

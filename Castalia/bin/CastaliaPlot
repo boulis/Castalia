@@ -13,8 +13,13 @@
 
 import os, sys, commands, getopt, re
 from optparse import OptionParser
-
+			
 styles = ["linespoints","histogram","rowstacked","columnstacked"]
+col_sh = {	"b":"blue", 			"lb":"light-blue", 		"g":"green", 		"lg":"light-green", 
+			"r":"red", 				"o":"orange", 			"y":"yellow", 		"br":"brown",
+			"c":"cyan",				"db":"dark-blue",		"dg":"dark-green",	"m":"magenta",
+			"lm":"light-magenta", 	"dm":"dark-magenta",	"t":"turquoise",	"v":"violet",
+			"p":"purple", 			"pi":"pink",			"dv":"dark-violet",	"dc":"dark-cyan"}
 
 parser = OptionParser(usage="usage: %prog [options]")
 parser.add_option("-d","--debug", dest="debug", default=False, action="store_true", help="Debug mode, will display gnuplot commands as they are dispatched")
@@ -22,9 +27,11 @@ parser.add_option("-g","--greyscale", dest="grey", default=False, action="store_
 parser.add_option("-l","--legend", dest="legend", type="string", default="", help="Set legend position, default is 'top right')")
 parser.add_option("-o","--output", dest="output", type="string", default="plot.ps", metavar="FILE", help="Select output file, default is 'plot.ps'")
 parser.add_option("-s","--style", dest="style", type="string", default="linespoints", help="Plot style to be used, supported values: " + ", ".join(styles))
+parser.add_option("--colors", dest="colors", type="string", help="Specify a comma-seprated list of colors to be used in the plot, or use '?' for full list available, arbitrary RGB values are supported with #RRGGBB format")
 parser.add_option("--gnuplot", dest="gnuplot", type="string", default="gnuplot", help="Path to gnuplot executable, default is 'gnuplot'")
-parser.add_option("--histogram-gap", dest="histgap", type="float", help="Set gap between histogram columns")
-parser.add_option("--histogram-box", dest="boxwidth", type="float", default="0.9", help="Set boxwidth of histogram columns")
+parser.add_option("--hist-box", dest="boxwidth", type="float", default="0.9", help="Set boxwidth of histogram columns")
+parser.add_option("--hist-density", dest="histdens", type="float", default=0.5, help="Set histogram box colour density, default is 0.5")
+parser.add_option("--hist-gap", dest="histgap", type="float", help="Set gap between histogram columns")
 parser.add_option("--linewidth", dest="linewidth", type="float", default="1", help="Set linewidth, only with linespoints style")
 parser.add_option("--ratio", dest="ratio", type="float", help="Set aspect ratio of the graph")
 parser.add_option("--rotate", dest="rotate", type="float", help="Set xtics rotation, in degrees (e.g. 45)")
@@ -34,6 +41,16 @@ parser.add_option("--yrange", dest="yrange", type="string", metavar="[MIN:]MAX",
 parser.add_option("--ytitle", dest="ytitle", type="string", help="Set title of y-axis, not displayed by deafult")
 
 options,args = parser.parse_args()
+
+if options.colors and options.colors == '?':
+	f = os.popen(options.gnuplot,'w')
+	print >>f, "show palette colornames"
+	f.flush()
+	f.close()
+	print "\tList of color shortcuts"
+	for c in sorted(col_sh):
+		print " ", c, "\t", col_sh[c]
+	sys.exit(0)
 
 lines = sys.stdin.readlines()
 
@@ -220,24 +237,45 @@ else:
 	if options.grey:
 		myprint(f, "set style fill pattern border -1")
 	else:
-		myprint(f, "set style fill solid 0.5 noborder")
+		myprint(f, "set style fill solid " + str(options.histdens) + " noborder")
 	myprint(f, "set boxwidth " + str(options.boxwidth))
+
+colors = []
+color = ""
+if options.colors:
+	colors = options.colors.split(",")
+	for i in range(len(colors)):
+		if colors[i] in col_sh:
+			colors[i] = col_sh[colors[i]]
+		elif len(colors[i]) < 3:
+			print "CastaliaPlot: ERROR invalid color '" + colors[i] + "'"
+			sys.exit(0)
+			
+if len(colors) > 0 and len(colors) < len(labels):
+	print "CastaliaPlot: WARNING insufficient length of colors list, some colors will be repeated"
+	while len(colors) < len(labels): colors.extend(colors)
 
 plots = []
 plots_ci = []
 if options.style == "rowstacked":
+	if len(colors): myprint(f, "set style increment user")
 	for i in range(0,len(labels)):
-		if i == 0: plots.append("using " + str(i+2) + ":key(1) title col")
-		else: plots.append("using " + str(i+2) + " title col")
+		if len(colors): 
+			myprint(f, "set style line " + str(i+1) + " lt rgb \"" + colors[i] + "\"")
+			color = " ls " + str(i+1)
+		if i == 0: plots.append("using " + str(i+2) + ":key(1) title col" + color)
+		else: plots.append("using " + str(i+2) + " title col" + color)
 else:
 	for i in range(0,len(labels)):
+		if len(colors): color = " lt rgb \"" + colors[i] + "\""
 		if options.style == "linespoints":
 			if ci != 0 and i >= ci:
-				plots_ci.append("using 1:" + str(i-ci+2) + ":" + str(i+2) + " notitle with yerrorbars lw " + str(options.linewidth))
+				if len(colors): color = " lt rgb \"" + colors[i-ci] + "\""
+				plots_ci.append("using 1:" + str(i-ci+2) + ":" + str(i+2) + " notitle with yerrorbars lw " + str(options.linewidth) + color)
 			else:
-				plots.append("using 1:" + str(i+2) + " title col lw " + str(options.linewidth))
+				plots.append("using 1:" + str(i+2) + " title col lw " + str(options.linewidth) + color)
 		else:
-			plots.append("using " + str(i+2) + " title col")	
+			plots.append("using " + str(i+2) + " title col" + color)	
 
 if len(plots_ci):
 	myprint(f, "set multiplot")

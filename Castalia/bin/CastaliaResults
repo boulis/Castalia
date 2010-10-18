@@ -430,7 +430,7 @@ def printOutput(name,o):
 								row = short(label)
 								if print_n: row += ",node="+str(n)
 								if print_i: row += ",index="+str(i)
-								row = ",".join(createHeaders(row,options.order))
+								if options.order: row = ",".join(createHeaders(row,options.order))
 								
 								load(row,col,data[label][key],o.pernode_total(label))
 			
@@ -449,7 +449,8 @@ def printOutput(name,o):
 					
 					# if atleast one entry exists, load it into the final table
 					if len(all_values) > 0:
-						row = ",".join(createHeaders(short(label),options.order))
+						row = short(label)
+						if options.order: row = ",".join(createHeaders(row,options.order))
 						load(row,col,all_values,o.total(label))
 		
 		# convert absolute values to percentage (if -p option is set)

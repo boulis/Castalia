@@ -7,7 +7,7 @@
  *                                                                          *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
  *      Attention:  License Inquiry.                                        *
- *                                                                          *  
+ *                                                                          *
  ****************************************************************************/
 
 #ifndef TUNABLEMACMODULE
@@ -48,14 +48,16 @@ class TunableMAC: public VirtualMac {
 	double listenInterval;	// in secs, note: parammeter in omnetpp.ini in msecs
 	double beaconIntervalFraction;
 	double probTx;			// probability of a single transmission to happen
-	int numTx;				// when we have something to send, how many times do we try to transmit it. 
+	int numTx;				// when we have something to send, how many times do we try to transmit it.
 							// We say "try" because probTx might be < 1
 	double randomTxOffset;	// when have somethingnto transmit, don't do it immediatelly
-	double reTxInterval;	// the interval between retransmissions, in msec but after a 
+	double reTxInterval;	// the interval between retransmissions, in msec but after a
 							// time [0..randomTxOffset] chosen randomly (uniform)
 	int beaconFrameSize;	//in bytes
 	int backoffType;		//can be 0 or 1 or 2 or 3
 	double backoffBaseValue;//the backoff value
+	double CSMApersistance; // value in [0..1], is CSMA non-persistent, p-persistent, or 1-persistent
+	bool txAllPacketsInFreeChannel; // when channel free, tx all packets in buffer?
 
 	int phyLayerOverhead;
 	simtime_t phyDelayForValidCS;	// delay for valid CS

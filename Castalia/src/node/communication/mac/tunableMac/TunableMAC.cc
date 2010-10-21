@@ -24,9 +24,11 @@ void TunableMAC::startup()
 	reTxInterval = ((double)par("reTxInterval")) / 1000.0;		// convert msecs to secs
 	beaconFrameSize = par("beaconFrameSize");
 	backoffType = par("backoffType");
+	CSMApersistance = par("CSMApersistance");
+	txAllPacketsInFreeChannel = par("txAllPacketsInFreeChannel");
 
 	phyDataRate = par("phyDataRate");
-	phyDelayForValidCS = (double)par("phyDelayForValidCS") / 1000.0;	//parameter given in ms in the omnetpp.ini
+	phyDelayForValidCS = (double)par("phyDelayForValidCS") / 1000.0;	// convert msecs to secs
 	phyLayerOverhead = par("phyFrameOverhead");
 
 	switch (backoffType) {
@@ -51,11 +53,11 @@ void TunableMAC::startup()
 			break;
 		}
 		default:{
-			opp_error("\n[Mac]:\n Illegal value of parameter \"backoffType\" in omnetpp.ini.");
+			opp_error("\n[TunableMAC]:\n Illegal value of parameter \"backoffType\" in omnetpp.ini.");
 			break;
 		}
 	}
-	backoffBaseValue = ((double)par("backoffBaseValue")) / 1000.0;	// just convert msecs to secs
+	backoffBaseValue = ((double)par("backoffBaseValue")) / 1000.0;	// convert msecs to secs
 
 	if ((dutyCycle > 0.0) && (dutyCycle < 1.0)) {
 		sleepInterval = listenInterval * ((1.0 - dutyCycle) / dutyCycle);
@@ -68,6 +70,8 @@ void TunableMAC::startup()
 	numTxTries = 0;
 	remainingBeaconsToTx = 0;
 	backoffTimes = 0;
+
+	declareOutput("TunableMAC packet breakdown");
 }
 
 void TunableMAC::timerFiredCallback(int timer)
@@ -113,7 +117,18 @@ void TunableMAC::handleCarrierSenseResult(int returnCode)
 	switch (returnCode) {
 
 		case CLEAR:{
-			/* We reset the backoff counter due to busy channel. Then we
+			/* For non-persistent and 1-persistent CSMA we just
+			 * start the transmission. But for p-persistent CSMA
+			 * we have to draw a random number and if this is
+			 * bigger than p (=CSMApersistence) then we do not
+			 * trasmit but instead we carrier sense yet again.
+			 */
+			if (CSMApersistance > 0 && CSMApersistance < genk_dblrand(1)){
+				setTimer(START_CARRIER_SENSING, phyDelayForValidCS);
+				break;
+			}
+
+			/* We transmit: Reset the backoff counter, then
 			 * proceed to calculate the number of beacons required to be
 			 * sent based on sleep interval and beacon interval fraction
 			 */
@@ -126,19 +141,41 @@ void TunableMAC::handleCarrierSenseResult(int returnCode)
 			} else {
 				remainingBeaconsToTx = 0;
 			}
+
 			macState = MAC_STATE_TX;
-			trace() << "MAC_STATE_TX, sending " << remainingBeaconsToTx << " beacons";
+			trace() << "Channel Clear, MAC_STATE_TX, sending " << remainingBeaconsToTx << " beacons";
 			sendBeaconsOrData();
 			break;
+
 		}
 
 		case BUSY:{
+			/* For p-persistent and 1-persistent CSMA we carrier
+			 * sense at a very fast rate until we find the channel
+			 * free. Ideally we would get notified by the radio
+			 * when the channel becomes free. Since most radios
+			 * do not provide this capability, we have to poll.
+			 * Because of polling and random start times for each
+			 * node, 1-persistent does not necessarily cause colissions
+			 * when 2 or more nodes are waiting to TX. Its performance
+			 * can thus be better than p-persistent even with high
+			 * traffic and and high number of contending nodes.
+			 */
+			if (CSMApersistance > 0) {
+				setTimer(START_CARRIER_SENSING, phyDelayForValidCS);
+				trace() << "Channel busy, persistent mode: checking again in " << phyDelayForValidCS << " secs";
+				break;
+			}
+
+			/* For non-persistent CSMA, we simply calculate a back-off
+			 * random interval based on the chosen back-off mechanism
+			 */
 			double backoffTimer = 0;
 			backoffTimes++;
 
 			switch (backoffType) {
 				case BACKOFF_SLEEP_INT:{
-					backoffTimer = sleepInterval;
+					backoffTimer = (sleepInterval < 0) ? backoffBaseValue : sleepInterval;
 					break;
 				}
 
@@ -153,7 +190,7 @@ void TunableMAC::handleCarrierSenseResult(int returnCode)
 				}
 
 				case BACKOFF_EXPONENTIAL:{
-					backoffTimer = backoffBaseValue * 
+					backoffTimer = backoffBaseValue *
 							pow(2.0, (double)(((backoffTimes - 1) < 0) ? 0 : backoffTimes - 1));
 					break;
 				}
@@ -167,8 +204,8 @@ void TunableMAC::handleCarrierSenseResult(int returnCode)
 			 * in the case we receive something". This is highly improbable
 			 * though as most of the cases we start the process of carrier
 			 * sensing from a sleep state (so most likely we have missed the
-			 * start of the packet). In the case we are in listen mode, if 
-			 * someone else is transmitting then we would have entered 
+			 * start of the packet). In the case we are in listen mode, if
+			 * someone else is transmitting then we would have entered
 			 * MAC_STATE_RX and the carrier sense (and TX) would be postponed.
 			 */
 			toRadioLayer(createRadioCommand(SET_STATE, SLEEP));
@@ -191,6 +228,7 @@ void TunableMAC::fromNetworkLayer(cPacket * netPkt, int destination)
 	macPkt->setDestination(destination);
 	macPkt->setFrameType(DATA_FRAME);
 	encapsulatePacket(macPkt, netPkt);
+	collectOutput("TunableMAC packet breakdown", "Received from App");
 
 	/* We always try to buffer the packet first */
 	if (bufferPacket(macPkt)) {
@@ -215,6 +253,7 @@ void TunableMAC::fromNetworkLayer(cPacket * netPkt, int destination)
 	} else {
 		// bufferPacket failed, buffer is full
 		// FULL_BUFFER control msg sent by virtualMAC code
+		collectOutput("TunableMAC packet breakdown", "Overflown");
 		trace() << "WARNING Tunable MAC buffer overflow";
 	}
 }
@@ -224,8 +263,8 @@ void TunableMAC::attemptTx()
 	trace() << "attemptTx(), buffer size: " << TXBuffer.size() << ", numTxTries: " << numTxTries;
 
 	if (numTxTries <= 0) {
-		/* We can enter attemptTx from many places, in some cases 
-		 * the buffer may be empty. If its not empty but we have 
+		/* We can enter attemptTx from many places, in some cases
+		 * the buffer may be empty. If its not empty but we have
 		 * 0 tries left, then the front message is deleted.
 		 */
 		if (TXBuffer.size() > 0) {
@@ -233,8 +272,8 @@ void TunableMAC::attemptTx()
 			TXBuffer.pop();
 		}
 
-		/* Check the buffer again to see if a new packet has to be 
-		 * transmitted, otherwise change to default state and 
+		/* Check the buffer again to see if a new packet has to be
+		 * transmitted, otherwise change to default state and
 		 * reestablish the sleeping schedule.
 		 */
 		if (TXBuffer.size() > 0) {
@@ -243,7 +282,7 @@ void TunableMAC::attemptTx()
 		} else {
 			macState = MAC_STATE_DEFAULT;
 			trace() << "MAC_STATE_DEFAULT, no more pkts to attemptTx";
-			/* We have nothing left to transmit, need to resume 
+			/* We have nothing left to transmit, need to resume
 			 * sleep/listen pattern. Starting by going to sleep
 			 * immediately (timer with 0 delay).
 			 */
@@ -281,34 +320,60 @@ void TunableMAC::sendBeaconsOrData()
 		beaconFrame->setByteLength(beaconFrameSize);
 		toRadioLayer(beaconFrame);
 		toRadioLayer(createRadioCommand(SET_STATE, TX));
+		collectOutput("TunableMAC packet breakdown", "beacons");
 
 		/* Set timer to send next beacon (or data packet)
 		 * We send beacons with half of the listen interval between them
 		 */
-		double beaconTxTime = ((double)(beaconFrameSize + phyLayerOverhead)) * 
+		double beaconTxTime = ((double)(beaconFrameSize + phyLayerOverhead)) *
 				8.0 / (1000.0 * phyDataRate);
 		setTimer(SEND_BEACONS_OR_DATA, beaconTxTime + listenInterval / 2.0);
 
 	} else {
 		if (TXBuffer.empty()) {
-			trace() << "WARNING: sendBeaconsOrData called with empty TX buffer!";
-			numTxTries = 0;
+			numTxTries = 0; // safeguarding
 			attemptTx(); // this should set the sleeping patterns again.
 			return;
 		}
 
 		toRadioLayer(TXBuffer.front()->dup());
 		toRadioLayer(createRadioCommand(SET_STATE, TX));
+
+		// count whether this was an original transmission or a retransmission
+		if (numTxTries == numTx)
+			collectOutput("TunableMAC packet breakdown", "data pkts");
+		else
+			collectOutput("TunableMAC packet breakdown", "copies of data pkts");
+
 		double packetTxTime = ((double)(TXBuffer.front()->getByteLength() +
 		      phyLayerOverhead)) * 8.0 / (1000.0 * phyDataRate);
 		numTxTries--;
 
-		/* We are done sending a _copy_ of the packet from the front
-		 * of the buffer. We now move on to either A) the next copy or
-		 * B) the next packet if the current packet has no TX attempts
-		 * remaining. In case A, we need to delay the attempt by
-		 * reTxInterval. Otherwise, in case B, attempt to transmit the 
-		 * next packet right away.
+		/* If we have chosen to transmit all packets in our buffer
+		 * now that we found the channel free (generally NOT a good
+		 * idea since it can lead to prolonged collisions in high
+		 * traffic), we schedule the transmission of the next packet
+		 * (or a copy of the current one) once the current
+		 * transmission is done. If all retransmissions are done,
+		 * we also delete the packet from the buffer. No beacons
+		 * or carrier sensing for these packets.
+		 */
+		if (txAllPacketsInFreeChannel){
+			setTimer(SEND_BEACONS_OR_DATA, packetTxTime);
+			if (numTxTries <= 0){
+				cancelAndDelete(TXBuffer.front());
+				TXBuffer.pop();
+			}
+			return;
+		}
+		/* If we have chosen to carrier sense (and TX beacons) for
+		 * every packet, then we've just sent a _copy_ of the packet
+		 * from the front of the buffer. We now move on to either
+		 * A) the next copy or B) the next packet if the current
+		 * packet has no TX attempts remaining. In case A, we need
+		 * to delay the attempt by reTxInterval. Otherwise, in case
+		 * B, attempt to transmit the next packet as soon as the
+		 * current transmission ends.
 		 */
 		if (numTxTries > 0) {
 			setTimer(ATTEMPT_TX, packetTxTime + reTxInterval);
@@ -351,10 +416,10 @@ void TunableMAC::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 				trace() << "WARNING: received a beacon packet without duty cycle in place";
 				/* This happens only when one node has duty cycle while
 				 * another one does not. TunableMac was not designed for
-				 * this case as more thought is required a possible 
+				 * this case as more thought is required a possible
 				 * solution could be to include duration information
 				 * in the beacon itself here we will just wait for 0.5
-				 * secs to complete the reception  before trying to 
+				 * secs to complete the reception  before trying to
 				 * transmit again.
 				 */
 				setTimer(ATTEMPT_TX, 0.5);

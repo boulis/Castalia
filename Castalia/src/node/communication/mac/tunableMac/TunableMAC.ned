@@ -22,7 +22,7 @@ simple TunableMAC like node.communication.mac.iMac {
 	bool collectTraceInfo = default (false);
 	bool printStateTransitions = default (false);
 
-	//=============== These are parameters which can be tuned ===================
+	//=============== These are main parameters which can be tuned ================
 
 	double dutyCycle = default (1.0);	// listening / (sleeping+listening)
 	double listenInterval = default (10);	// how long do we leave the radio in listen mode, in ms
@@ -36,6 +36,8 @@ simple TunableMAC like node.communication.mac.iMac {
 						// 2-->(backoff = multiplying value - e.g. 1*a, 2*a, 3*a, 4*a ...), 
 						// 3-->(backoff = exponential value - e.g. 2, 4, 8, 16, 32...)
 	int backoffBaseValue = default (16);	// the backoff base value in ms
+	double CSMApersistance default (0); // value in [0..1], is CSMA non-persistent, p-persistent, or 1-persistent?
+	bool txAllPacketsInFreeChannel = default (false); // if you find the channel free, tx all packets in buffer? 
 
 	//=============== End of tunable parameters ===================================
 
@@ -43,8 +45,6 @@ simple TunableMAC like node.communication.mac.iMac {
 	int macPacketOverhead = default (9);
 	int beaconFrameSize = default (14);
 	int macBufferSize = default (32);
-
-	bool carrierSense = default (true);	//if we want the MAC to perform carrier sense before sending to Radio
 
 	double phyDataRate = default (250.0);
 	double phyDelayForValidCS = default (0.128);

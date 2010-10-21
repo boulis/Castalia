@@ -66,7 +66,6 @@ void ValueReporting::handleSensorReading(SensorReadingMessage * rcvReading)
 	packet2Net->setSequenceNumber(currSentSampleSN);
 	currSentSampleSN++;
 
-	packet2Net->setByteLength(constantDataPayload + packetHeaderOverhead);
 	toNetworkLayer(packet2Net, SINK_NETWORK_ADDRESS);
 	sentOnce = true;
 }

@@ -20,7 +20,6 @@ moduleinterface iApplication {
 	string applicationID;
 	bool collectTraceInfo;
 	int priority;
-	int maxAppPacketSize;		// in bytes
 	int packetHeaderOverhead;	// in bytes
 	int constantDataPayload;	// in bytes
 

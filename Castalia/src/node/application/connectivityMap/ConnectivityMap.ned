@@ -20,7 +20,6 @@ simple ConnectivityMap like node.application.iApplication {
  	string applicationID = default ("connMap");
 	bool collectTraceInfo = default (false);
 	int packetHeaderOverhead = default (8);
-	int maxAppPacketSize = default (0);
 	int priority = default (1);
 	int constantDataPayload = default (8);
 

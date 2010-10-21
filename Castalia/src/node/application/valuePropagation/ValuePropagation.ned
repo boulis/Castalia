@@ -20,7 +20,6 @@ simple ValuePropagation like node.application.iApplication {
  	string applicationID = default ("valuePropagation");
 	bool collectTraceInfo = default (true);
 	int priority = default (1);
-	int maxAppPacketSize = default (30);	// in bytes
 	int packetHeaderOverhead = default (8);	// in bytes
 	int constantDataPayload = default (2);	// in bytes
 	double tempThreshold = default (15.0);

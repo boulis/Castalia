@@ -20,7 +20,6 @@ simple BridgeTest like node.application.iApplication {
  	string applicationID = default ("BridgeTest");
 	bool collectTraceInfo = default (false);
 	int priority = default (1);
-	int maxAppPacketSize = default (0);			// in bytes
 	int packetHeaderOverhead = default (8);		// in bytes
 	int constantDataPayload = default (0);
 

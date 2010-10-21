@@ -171,12 +171,7 @@ ApplicationGenericDataPacket *VirtualApplication::createGenericDataPacket(double
 	    new ApplicationGenericDataPacket("Application generic packet", APPLICATION_PACKET);
 	newPacket->setData(data);
 	newPacket->setSequenceNumber(seqNum);
-	if (size < 0)
-		size = constantDataPayload;
-	if (size < 0)
-		opp_error("cannot create generic data packet of negative size");
-	size += packetHeaderOverhead;
-	newPacket->setByteLength(size);
+	if (size > 0) newPacket->setByteLength(size);
 	return newPacket;
 }
 
@@ -207,6 +202,12 @@ void VirtualApplication::toNetworkLayer(cPacket * pkt, const char *dst)
 	appPkt->getApplicationInteractionControl().source = string(SELF_NETWORK_ADDRESS);
 	appPkt->getApplicationInteractionControl().applicationID = applicationID;
 	appPkt->getApplicationInteractionControl().timestamp = simTime();
+	int size = appPkt->getByteLength();
+	if (size == 0) size = constantDataPayload;
+	if (packetHeaderOverhead > 0) size += packetHeaderOverhead;
+	trace() << "Sending [" << appPkt->getName() << "] of size " << 
+		size << " bytes to communication layer";
+	appPkt->setByteLength(size);
 	send(appPkt, "toCommunicationModule");
 }
 

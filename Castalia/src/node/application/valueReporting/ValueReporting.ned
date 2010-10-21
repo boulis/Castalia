@@ -20,7 +20,6 @@ simple ValueReporting like node.application.iApplication {
  	string applicationID = default ("valueReporting");
 	bool collectTraceInfo = default (true);
 	int priority = default (1);
-	int maxAppPacketSize = default (30);	// in bytes
 	int packetHeaderOverhead = default (8);	// in bytes
 	int constantDataPayload = default (12);	// in bytes
 	int maxSampleInterval = default (60000);// in msec

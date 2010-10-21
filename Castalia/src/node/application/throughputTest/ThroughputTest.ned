@@ -20,7 +20,6 @@ simple ThroughputTest like node.application.iApplication {
  	string applicationID = default ("throughputTest");
 	bool collectTraceInfo = default (false);
 	int priority = default (1);
-	int maxAppPacketSize = default (0);
 	int packetHeaderOverhead = default (5);		// in bytes
 	int constantDataPayload = default (100);	// in bytes
 
@@ -41,5 +40,4 @@ simple ThroughputTest like node.application.iApplication {
 	input fromCommunicationModule;
 	input fromSensorDeviceManager;
 	input fromResourceManager;
-
 }

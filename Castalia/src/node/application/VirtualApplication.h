@@ -34,7 +34,6 @@ class VirtualApplication: public CastaliaModule, public TimerService {
 	/*--- The .ned file's parameters ---*/
 	string applicationID;
 	int priority;
-	int maxAppPacketSize;
 	int packetHeaderOverhead;
 	int constantDataPayload;
 	bool isSink;

@@ -31,7 +31,6 @@ class ConnectivityMap: public VirtualApplication {
  private:
 	// parameters and variables
 	int priority;
-	int maxAppPacketSize;
 	int packetHeaderOverhead;
 	bool printConnMap;
 	int constantDataPayload;

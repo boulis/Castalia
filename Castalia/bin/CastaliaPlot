@@ -24,7 +24,7 @@ col_sh = {	"b":"blue", 			"lb":"light-blue", 		"g":"green", 		"lg":"light-green"
 parser = OptionParser(usage="usage: %prog [options]")
 parser.add_option("-d","--debug", dest="debug", default=False, action="store_true", help="Debug mode, will display gnuplot commands as they are dispatched")
 parser.add_option("-g","--greyscale", dest="grey", default=False, action="store_true", help="Use greyscale colors only")
-parser.add_option("-l","--legend", dest="legend", type="string", default="", help="Set legend position, default is 'top right')")
+parser.add_option("-l","--legend", dest="legend", type="string", default="", help="Set legend position, default is 'top right'")
 parser.add_option("-o","--output", dest="output", type="string", default="plot.ps", metavar="FILE", help="Select output file, default is 'plot.ps'")
 parser.add_option("-s","--style", dest="style", type="string", default="linespoints", help="Plot style to be used, supported values: " + ", ".join(styles))
 parser.add_option("--color-opacity", dest="opacity", type="float", default=0.65, help="Set box colour opacity, default is 0.65")
@@ -42,6 +42,8 @@ parser.add_option("--ytitle", dest="ytitle", type="string", help="Set title of y
 
 options,args = parser.parse_args()
 
+lines = sys.stdin.readlines()
+
 if options.colors and options.colors == '?':
 	f = os.popen(options.gnuplot,'w')
 	print >>f, "show palette colornames"
@@ -51,8 +53,6 @@ if options.colors and options.colors == '?':
 	for c in sorted(col_sh):
 		print " ", c, "\t", col_sh[c]
 	sys.exit(0)
-
-lines = sys.stdin.readlines()
 
 title = ""
 extratitle = []
@@ -174,7 +174,7 @@ fr.close()
 if options.style not in styles:
 	quit("\nERROR: unknown style, supported values: " + ", ".join(styles))
 
-name,ext = options.output.split(".")
+name,ext = options.output.rsplit(".",1)
 if ext != 'ps' and ext != 'eps':
 	name += ".ps"
 else:
@@ -241,7 +241,7 @@ else:
 	myprint(f, "set boxwidth " + str(options.boxwidth))
 
 colors = []
-if options.colors:
+if options.colors and not options.grey:
 	myprint(f, "set style increment user")
 	colors = options.colors.split(",")
 	for i in range(len(colors)):

@@ -53,6 +53,7 @@ parser = OptionParser(usage="usage: %prog [options]")
 parser.add_option("-c","--config", dest="config", type="string", default="General", help="A list of configuration names to use, comma separated configurations will be joined together, configurations listed in brackets will be interleaved")
 parser.add_option("-i","--input", dest="input", type="string", default="omnetpp.ini", metavar="FILE", help="Select input configuration file, default is omnetpp.ini")
 parser.add_option("-d","--debug", dest="debug", default=False, action="store_true", help="Debug mode, will display results from each CastaliaBin execution")
+parser.add_option("-o","--output", dest="output", type="string", metavar="FILE", help="Select output file for writing results, generated from current date by default") 
 parser.add_option("-r","--repeat", dest="repeat", type="int", metavar="N", default=1, help="Number of repetitions for each unique scenario")
 (options,args) = parser.parse_args()
 
@@ -250,7 +251,8 @@ else:
 	labelList.append(",".join(tmpList2))
 
 ini_num = 0
-fr = open(datetime.now().strftime("%y%m%d-%H%M%S")+".txt","w")
+if options.output: fr = open(options.output,"w")
+else: fr = open(datetime.now().strftime("%y%m%d-%H%M%S")+".txt","w")
 fr.write("Castalia| what:" + options.config + " (" + options.repeat + ")\n")
 fr.write("Castalia| when:" + datetime.now().strftime("%Y-%m-%d %H:%M") + "\n")
 for ini in iniList:

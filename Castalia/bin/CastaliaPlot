@@ -247,7 +247,7 @@ if options.rotate:
 elif len(xtics_add): myprint(f, "set xtics (" + ', '.join(xtics_add) + ")")
 key = "set key "
 if ltitle != "": key += "title \"" + ltitle + "\" "
-if ltitle != "" or options.legend: myprint(f, key + options.legend)
+if ltitle != "" or options.legend: key += options.legend
 if options.xtitle: myprint(f, "set xlabel '" + options.xtitle + "'")
 elif xtitle != "": myprint(f, "set xlabel '" + xtitle + "'")
 if options.ytitle: myprint(f, "set ylabel '" + options.ytitle + "'")
@@ -306,6 +306,7 @@ else:
 
 if len(plots_ci) or len(plots_all):
 	myprint(f, "set multiplot")
+	myprint(f, "unset key")
 	if not options.yrange: myprint(f, "set yrange [] writeback")
 	if not options.xrange: myprint(f, "set xrange [] writeback")
 	
@@ -322,11 +323,11 @@ if len(plots_ci):
 		if not options.yrange: myprint(f, "set yrange restore")
 		if not options.xrange: myprint(f, "set xrange restore")
 	myprint(f, "plot './" + fname + "' " + plot_extra + (", '' " + plot_extra).join(plots_ci))
-	myprint(f, "unset key")
 
 if len(plots_ci) or len(plots_all):
 	if not options.yrange: myprint(f, "set yrange restore")
 	if not options.xrange: myprint(f, "set xrange restore")
+myprint(f, key)
 myprint(f, "plot './" + fname + "' " + plot_extra + (", '' " + plot_extra).join(plots))
 
 if len(plots_ci) or plot_all != -1:

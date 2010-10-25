@@ -251,7 +251,7 @@ else:
 
 ini_num = 0
 fr = open(datetime.now().strftime("%y%m%d-%H%M%S")+".txt","w")
-fr.write("Castalia| what:" + options.config + "\n")
+fr.write("Castalia| what:" + options.config + " (" + options.repeat + ")\n")
 fr.write("Castalia| when:" + datetime.now().strftime("%Y-%m-%d %H:%M") + "\n")
 for ini in iniList:
 	ini_num += 1

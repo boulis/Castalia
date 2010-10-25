@@ -25,7 +25,8 @@ parser.add_option("-n","--node", dest="pernode", default=False, action="store_tr
 parser.add_option("-o","--output", dest="output", type="int", default=1, metavar="[1|2]", help="Choose output type, supported values are 1 (visual) and 2 (compact)")
 parser.add_option("-p","--percentage", dest="percentage", default=False, action="store_true", help="Display breakdowns as percentage of total amounts where possible")
 parser.add_option("-s","--show", dest="filter", type="string", metavar="RE", help="Select a subset of available outputs by applying RE (regular expression)")
-parser.add_option("--order", dest="order", type="string", metavar="STRING", help="Select label ordering for the table, first label will become column headers")
+parser.add_option("--all", dest="all", default=False, action="store_true", help="Display ALL data points in a separate table")
+parser.add_option("--order", dest="order", type="string", metavar="STRING", help="Select label ordering for the table, first label will become column headers. Labels without '=' can be matched by keyword 'configs'")
 parser.add_option("--sum", dest="sum", default=False, action="store_true", help="Display sum instead of average when data across more than one node is aggregated")
 (options,args) = parser.parse_args()
 
@@ -373,6 +374,9 @@ def printOutput(name,o):
 	if options.confidence: table_ci = Table(options.output,0,options.row_filter)
 	else: table_ci = None
 	
+	if options.all: table_all = Table(options.output,"-",options.row_filter)
+	else: table_all = None
+	
 	# 'no_header' variable will indicate if rows in the table will have headers printed
 	no_header = 1
 	
@@ -380,7 +384,11 @@ def printOutput(name,o):
 	def load(row,col,values,total):
 		mean,ci = mean_ci(values,total)
 		table.addCell(row,col,mean)
-		if table_ci and ci: table_ci.addCell(row,col,ci)
+		if table_ci and ci: 
+			table_ci.addCell(row,col,ci)
+		if table_all:
+			for i in range(len(values)):
+				table_all.addCell(row+" "+str(i),col,values[i])
 	
 	# print_i and print_n variables indicate wether index and node information
 	# is worth displaying (i.e. theres more than one index and more than one node)
@@ -509,6 +517,9 @@ def printOutput(name,o):
 	if options.confidence and len(table_ci.rows.keys()) > 0:
 		print name + " - confidence intervals"
 		table_ci.printTable(no_header)
+	if options.all and len(table_all.rows.keys()) > 0:
+		print name + " - all values"
+		table_all.printTable(no_header)
 	print ""
 
 # calls printOutput function on outputs that match

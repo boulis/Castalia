@@ -63,6 +63,8 @@ labels = []
 table = []
 datasets = 0
 ci = 0
+plot_all = -1
+table_all = {}
 
 def extract_common(llist):
 	common_l = []
@@ -70,12 +72,13 @@ def extract_common(llist):
 	raw = []
 	raw_extra = []
 	result = []
+	raw_result = []
 	maxlen = 0	
 	
 	for l in llist:
 		l = l.strip().replace("\"","")
 		if len(l) < 1: continue
-		result.append(l)
+		raw_result.append(l)
 		l = l.split(",")
 		if maxlen == -1: continue
 		elif maxlen == 0: 
@@ -86,9 +89,8 @@ def extract_common(llist):
 		else:
 			for i in range(len(l)):	raw[i].append(l[i])
 	
-	if maxlen == -1: return result,"",[]
+	if maxlen == -1: return raw_result,"",[]
 
-	result = []
 	for l in raw:
 		common = os.path.commonprefix(l)
 		if common == l[0]: common_t.append(common)
@@ -107,7 +109,10 @@ def extract_common(llist):
 			for i in range(len(l)):
 				result[i] = result[i] + "," + l[i]
 	
-	return result,",".join(common_l),common_t
+	if len(result):
+		return result,",".join(common_l),common_t
+	else:
+		return raw_result,"",[]
 
 for line in lines:
 	m = re.match(r"[-+ \n]+$",line)
@@ -123,12 +128,37 @@ for line in lines:
 				ci = datasets
 				xlabels = []
 			else:
-				quit("\nCastaliaPlot: ERROR confidence intervals can only be plotted with linespoints style")
+				print "CastaliaPlot: WARNING confidence intervals can only be plotted with linespoints style"
+				break
+		elif data[0] == fulltitle + " - all values":
+			if options.style == "linespoints":
+				plot_all = 0
+				xlabels = []
+			else:
+				print "CastaliaPlot: WARNING all values can only be plotted with linespoints style"
+				break
 		else:
 			quit("\nCastaliaPlot: ERROR unable to plot this table or bad input syntax at\n\t"+data[0])
 	elif title and not xlabels:
 		xlabels,xtitle,extra = extract_common(data)
 		extratitle.extend(extra)
+	elif plot_all != -1:
+		if len(data) <= len(xlabels): 
+			print "CastaliaPlot: WARNING unexpected array length of all values plot"
+			plot_all = -1
+			break
+		l,n = data.pop(0).strip().split(" ",1)
+		n = int(n)
+		if labels[plot_all] != l: plot_all = plot_all + 1
+		if labels[plot_all] != l: 
+			print "CastaliaPlot: WARNING unexpected label in the table '" + l + "'"
+			plot_all = -1
+			break
+		for i in range(len(data)):
+			if i not in table_all: table_all[i] = []
+			t = table_all[i]
+			if n >= len(t): t.append([data[i].strip()])
+			else: t[n].append(data[i].strip())
 	else:
 		datasets += 1
 		if len(data) > len(xlabels): labels.append(data.pop(0).strip())
@@ -161,7 +191,6 @@ def myprint(fr,line):
 if options.debug:
 	print("\n===DEBUG: input data file===")
 
-myprint(fr, "title \"" + "\" \"".join(labels) + "\"")
 xtics_add = []
 for x in range(len(xlabels)):
 	if options.style != "rowstacked":
@@ -169,6 +198,10 @@ for x in range(len(xlabels)):
 		myprint(fr, str(x) + " " + " ".join(table.pop(0)))
 	else:
 		myprint(fr, "\"" + xlabels[x] + "\" " + " ".join(table.pop(0)))
+if plot_all != -1:
+	for n in table_all:
+		for d in table_all[n]:
+			myprint(fr, str(n) + " " + " ".join(d))		
 fr.close()
 
 if options.style not in styles:
@@ -254,30 +287,50 @@ if options.colors and not options.grey:
 
 plots = []
 plots_ci = []
+plots_all = []
 if options.style == "rowstacked":
 	for i in range(0,len(labels)):
-		if i == 0: plots.append("using " + str(i+2) + ":key(1) title col")
-		else: plots.append("using " + str(i+2) + " title col")
+		if i == 0: plots.append("using " + str(i+2) + ":key(1) title \"" + labels[i] + "\"")
+		else: plots.append("using " + str(i+2) + " title \"" + labels[i] + "\"")
 else:
 	for i in range(0,len(labels)):
 		if options.style == "linespoints":
 			if ci != 0 and i >= ci:
 				plots_ci.append("using 1:" + str(i-ci+2) + ":" + str(i+2) + " notitle with yerrorbars lw " + str(options.linewidth))
 			else:
-				plots.append("using 1:" + str(i+2) + " title col lw " + str(options.linewidth))
+				plots.append("using 1:" + str(i+2) + " title \"" + labels[i] + "\" lw " + str(options.linewidth))
 		else:
-			plots.append("using " + str(i+2) + " title col")	
+			plots.append("using " + str(i+2) + " title \"" + labels[i] + "\"")
+		if plot_all != -1 and (ci == 0 or i < ci):
+			plots_all.append("using 1:" + str(i+2) + " notitle with points")
 
-if len(plots_ci):
+if len(plots_ci) or len(plots_all):
 	myprint(f, "set multiplot")
 	if not options.yrange: myprint(f, "set yrange [] writeback")
-	myprint(f, "plot './" + fname + "' " + ", '' ".join(plots))
-	myprint(f, "unset key")
-	if not options.yrange: myprint(f, "set yrange restore")
-	myprint(f, "plot './" + fname + "' " + ", '' ".join(plots_ci))
-	myprint(f, "unset multiplot")
+	if not options.xrange: myprint(f, "set xrange [] writeback")
+	
+if len(plots_all):
+	myprint(f, "set datafile missing '-'")
+	plot_extra = "every ::" + str(len(xlabels)) + " "
+	myprint(f, "plot './" + fname + "' " + plot_extra + (", '' " + plot_extra).join(plots_all))
+	plot_extra = "every ::::" + str(len(xlabels) - 1) + " "
 else:
-	myprint(f, "plot './" + fname + "' " + ", '' ".join(plots))
+	plot_extra = ""
+
+if len(plots_ci):
+	if len(plots_all):
+		if not options.yrange: myprint(f, "set yrange restore")
+		if not options.xrange: myprint(f, "set xrange restore")
+	myprint(f, "plot './" + fname + "' " + plot_extra + (", '' " + plot_extra).join(plots_ci))
+	myprint(f, "unset key")
+
+if len(plots_ci) or len(plots_all):
+	if not options.yrange: myprint(f, "set yrange restore")
+	if not options.xrange: myprint(f, "set xrange restore")
+myprint(f, "plot './" + fname + "' " + plot_extra + (", '' " + plot_extra).join(plots))
+
+if len(plots_ci) or plot_all != -1:
+	myprint(f, "unset multiplot")
 
 f.flush()
 f.close()

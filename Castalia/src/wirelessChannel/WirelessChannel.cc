@@ -539,22 +539,22 @@ void WirelessChannel::parsePathLossMap(void)
 		ct = s.c_str();	//ct points to the beginning of a line
 		while (ct[0] && (ct[0] == ' ' || ct[0] == '\t'))
 			ct++;
-		if (ct[0] == '#')
+		if (!ct[0] || ct[0] == '#')
 			continue;	// skip comments
 		if (parseInt(ct, &source))
-			opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile\n");
+			opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile, expecting source identifier\n");
 		while (ct[0] && ct[0] != '>')
 			ct++;	//skip untill '>' character
 		if (!ct[0])
-			opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile\n");
+			opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile, expecting comma separated list of values\n");
 		cStringTokenizer t(++ct, ",");	//divide the rest of the strig with comma delimiter
 		while ((ct = t.nextToken())) {
 			if (parseInt(ct, &destination))
-				opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile\n");
+				opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile, expecting target identifier\n");
 			while (ct[0] && ct[0] != ':')
 				ct++;	//skip untill ':' character
 			if (parseFloat(++ct, &pathloss_db))
-				opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile\n");
+				opp_error("\n[Wireless Channel]:\n Bad syntax in pathLossMapFile, expecting dB value for path loss\n");
 			updatePathLossElement(source, destination, pathloss_db);
 		}
 	}

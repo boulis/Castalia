@@ -564,6 +564,7 @@ void WirelessChannel::parsePathLossMap(void)
 //If this pair is already defined in pathloss array, the old value is replaced, otherwise a new pathloss element is created
 void WirelessChannel::updatePathLossElement(int src, int dst, float pathloss_db)
 {
+	if (src >= numOfSpaceCells || dst >= numOfSpaceCells) return;
 	list <PathLossElement*>::iterator it1;
 	for (it1 = pathLoss[src].begin(); it1 != pathLoss[src].end(); it1++) {
 		if ((*it1)->cellID == dst) {

@@ -198,6 +198,11 @@ for x in range(len(xlabels)):
 		myprint(fr, str(x) + " " + " ".join(table.pop(0)))
 	else:
 		myprint(fr, "\"" + xlabels[x] + "\" " + " ".join(table.pop(0)))
+		
+if options.style == "rowstacked":
+	for x in range(len(labels)):
+		xtics_add.append('"' + labels[x] + '" ' + str(x) + " 0")
+		
 if plot_all != -1:
 	for n in table_all:
 		for d in table_all[n]:
@@ -245,7 +250,7 @@ if options.yrange:
 if options.rotate:
 	myprint(f, "set xtics nomirror rotate by -" + str(options.rotate) + " (" + ', '.join(xtics_add) + ")")
 elif len(xtics_add): myprint(f, "set xtics (" + ', '.join(xtics_add) + ")")
-key = "set key "
+key = ""
 if ltitle != "": key += "title \"" + ltitle + "\" "
 if ltitle != "" or options.legend: key += options.legend
 if options.xtitle: myprint(f, "set xlabel '" + options.xtitle + "'")
@@ -290,8 +295,8 @@ plots_ci = []
 plots_all = []
 if options.style == "rowstacked":
 	for i in range(0,len(labels)):
-		if i == 0: plots.append("using " + str(i+2) + ":key(1) title \"" + labels[i] + "\"")
-		else: plots.append("using " + str(i+2) + " title \"" + labels[i] + "\"")
+		if i == 0: plots.append("using " + str(i+2) + ":key(1)")
+		else: plots.append("using " + str(i+2))
 else:
 	for i in range(0,len(labels)):
 		if options.style == "linespoints":
@@ -327,7 +332,7 @@ if len(plots_ci):
 if len(plots_ci) or len(plots_all):
 	if not options.yrange: myprint(f, "set yrange restore")
 	if not options.xrange: myprint(f, "set xrange restore")
-myprint(f, key)
+if len(key): myprint(f, "set key " + key)
 myprint(f, "plot './" + fname + "' " + plot_extra + (", '' " + plot_extra).join(plots))
 
 if len(plots_ci) or plot_all != -1:

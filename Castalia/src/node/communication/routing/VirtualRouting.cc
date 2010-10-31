@@ -35,9 +35,10 @@ void VirtualRouting::initialize()
 	}
 	cpuClockDrift = resMgrModule->getCPUClockDrift();
 	setTimerDrift(cpuClockDrift);
-
+	pktHistory.clear();
+	
 	disabled = 1;
-
+	currentSequenceNumber = 0;
 	stringstream out;
 	out << self;
 	selfAddress = out.str();
@@ -69,6 +70,7 @@ void VirtualRouting::encapsulatePacket(cPacket * pkt, cPacket * appPkt)
 	netPkt->setByteLength(netDataFrameOverhead);
 	netPkt->setKind(NETWORK_LAYER_PACKET);
 	netPkt->getRoutingInteractionControl().source = SELF_NETWORK_ADDRESS;
+	netPkt->getRoutingInteractionControl().sequenceNumber = currentSequenceNumber++;
 	netPkt->encapsulate(appPkt);
 }
 
@@ -239,3 +241,27 @@ int VirtualRouting::resolveNetworkAddress(const char *netAddr)
 	return atoi(netAddr);
 }
 
+bool VirtualRouting::isNotDuplicatePacket(cPacket * pkt) 
+{
+	//extract source address and sequence number from the packet
+	RoutingPacket *netPkt = check_and_cast <RoutingPacket*>(pkt);
+	int src = resolveNetworkAddress(netPkt->getRoutingInteractionControl().source.c_str());
+	int sn = netPkt->getRoutingInteractionControl().sequenceNumber;
+
+	//resize packet history vector if necessary
+	if (src >= (int)pktHistory.size())
+		pktHistory.resize(src+1);
+		
+	//search for this sequence number in the list, corresponding to address 'src'
+	list<int>::iterator it1;
+	for (it1 = pktHistory[src].begin(); it1 != pktHistory[src].end(); it1++) {
+		//if such sequence number is found, packet is duplicate
+		if (*it1 == sn) return false;
+	}
+	
+	//no such sequence number found, this is new packet
+	pktHistory[src].push_front(sn);
+	if (pktHistory[src].size() > PACKET_HISTORY_SIZE)
+		pktHistory[src].pop_back();
+	return true;
+}

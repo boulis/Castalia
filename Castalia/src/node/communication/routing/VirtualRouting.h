@@ -23,6 +23,7 @@
 
 #define SELF_NETWORK_ADDRESS selfAddress.c_str()
 #define ROUTE_DEST_DELIMITER "#"
+#define PACKET_HISTORY_SIZE 5
 
 using namespace std;
 
@@ -32,12 +33,14 @@ class VirtualRouting: public CastaliaModule, public TimerService {
 	int maxNetFrameSize;		//in bytes
 	int netDataFrameOverhead;	//in bytes
 	int netBufferSize;			//in # of messages
+	unsigned int currentSequenceNumber;
 
 	/*--- Custom class parameters ---*/
 	double radioDataRate;
 	ResourceManager *resMgrModule;
 
-	queue<cPacket*> TXBuffer;
+	queue< cPacket* > TXBuffer;
+	vector< list<int> > pktHistory;
 
 	double cpuClockDrift;
 	int disabled;
@@ -59,6 +62,7 @@ class VirtualRouting: public CastaliaModule, public TimerService {
 	void toApplicationLayer(cMessage *);
 	void toMacLayer(cMessage *);
 	void toMacLayer(cPacket *, int);
+	bool isNotDuplicatePacket(cPacket *);
 
 	void encapsulatePacket(cPacket *, cPacket *);
 	cPacket *decapsulatePacket(cPacket *);

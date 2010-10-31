@@ -32,8 +32,6 @@ class MultipathRingsRouting: public VirtualRouting {
 	int mpathRingsSetupFrameOverhead;	// in bytes
 	double netSetupTimeout;
 
-	map<string,int> packetFilter;
-
 	// multipathRingsRouting-related member variables
 	int currentSequenceNumber;
 	int currentSinkID;
@@ -54,7 +52,6 @@ class MultipathRingsRouting: public VirtualRouting {
 
 	void timerFiredCallback(int);
 	void processBufferedPacket();
-	bool filterIncomingPacket(string, int);
 };
 
 #endif				//MULTIPATHRINGSROUTINGMODULE

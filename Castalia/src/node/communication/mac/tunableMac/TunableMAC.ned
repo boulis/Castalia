@@ -36,7 +36,7 @@ simple TunableMAC like node.communication.mac.iMac {
 						// 2-->(backoff = multiplying value - e.g. 1*a, 2*a, 3*a, 4*a ...), 
 						// 3-->(backoff = exponential value - e.g. 2, 4, 8, 16, 32...)
 	int backoffBaseValue = default (16);	// the backoff base value in ms
-	double CSMApersistance default (0); // value in [0..1], is CSMA non-persistent, p-persistent, or 1-persistent?
+	double CSMApersistance = default (0); // value in [0..1], is CSMA non-persistent, p-persistent, or 1-persistent?
 	bool txAllPacketsInFreeChannel = default (false); // if you find the channel free, tx all packets in buffer? 
 
 	//=============== End of tunable parameters ===================================

@@ -27,7 +27,6 @@ void MultipathRingsRouting::startup()
 	isConnected = (isSink) ? true : false;
 	isScheduledNetSetupTimeout = false;
 	currentSequenceNumber = 0;
-	packetFilter.clear();
 
 	if (isSink)
 		sendTopologySetupPacket();
@@ -36,7 +35,7 @@ void MultipathRingsRouting::startup()
 void MultipathRingsRouting::sendTopologySetupPacket()
 {
 	MultipathRingsRoutingPacket *setupPkt =
-	    new MultipathRingsRoutingPacket("Multipath rings routing packet", NETWORK_LAYER_PACKET);
+	    new MultipathRingsRoutingPacket("Multipath rings routing setup packet", NETWORK_LAYER_PACKET);
 	setupPkt->setMultipathRingsRoutingPacketKind(MPRINGS_TOPOLOGY_SETUP_PACKET);
 	setupPkt->setSource(SELF_NETWORK_ADDRESS);
 	setupPkt->setDestination(BROADCAST_NETWORK_ADDRESS);
@@ -153,7 +152,6 @@ void MultipathRingsRouting::fromMacLayer(cPacket * pkt, int macAddress, double r
 			string src(netPacket->getSource());
 			int senderLevel = netPacket->getSenderLevel();
 			int sinkID = netPacket->getSinkID();
-			int seq = netPacket->getSequenceNumber();
 
 			if (dst.compare(BROADCAST_NETWORK_ADDRESS) == 0 ||
 					dst.compare(SELF_NETWORK_ADDRESS) == 0) {
@@ -165,8 +163,10 @@ void MultipathRingsRouting::fromMacLayer(cPacket * pkt, int macAddress, double r
 				if (senderLevel == currentLevel + 1) {
 					if (self == sinkID) {
 						// Packet is for this node, if filter passes, forward it to application
-						if (filterIncomingPacket(src, seq))
+						if (isNotDuplicatePacket(pkt))
 							toApplicationLayer(decapsulatePacket(pkt));
+						else
+							trace() << "Discarding duplicate packet from node " << src;
 					} else if (sinkID == currentSinkID) {
 						// We want to rebroadcast this packet since we are not its destination
 						// For this, a copy of the packet is created and sender level field is 
@@ -180,20 +180,14 @@ void MultipathRingsRouting::fromMacLayer(cPacket * pkt, int macAddress, double r
 			} else if (dst.compare(PARENT_NETWORK_ADDRESS) == 0) {
 				if (senderLevel == currentLevel + 1 && sinkID == currentSinkID) {
 					// Packet is for this node, if filter passes, forward it to application
-					if (filterIncomingPacket(src, seq))
+					if (isNotDuplicatePacket(pkt))
 						toApplicationLayer(decapsulatePacket(pkt));
+					else
+						trace() << "Discarding duplicate packet from node " << src;
 				}
 			}
 			break;
 		}
 	}
-}
-
-bool MultipathRingsRouting::filterIncomingPacket(string source, int seq)
-{
-	if (packetFilter[source] >= seq)
-		return false;
-	packetFilter[source] = seq;
-	return true;
 }
 

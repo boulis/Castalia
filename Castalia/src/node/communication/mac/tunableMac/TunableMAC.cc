@@ -121,7 +121,7 @@ void TunableMAC::handleCarrierSenseResult(int returnCode)
 			 * start the transmission. But for p-persistent CSMA
 			 * we have to draw a random number and if this is
 			 * bigger than p (=CSMApersistence) then we do not
-			 * trasmit but instead we carrier sense yet again.
+			 * transmit but instead we carrier sense yet again.
 			 */
 			if (CSMApersistance > 0 && CSMApersistance < genk_dblrand(1)){
 				setTimer(START_CARRIER_SENSING, phyDelayForValidCS);
@@ -251,8 +251,9 @@ void TunableMAC::fromNetworkLayer(cPacket * netPkt, int destination)
 			attemptTx();
 		}
 	} else {
-		// bufferPacket failed, buffer is full
-		// FULL_BUFFER control msg sent by virtualMAC code
+		/* bufferPacket() failed, buffer is full
+		 * FULL_BUFFER control msg sent by virtualMAC code
+		 */
 		collectOutput("TunableMAC packet breakdown", "Overflown");
 		trace() << "WARNING Tunable MAC buffer overflow";
 	}
@@ -332,14 +333,14 @@ void TunableMAC::sendBeaconsOrData()
 	} else {
 		if (TXBuffer.empty()) {
 			numTxTries = 0; // safeguarding
-			attemptTx(); // this should set the sleeping patterns again.
+			attemptTx(); 	// calling will set the sleeping patterns again.
 			return;
 		}
 
 		toRadioLayer(TXBuffer.front()->dup());
 		toRadioLayer(createRadioCommand(SET_STATE, TX));
 
-		// count whether this was an original transmission or a retransmission
+		// Record whether this was an original transmission or a retransmission
 		if (numTxTries == numTx)
 			collectOutput("TunableMAC packet breakdown", "data pkts");
 		else
@@ -349,10 +350,9 @@ void TunableMAC::sendBeaconsOrData()
 		      phyLayerOverhead)) * 8.0 / (1000.0 * phyDataRate);
 		numTxTries--;
 
-		/* If we have chosen to transmit all packets in our buffer
-		 * now that we found the channel free (generally NOT a good
-		 * idea since it can lead to prolonged collisions in high
-		 * traffic), we schedule the transmission of the next packet
+		/* If we have chosen to transmit all packets in our
+		 * buffer now that we found the channel free,
+		 * we schedule the transmission of the next packet
 		 * (or a copy of the current one) once the current
 		 * transmission is done. If all retransmissions are done,
 		 * we also delete the packet from the buffer. No beacons

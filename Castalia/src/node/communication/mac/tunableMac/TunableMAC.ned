@@ -12,10 +12,10 @@
 
 package node.communication.mac.tunableMac;
 
-// ================================================
-// Default parameter values will result in simple 
-// CSMA behavior (carrier sense then send)
-// ================================================
+// ===========================================
+// Default parameter values will result in 
+// non-persistent CSMA-CA behaviour
+// ============================================
 
 simple TunableMAC like node.communication.mac.iMac {
  parameters: 
@@ -29,14 +29,14 @@ simple TunableMAC like node.communication.mac.iMac {
 	double beaconIntervalFraction = default (1.0);	// fraction of the sleeping interval that we send beacons
 	double probTx = default (1.0);		// the probability of a single try of Transmission to happen
 	int numTx = default (1);		// when we have something to Tx, how many times we try
-	double randomTxOffset = default (10);	// Tx after time chosen randomly from interval [0..randomTxOffset]
-	double reTxInterval = default (0);	// Interval between retransmissions in ms, (numTx-1) retransmissions
+	double randomTxOffset = default (0.0);	// Tx after time chosen randomly from interval [0..randomTxOffset]
+	double reTxInterval = default (0.0);	// Interval between retransmissions in ms, (numTx-1) retransmissions
 	double backoffType = default (1);	// 0-->(backoff = sleepinterval), 
 						// 1-->(backoff = constant value), 
 						// 2-->(backoff = multiplying value - e.g. 1*a, 2*a, 3*a, 4*a ...), 
 						// 3-->(backoff = exponential value - e.g. 2, 4, 8, 16, 32...)
 	int backoffBaseValue = default (16);	// the backoff base value in ms
-	double CSMApersistance = default (0); // value in [0..1], is CSMA non-persistent, p-persistent, or 1-persistent?
+	double CSMApersistance = default (0); 	// value in [0..1], is CSMA non-persistent, p-persistent, or 1-persistent?
 	bool txAllPacketsInFreeChannel = default (false); // if you find the channel free, tx all packets in buffer? 
 
 	//=============== End of tunable parameters ===================================
@@ -46,6 +46,7 @@ simple TunableMAC like node.communication.mac.iMac {
 	int beaconFrameSize = default (14);
 	int macBufferSize = default (32);
 
+	//========== Make sure you update the data rate if you change radios ==========
 	double phyDataRate = default (250.0);
 	double phyDelayForValidCS = default (0.128);
 	int phyFrameOverhead = default (6);

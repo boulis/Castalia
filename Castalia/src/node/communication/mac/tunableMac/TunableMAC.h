@@ -53,11 +53,12 @@ class TunableMAC: public VirtualMac {
 	double randomTxOffset;	// when have somethingnto transmit, don't do it immediatelly
 	double reTxInterval;	// the interval between retransmissions, in msec but after a
 							// time [0..randomTxOffset] chosen randomly (uniform)
-	int beaconFrameSize;	//in bytes
-	int backoffType;		//can be 0 or 1 or 2 or 3
-	double backoffBaseValue;//the backoff value
+	int beaconFrameSize;	// in bytes
+	int backoffType;		// can be 0 or 1 or 2 or 3
+	double backoffBaseValue;// the backoff value
 	double CSMApersistance; // value in [0..1], is CSMA non-persistent, p-persistent, or 1-persistent
 	bool txAllPacketsInFreeChannel; // when channel free, tx all packets in buffer?
+	bool sleepDuringBackoff;	// for no dutyCycle case: sleep when backing off?
 
 	int phyLayerOverhead;
 	simtime_t phyDelayForValidCS;	// delay for valid CS

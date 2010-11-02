@@ -26,6 +26,7 @@ void TunableMAC::startup()
 	backoffType = par("backoffType");
 	CSMApersistance = par("CSMApersistance");
 	txAllPacketsInFreeChannel = par("txAllPacketsInFreeChannel");
+	sleepDuringBackoff = par("sleepDuringBackoff");
 
 	phyDataRate = par("phyDataRate");
 	phyDelayForValidCS = (double)par("phyDelayForValidCS") / 1000.0;	// convert msecs to secs
@@ -200,7 +201,8 @@ void TunableMAC::handleCarrierSenseResult(int returnCode)
 			setTimer(START_CARRIER_SENSING, backoffTimer);
 			trace() << "Channel busy, backing off and going to sleep for " << backoffTimer << " secs";
 
-			/* Go directly to sleep. One could say "wait for listenInterval
+			/* If having a dutyCycle or relevant parameter is enabled
+			 * go directly to sleep. One could say "wait for listenInterval
 			 * in the case we receive something". This is highly improbable
 			 * though as most of the cases we start the process of carrier
 			 * sensing from a sleep state (so most likely we have missed the
@@ -208,7 +210,8 @@ void TunableMAC::handleCarrierSenseResult(int returnCode)
 			 * someone else is transmitting then we would have entered
 			 * MAC_STATE_RX and the carrier sense (and TX) would be postponed.
 			 */
-			toRadioLayer(createRadioCommand(SET_STATE, SLEEP));
+			if ((sleepDuringBackoff) || ((dutyCycle > 0.0) && (dutyCycle < 1.0)))
+				toRadioLayer(createRadioCommand(SET_STATE, SLEEP));
 			break;
 		}
 

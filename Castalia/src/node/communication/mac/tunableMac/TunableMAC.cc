@@ -363,6 +363,10 @@ void TunableMAC::sendBeaconsOrData()
 			if (numTxTries <= 0){
 				cancelAndDelete(TXBuffer.front());
 				TXBuffer.pop();
+				/* Set the numTxTries. If no more packets left, it
+				 * will be reset when sendBeaconsOrData() is called
+				 */
+				numTxTries = numTx;
 			}
 			return;
 		}

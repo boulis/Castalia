@@ -7,7 +7,7 @@
  *                                                                          *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
  *      Attention:  License Inquiry.                                        *
- *                                                                          *  
+ *                                                                          *
  ****************************************************************************/
 
 #ifndef _RADIO_H_
@@ -189,7 +189,7 @@ class Radio: public CastaliaModule {
 	simtime_t latestCSinterruptTime;
 
 	// pointer to self message to complete state transition
-	cMessage *stateTxCompleteMsg;
+	cMessage *stateTransitionMsg;
 
 	int disabled;
 

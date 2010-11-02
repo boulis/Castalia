@@ -7,7 +7,7 @@
  *                                                                          *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
  *      Attention:  License Inquiry.                                        *
- *                                                                          *  
+ *                                                                          *
  ****************************************************************************/
 
 #include "Radio.h"
@@ -30,7 +30,7 @@ void Radio::initialize()
 	totalPowerReceived.push_front(initialTotalPower);
 
 	CSinterruptMsg = NULL;
-	stateTxCompleteMsg = NULL;
+	stateTransitionMsg = NULL;
 	latestCSinterruptTime = 0;
 
 	declareOutput("RX pkt breakdown");
@@ -74,6 +74,7 @@ void Radio::handleMessage(cMessage * msg)
 				newSignal.bitErrors = ALL_ERRORS;
 				receivedSignals.push_front(newSignal);
 				stats.RxFailedNoRxState++;
+				trace() << "Failed packet (WC_SIGNAL_START) from node " << newSignal.ID << ", radio not in RX state";
 				break;	// exit case WC_SIGNAL_START
 			}
 
@@ -104,29 +105,29 @@ void Radio::handleMessage(cMessage * msg)
 			newSignal.encoding = (Encoding_type) wcMsg->getEncodingType();
 
 			switch (collisionModel) {
-				
+
 				case ADDITIVE_INTERFERENCE_MODEL:	// the default mode
 					newSignal.currentInterference = totalPowerReceived.front().power_dBm;
 					break;
-				
+
 				case NO_INTERFERENCE_NO_COLLISIONS:
 					newSignal.currentInterference = -200.0;
 					break;
-				
+
 				case SIMPLE_COLLISION_MODEL:
 					// if other received signals are 6dBm below RX sensitivity or more
-					// this is considered catastrophic interference. 
+					// this is considered catastrophic interference.
 					if (totalPowerReceived.front().power_dBm > RXmode->sensitivity - 6.0)
 						newSignal.currentInterference = 0.0;
 					else
 						newSignal.currentInterference = -200.0;
 					break;
-				
+
 				case COMPLEX_INTERFERENCE_MODEL:	// not implemented yet
 					newSignal.currentInterference = -200.0;
 					break;
 			}
-			
+
 			newSignal.maxInterference = newSignal.currentInterference;
 			if ((RXmode->modulation == newSignal.modulation) && (newSignal.power_dBm >= RXmode->sensitivity))
 				newSignal.bitErrors = 0;
@@ -134,10 +135,14 @@ void Radio::handleMessage(cMessage * msg)
 				// ALL_ERRORS signals are kept only for interference and RSSI calculations
 				newSignal.bitErrors = ALL_ERRORS;
 				// collect stats
-				if (newSignal.power_dBm < RXmode->sensitivity)
+				if (newSignal.power_dBm < RXmode->sensitivity) {
 					stats.RxFailedSensitivity++;
-				else
+					trace() << "Failed packet (WC_SIGNAL_START) from node " << newSignal.ID << ", below sensitivity";
+				}
+				else {
 					stats.RxFailedModulation++;
+					trace() << "Failed packet (WC_SIGNAL_START) from node " << newSignal.ID << ", wrong modulation";
+				}
 			}
 
 			receivedSignals.push_front(newSignal);
@@ -176,8 +181,10 @@ void Radio::handleMessage(cMessage * msg)
 			 * delete the corresponding signal from the received signals list
 			 */
 			if ((state != RX) || (changingToState != -1)) {
-				if (endingSignal->bitErrors != ALL_ERRORS)
+				if (endingSignal->bitErrors != ALL_ERRORS) {
 					stats.RxFailedNoRxState++;
+					trace() << "Failed packet (WC_SIGNAL_END) from node " << signalID << ", no RX state";
+				}
 				receivedSignals.erase(endingSignal);
 				break;	// exit case WC_SIGNAL_END
 			}
@@ -211,20 +218,28 @@ void Radio::handleMessage(cMessage * msg)
 					// decapsulate the packet and add the RSSI and LQI fields
 					MacPacket *macPkt = check_and_cast<MacPacket*>(wcMsg->decapsulate());
 					macPkt->getMacInteractionControl().RSSI = readRSSI();
-					macPkt->getMacInteractionControl().LQI = endingSignal->power_dBm - 
+					macPkt->getMacInteractionControl().LQI = endingSignal->power_dBm -
 							addPower_dBm(endingSignal->maxInterference, RXmode->noiseFloor);
 					sendDelayed(macPkt, PROCESSING_DELAY, "toMacModule");
 					// collect stats
-					if (endingSignal->maxInterference == -200.0)
+					if (endingSignal->maxInterference == -200.0) {
 						stats.RxReachedNoInterference++;
-					else
+						trace() << "Received packet (WC_SIGNAL_END) from node " << signalID << ", with no interference";
+					}
+					else {
 						stats.RxReachedInterference++;
+						trace() << "Received packet (WC_SIGNAL_END) from node " << signalID << ", despite interference";
+					}
 				} else {
 					// collect stats
-					if (endingSignal->maxInterference == -200.0)
+					if (endingSignal->maxInterference == -200.0) {
 						stats.RxFailedNoInterference++;
-					else
+						trace() << "Failed packet (WC_SIGNAL_END) from node " << signalID << ", NO interference";
+					}
+					else {
 						stats.RxFailedInterference++;
+						trace() << "Failed packet (WC_SIGNAL_END) from node " << signalID << ", with interference";
+					}
 				}
 			}
 
@@ -246,8 +261,9 @@ void Radio::handleMessage(cMessage * msg)
 		 * Radio self message to complete the transition to a state
 		 ***********************************************************/
 		case RADIO_ENTER_STATE:{
-			if (stateTxCompleteMsg == msg)
-				stateTxCompleteMsg = NULL;
+			// The transition message is handled,
+			// make the stateTransitionMsg variable NULL
+			stateTransitionMsg = NULL;
 			completeStateTransition();
 			break;
 		}
@@ -260,7 +276,7 @@ void Radio::handleMessage(cMessage * msg)
 
 			int totalSize = macPkt->getByteLength() + PhyFrameOverhead;
 			if (maxPhyFrameSize != 0 && totalSize > maxPhyFrameSize) {
-				trace() << "WARNING: MAC sent to Radio an oversized packet (" << 
+				trace() << "WARNING: MAC sent to Radio an oversized packet (" <<
 					macPkt->getByteLength() + PhyFrameOverhead << " bytes) packet dropped";
 				break;
 			}
@@ -272,13 +288,12 @@ void Radio::handleMessage(cMessage * msg)
 				// to avoid unnecessary message duplication
 				return;
 			} else {
-				trace() << "WARNING: discarding [" << macPkt->getName() <<
-				    "] from MAC layer because Radio buffer is full";
-				RadioControlMessage *fullBuffMsg = 
+				RadioControlMessage *fullBuffMsg =
 						new RadioControlMessage("Radio buffer full", RADIO_CONTROL_MESSAGE);
 				fullBuffMsg->setRadioControlMessageKind(RADIO_BUFFER_FULL);
 				sendDelayed(fullBuffMsg, PROCESSING_DELAY, "toMacModule");
 				stats.bufferOverflow++;
+				trace() << "WARNING: Buffer FULL, discarding [" << macPkt->getName() << "] from MAC layer";
 			}
 			break;
 		}
@@ -375,8 +390,8 @@ void Radio::handleRadioControlCommand(RadioControlCommand * radioCmd)
 			}
 
 			powerDrawn(avgDrawnTransitionPower);
-			trace() << "SET STATE to " << (changingToState == TX ? "TX" : 
-					(changingToState == RX ? "RX" : "SLEEP")) << ", delay=" << 
+			trace() << "SET STATE to " << (changingToState == TX ? "TX" :
+					(changingToState == RX ? "RX" : "SLEEP")) << ", delay=" <<
 					transitionDelay << ", power=" << avgDrawnTransitionPower;
 
 			delayStateTransition(transitionDelay);
@@ -411,7 +426,7 @@ void Radio::handleRadioControlCommand(RadioControlCommand * radioCmd)
 
 		case SET_TX_OUTPUT:{
 			TxLevel = parseTxLevel(radioCmd->getParameter());
-			trace() << "Changed TX power output to " << TxLevel->txOutputPower << 
+			trace() << "Changed TX power output to " << TxLevel->txOutputPower <<
 					" dBm, consuming " << TxLevel->txPowerConsumed << " mW";
 			break;
 		}
@@ -460,16 +475,20 @@ void Radio::handleRadioControlCommand(RadioControlCommand * radioCmd)
 }
 
 /* The function handles the messages to delay the transition to another state.
- * The possibility of a state change before the previous one is completed is also taken care of.
+ * The possibility of a state change before the previous one is completed is also
+ * taken care of. Note that stateTransitionMsg class variable is used to indicate
+ * whether or not we have another ongoing radioState change. The variable
+ * 'changingToState' cannot be used for that purpose since it has already
+ * been set forf the current radioState change.
  */
 void Radio::delayStateTransition(simtime_t delay)
 {
-	if (stateTxCompleteMsg) {
+	if (stateTransitionMsg!=NULL) {
 		trace() << "WARNING: command to change to a new state was received before previous state transition was completed";
-		cancelAndDelete(stateTxCompleteMsg);
+		cancelAndDelete(stateTransitionMsg);
 	}
-	stateTxCompleteMsg = new cMessage("Complete state transition", RADIO_ENTER_STATE);
-	scheduleAt(simTime() + delay, stateTxCompleteMsg);
+	stateTransitionMsg = new cMessage("Complete state transition", RADIO_ENTER_STATE);
+	scheduleAt(simTime() + delay, stateTransitionMsg);
 }
 
 /* The function handles the actions needed when entering a new state.
@@ -477,12 +496,12 @@ void Radio::delayStateTransition(simtime_t delay)
 void Radio::completeStateTransition()
 {
 	state = (BasicState_type) changingToState;
-	trace() << "completing transition to " << state << " (" << 
+	trace() << "completing transition to " << state << " (" <<
 			(state == TX ? "TX" : (state == RX ? "RX" : "SLEEP")) << ")";
 	changingToState = -1;
 
 	switch (state) {
-	
+
 		case TX:{
 			if (!radioBuffer.empty()) {
 				double timeToTxPacket = popAndSendToWirelessChannel();
@@ -592,6 +611,7 @@ double Radio::popAndSendToWirelessChannel()
 
 	// keep stats of the packets TXed
 	stats.transmissions++;
+	trace() << "Sending Packet, Transmission will last " << txTime << " secs";
 	return txTime;
 }
 
@@ -639,6 +659,7 @@ void Radio::updateTotalPowerReceived()
 		newElement.power_dBm = addPower_dBm(it1->power_dBm, newElement.power_dBm);
 		if (it1->bitErrors != ALL_ERRORS) {
 			stats.RxFailedNoRxState++;
+			trace() << "Just entered RX, existing signal from node " << it1->ID << " cannot be received";
 			it1->bitErrors = ALL_ERRORS;
 		}
 	}
@@ -692,7 +713,7 @@ void Radio::updateInterference(list<ReceivedSignal_type>::iterator it1,
 		case NO_INTERFERENCE_NO_COLLISIONS:{
 			return;
 		}		// nothing, this signal will not affect other signals
-		
+
 		case SIMPLE_COLLISION_MODEL:{
 			return;
 		}		// do nothing, this signal corrupted/destroyed other signals already
@@ -894,7 +915,7 @@ void Radio::readIniFileParameters(void)
 
 	string startingTxPower = par("TxOutputPower");
 	TxLevel = parseTxLevel(startingTxPower);
-	trace() << "Initialized TX power output to " << TxLevel->txOutputPower << 
+	trace() << "Initialized TX power output to " << TxLevel->txOutputPower <<
 			" dBm, consuming " << TxLevel->txPowerConsumed << " mW";
 
 	string defaultSleepLevel = par("sleepLevel");
@@ -967,7 +988,7 @@ void Radio::parseRadioParameterFile(const char *fileName)
 		else {
 			if (section == 1) {
 				// parsing lines in the following format:
-				// Name, dataRate(kbps), modulationType, bitsPerSymbol, bandwidth(MHz), 
+				// Name, dataRate(kbps), modulationType, bitsPerSymbol, bandwidth(MHz),
 				// noiseBandwidth(MHz), noiseFloor(dBm), sensitivity(dBm), powerConsumed(mW)
 
 				RXmode_type rxmode;
@@ -1285,7 +1306,7 @@ void Radio::ReceivedSignalDebug(const char *description)
 	list<ReceivedSignal_type>::iterator it1;
 	trace() << "*** RECEIVED SIGNALS LIST DEBUG AT " << description << " ***";
 	for (it1 = receivedSignals.begin(); it1 != receivedSignals.end(); it1++) {
-		trace() << "ID:" << it1->ID << ", power:" << it1->power_dBm << ", crIntrf:" << 
+		trace() << "ID:" << it1->ID << ", power:" << it1->power_dBm << ", crIntrf:" <<
 				it1->currentInterference << ", bitErr:" << it1->bitErrors;
 	}
 }

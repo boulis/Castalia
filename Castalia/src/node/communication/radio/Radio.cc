@@ -55,7 +55,7 @@ void Radio::handleMessage(cMessage * msg)
 		case WC_SIGNAL_START:{
 
 			WirelessChannelSignalBegin *wcMsg = check_and_cast<WirelessChannelSignalBegin*>(msg);
-			trace() << "START signal from node " << wcMsg->getNodeID() << " , received power " << cMsg->getPower_dBm() << "dBm" ;
+			trace() << "START signal from node " << wcMsg->getNodeID() << " , received power " << wcMsg->getPower_dBm() << "dBm" ;
 
 			/* If the carrier frequency does not match, it is as if we are not receiving it.
 			 * In the future, depending on carrierFreq and bandwidth, we can decide to include
@@ -292,9 +292,11 @@ void Radio::handleMessage(cMessage * msg)
 				// send a command to change to RX, or SLEEP
 				RadioControlCommand *radioCmd = new RadioControlCommand("TX->RX or SLEEP", RADIO_CONTROL_COMMAND);
 				radioCmd->setRadioControlCommandKind(SET_STATE);
-				stateAfterTX == RX ? radioCmd->setState(RX) : radioCmd->setState(SLEEP);
+				if (stateAfterTX == SLEEP) 
+					radioCmd->setState(SLEEP);
+				else 	radioCmd->setState(RX);
 				scheduleAt(simTime(), radioCmd);
-				trace() << "TX finished (no more pkts in the buffer) changing to " << stateAfterTX == RX ? "RX" : "SLEEP";
+				trace() << "TX finished (no more pkts in the buffer) changing to " << (stateAfterTX == SLEEP ? "SLEEP" : "RX");
 				stateAfterTX = RX; // return to a default behaviour
 			}
 			break;
@@ -392,7 +394,7 @@ void Radio::handleRadioControlCommand(RadioControlCommand * radioCmd)
 			 * the intended target state. Otherwise proceed with the change.
 			 */
 			if ((state == TX) && !radioCmd->isSelfMessage() && (changingToState == -1)) {
-				stateAfterTX = radioCmd->getState();
+				stateAfterTX = (BasicState_type) radioCmd->getState();
 				break;
 			}
 

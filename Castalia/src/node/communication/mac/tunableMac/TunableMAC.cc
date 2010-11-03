@@ -144,7 +144,7 @@ void TunableMAC::handleCarrierSenseResult(int returnCode)
 			}
 
 			macState = MAC_STATE_TX;
-			trace() << "Channel Clear, MAC_STATE_TX, sending " << remainingBeaconsToTx << " beacons";
+			trace() << "Channel Clear, MAC_STATE_TX, sending " << remainingBeaconsToTx << " beacons followed by data";
 			sendBeaconsOrData();
 			break;
 
@@ -199,7 +199,7 @@ void TunableMAC::handleCarrierSenseResult(int returnCode)
 
 			backoffTimer = genk_dblrand(1) * backoffTimer;
 			setTimer(START_CARRIER_SENSING, backoffTimer);
-			trace() << "Channel busy, backing off and going to sleep for " << backoffTimer << " secs";
+			trace() << "Channel busy, backing off for " << backoffTimer << " secs";
 
 			/* If having a dutyCycle or relevant parameter is enabled
 			 * go directly to sleep. One could say "wait for listenInterval
@@ -362,7 +362,12 @@ void TunableMAC::sendBeaconsOrData()
 		 * or carrier sensing for these packets.
 		 */
 		if (txAllPacketsInFreeChannel){
-			setTimer(SEND_BEACONS_OR_DATA, packetTxTime);
+			/* schedule for sendBeaconsOrData() to be called
+			 * again, a little faster than it takes to TX the
+			 * packet. We want to keep the radio buffer non-
+			 * empty, and we have to account for the clock drift
+			 */
+			setTimer(SEND_BEACONS_OR_DATA, packetTxTime * 0.95);
 			if (numTxTries <= 0){
 				cancelAndDelete(TXBuffer.front());
 				TXBuffer.pop();

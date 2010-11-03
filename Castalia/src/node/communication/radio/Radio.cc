@@ -279,6 +279,7 @@ void Radio::handleMessage(cMessage * msg)
 
 		/*************************************************************
 		 * Radio self message to continue transmitting or change state
+		 * Once we start TXing we continue until the buffer is empty
 		 *************************************************************/
 		case RADIO_CONTINUE_TX:{
 			if (!radioBuffer.empty()) {
@@ -293,6 +294,8 @@ void Radio::handleMessage(cMessage * msg)
 				radioCmd->setRadioControlCommandKind(SET_STATE);
 				stateAfterTX == RX ? radioCmd->setState(RX) : radioCmd->setState(SLEEP);
 				scheduleAt(simTime(), radioCmd);
+				trace() << "TX finished (no more pkts in the buffer) changing to " << stateAfterTX == RX ? "RX" : "SLEEP";
+				stateAfterTX = RX; // return to a default behaviour
 			}
 			break;
 		}
@@ -374,18 +377,21 @@ void Radio::handleRadioControlCommand(RadioControlCommand * radioCmd)
 		/* The command changes the basic state of the radio. Because of
 		 * the transision delay and other restrictions we need to create a
 		 * self message and schedule it in the apporpriate time in the future.
-		 * If we are in TX we do not initiate the change process. We have to
-		 * wait tll the TX buffer is empty and then we change. Thus, we just
-		 * set variable stateAfterTX, and we let the RADIO_CONTINUE_TX code
-		 * to handle the transition.
+		 * If we are in TX, not changing, and this is an external message
+		 * then we DO NOT initiate the change process. We just set the
+		 * variable stateAfterTX, and we let the RADIO_CONTINUE_TX code
+		 * to handle the transition, when the TX buffer is empty.
 		 */
 		case SET_STATE:{
 			// if we are asked to change to the current state, do nothing
-			if (state == radioCmd->getState() || changingToState == radioCmd->getState())
+			if ((state == radioCmd->getState()) || (changingToState == radioCmd->getState()))
 				break;
 
-			// if we are asked to change from TX, let other code handle it
-			if (state == TX) {
+			/* If we are asked to change from TX, and this is an external
+			 * command, and we are not changing already, then just record
+			 * the intended target state. Otherwise proceed with the change.
+			 */
+			if ((state == TX) && !radioCmd->isSelfMessage() && (changingToState == -1)) {
 				stateAfterTX = radioCmd->getState();
 				break;
 			}
@@ -547,11 +553,12 @@ void Radio::completeStateTransition()
 				totalPowerReceived.clear();
 				scheduleAt(simTime() + timeToTxPacket, new cMessage("continueTX", RADIO_CONTINUE_TX));
 			} else {
-				// send a command to change to RX, or SLEEP
-				RadioControlCommand *radioCmd = new RadioControlCommand("TX->RX or SLEEP", RADIO_CONTROL_COMMAND);
+				// just changed to TX, but buffer empty, send a command to change to RX
+				RadioControlCommand *radioCmd = new RadioControlCommand("TX->RX", RADIO_CONTROL_COMMAND);
 				radioCmd->setRadioControlCommandKind(SET_STATE);
-				stateAfterTX == RX ? radioCmd->setState(RX) : radioCmd->setState(SLEEP);
+				radioCmd->setState(RX);
 				scheduleAt(simTime(), radioCmd);
+				trace() << "WARNING: just changed to TX, but buffer is empty, changing to RX ";
 			}
 			break;
 		}

@@ -191,6 +191,9 @@ class Radio: public CastaliaModule {
 	// pointer to self message to complete state transition
 	cMessage *stateTransitionMsg;
 
+	// what state to enter after TX
+	BasicState_type stateAfterTX;
+
 	int disabled;
 
 	PktBreakdown stats;

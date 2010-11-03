@@ -32,6 +32,7 @@ void Radio::initialize()
 	CSinterruptMsg = NULL;
 	stateTransitionMsg = NULL;
 	latestCSinterruptTime = 0;
+	stateAfterTX = RX;
 
 	declareOutput("RX pkt breakdown");
 	declareOutput("TXed pkts");
@@ -54,13 +55,16 @@ void Radio::handleMessage(cMessage * msg)
 		case WC_SIGNAL_START:{
 
 			WirelessChannelSignalBegin *wcMsg = check_and_cast<WirelessChannelSignalBegin*>(msg);
+			trace() << "START signal from node " << wcMsg->getNodeID() << " , received power " << cMsg->getPower_dBm() << "dBm" ;
 
 			/* If the carrier frequency does not match, it is as if we are not receiving it.
 			 * In the future, depending on carrierFreq and bandwidth, we can decide to include
 			 * the signal in the received signals list with reduced (spill over) power
 			 */
-			if (wcMsg->getCarrierFreq() != carrierFreq)
+			if (wcMsg->getCarrierFreq() != carrierFreq){
+				trace() << "START signal ignored, different carrier freq";
 				break;
+			}
 
 			/* if we are not in RX state or we are changing state, then process the
 			 * signal minimally. We still need to keep a list of signals because when
@@ -163,6 +167,7 @@ void Radio::handleMessage(cMessage * msg)
 
 			WirelessChannelSignalEnd *wcMsg = check_and_cast<WirelessChannelSignalEnd*>(msg);
 			int signalID = wcMsg->getNodeID();
+			trace() << "END signal from node " << signalID;
 
 			list<ReceivedSignal_type>::iterator endingSignal;
 			for (endingSignal = receivedSignals.begin(); endingSignal != receivedSignals.end(); endingSignal++) {
@@ -174,8 +179,10 @@ void Radio::handleMessage(cMessage * msg)
 			 * this means that the list was flushed, probably due to a carrier
 			 * frequency change. We can ignore the signal.
 			 */
-			if (endingSignal == receivedSignals.end())
+			if (endingSignal == receivedSignals.end()){
+				trace() << "END signal ingnored: No matching start signal, probably due to carrier freq change";
 				break;	// exit case WC_SIGNAL_END
+			}
 
 			/* If we are not in RX state or we are changing state, then just
 			 * delete the corresponding signal from the received signals list
@@ -261,10 +268,32 @@ void Radio::handleMessage(cMessage * msg)
 		 * Radio self message to complete the transition to a state
 		 ***********************************************************/
 		case RADIO_ENTER_STATE:{
-			// The transition message is handled,
-			// make the stateTransitionMsg variable NULL
+			/* make the stateTransitionMsg variable NULL, since it
+			 * also serves to indicate that a transition is happening
+			 */
 			stateTransitionMsg = NULL;
 			completeStateTransition();
+			break;
+		}
+
+
+		/*************************************************************
+		 * Radio self message to continue transmitting or change state
+		 *************************************************************/
+		case RADIO_CONTINUE_TX:{
+			if (!radioBuffer.empty()) {
+				double timeToTxPacket = popAndSendToWirelessChannel();
+				powerDrawn(TxLevel->txPowerConsumed);
+				// flush the total received power history
+				totalPowerReceived.clear();
+				scheduleAt(simTime() + timeToTxPacket, new cMessage("continueTX", RADIO_CONTINUE_TX));
+			} else {
+				// send a command to change to RX, or SLEEP
+				RadioControlCommand *radioCmd = new RadioControlCommand("TX->RX or SLEEP", RADIO_CONTROL_COMMAND);
+				radioCmd->setRadioControlCommandKind(SET_STATE);
+				stateAfterTX == RX ? radioCmd->setState(RX) : radioCmd->setState(SLEEP);
+				scheduleAt(simTime(), radioCmd);
+			}
 			break;
 		}
 
@@ -345,14 +374,22 @@ void Radio::handleRadioControlCommand(RadioControlCommand * radioCmd)
 		/* The command changes the basic state of the radio. Because of
 		 * the transision delay and other restrictions we need to create a
 		 * self message and schedule it in the apporpriate time in the future.
-		 * Also we need to set changingTostate to the right value. This variable
-		 * acts both as a flag that we are in the midst of changing states and
-		 * as a place to hold the next state value.
+		 * If we are in TX we do not initiate the change process. We have to
+		 * wait tll the TX buffer is empty and then we change. Thus, we just
+		 * set variable stateAfterTX, and we let the RADIO_CONTINUE_TX code
+		 * to handle the transition.
 		 */
 		case SET_STATE:{
 			// if we are asked to change to the current state, do nothing
 			if (state == radioCmd->getState() || changingToState == radioCmd->getState())
 				break;
+
+			// if we are asked to change from TX, let other code handle it
+			if (state == TX) {
+				stateAfterTX = radioCmd->getState();
+				break;
+			}
+
 			changingToState = radioCmd->getState();
 
 			double transitionDelay = transition[state][changingToState].delay;
@@ -508,16 +545,12 @@ void Radio::completeStateTransition()
 				powerDrawn(TxLevel->txPowerConsumed);
 				// flush the total received power history
 				totalPowerReceived.clear();
-
-				// don't like this way too much
-				changingToState = TX;
-				delayStateTransition(timeToTxPacket);
-				//scheduleAt(simTime() + timeToTxPacket, new cMessage("continueTX", RADIO_ENTER_STATE));
+				scheduleAt(simTime() + timeToTxPacket, new cMessage("continueTX", RADIO_CONTINUE_TX));
 			} else {
-				// send a command to change to RX, don't just do it (state = RX;)
-				RadioControlCommand *radioCmd = new RadioControlCommand("TX->RX", RADIO_CONTROL_COMMAND);
+				// send a command to change to RX, or SLEEP
+				RadioControlCommand *radioCmd = new RadioControlCommand("TX->RX or SLEEP", RADIO_CONTROL_COMMAND);
 				radioCmd->setRadioControlCommandKind(SET_STATE);
-				radioCmd->setState(RX);
+				stateAfterTX == RX ? radioCmd->setState(RX) : radioCmd->setState(SLEEP);
 				scheduleAt(simTime(), radioCmd);
 			}
 			break;

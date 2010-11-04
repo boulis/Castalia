@@ -18,7 +18,7 @@ z_values = {99:2.577,98.5:2.43,97.5:2.243,95:1.96,90:1.645,85:1.439,75:1.151}
 
 parser = OptionParser(usage="usage: %prog [options]")
 parser.add_option("-c","--confidence", dest="confidence", type="float", metavar="CL", help="Select desired confidence level (CL) and display confidence intervals where possible, supported values of CL: " + str(sorted(z_values.keys())))
-parser.add_option("-f","--filter", dest="row_filter", type="string", metavar="RE", help="Select a subset of rows by applying RE (regular expression) filter")
+parser.add_option("-f","--filterRows", dest="row_filter", type="string", metavar="RE", help="Select a subset of rows by applying RE (regular expression) filter")
 parser.add_option("-i","--input", dest="input", type="string", metavar="FILE[,FILE]", help="Load results from each FILE")
 parser.add_option("-l","--long", dest="long", default=False, action="store_true", help="Display long (full) labels for table rows")
 parser.add_option("-n","--node", dest="pernode", default=False, action="store_true", help="Display results for each node individually")
@@ -26,6 +26,7 @@ parser.add_option("-o","--output", dest="output", type="int", default=1, metavar
 parser.add_option("-p","--percentage", dest="percentage", default=False, action="store_true", help="Display breakdowns as percentage of total amounts where possible")
 parser.add_option("-s","--show", dest="filter", type="string", metavar="RE", help="Select a subset of available outputs by applying RE (regular expression)")
 parser.add_option("--all", dest="all", default=False, action="store_true", help="Display ALL data points in a separate table")
+parser.add_option("--filterColumns", dest="col_filter", type="string", metavar="RE", help="Select a subset of columns by applying RE (regular expression) filter, only works with breakdown outputs")
 parser.add_option("--order", dest="order", type="string", metavar="STRING", help="Select label ordering for the table, first label will become column headers. Labels without '=' can be matched by keyword 'configs'")
 parser.add_option("--sum", dest="sum", default=False, action="store_true", help="Display sum instead of average when data across more than one node is aggregated")
 (options,args) = parser.parse_args()
@@ -74,16 +75,27 @@ def is_int(num):
 	if type(num) != float: return False
 	return num*10%10 == 0
 
+# table class, allows to populate table with information (i.e. cells)
+# in any arbitrary order, allows to have empty cells
 class Table():
+	# table constructor, parameters:
+	# output - output type, 1 or 2
+	# replace - symbol to use in empty cells, can be empty string
+	# filter - regular expression to perform row filtering 
+	#		(note that column filtering is done elsewhere)
 	def __init__(self,output,replace,filter = None):
-		self.width = 0
-		self.rows = {}
-		self.cols = {}
+		self.width = 0	# this variable denotes the width of row label column (i.e. first column)
+		self.cols = {}	# this dictionary keeps the widths of each subsequent column
+		self.rows = {}	# this is dictionary of dictionaries of actual table values
 		self.replace = replace
 		self.filter = filter
 		self.output = output
-		self.free_row = 1
 	
+	# add a cell to the table, parameters:
+	# row - row label, can be any string. Row labels are unique
+	#		i.e. table can not have two rows with the same label
+	# col - column label, same restrictions apply as for row
+	# value - string value to be inserted
 	def addCell(self,row,col,value):
 		row = str(row)
 		col = str(col)
@@ -94,6 +106,11 @@ class Table():
 		if row not in self.rows: self.rows[row] = {}
 		self.rows[row][col] = value
 	
+	# prints the table, parameters:
+	# no_header - if true, first column (i.e. row headers)
+	#			will not be printed
+	# orderIn - a (partial) list of column names, 
+	#			specifying the order in which they are printed
 	def printTable(self,no_header = 0,orderIn = []):
 		# row filter may force us to skip some rows
 		regexp = None
@@ -112,7 +129,7 @@ class Table():
 		# visual output
 		if self.output == 1:
 			line = ""		# this is separating line, printed on top, bottom and 
-							# to separate headers and table data
+							# once to separate headers and table data
 			header = ""		# this string holds table headers, formatted
 							# according to column widths
 			
@@ -120,7 +137,6 @@ class Table():
 			if no_header == 0 and self.width != 0:
 				header += "|" + " "*(self.width + 2)
 				line += "+" + "-"*(self.width + 2)
-			
 			for col in order:
 				if col in orderIn: header += "| " + col.rjust(self.cols[col]) + " "
 				else: header += "| " + col.ljust(self.cols[col]) + " "
@@ -182,7 +198,12 @@ class Table():
 		else:
 			quit("Unknown output type for table: " + self.output)
 	
+	# normalises table data as a breakdown, i.e. sum of 
+	# each row = 1.0. Parameters:
+	# sum - optional dictionary that contains 
+	#		precomputed sums of each row
 	def normalize(self,sum=None):
+		# if sum is not given, compute it
 		if not sum:
 			sum = {}
 			for row in self.rows:
@@ -199,6 +220,8 @@ class Table():
 					value = str(round(float(self.rows[row][col])/sum[row],3))
 					self.rows[row][col] = value
 					if len(value) > self.cols[col]: self.cols[col] = len(value)
+		
+		# return sum array for future use
 		return sum
 
 # a class to store information from a single simple output
@@ -321,7 +344,7 @@ def printModules():
 			if len(o.data.keys()) > 1: d += "(" + str(len(o.data.keys())) + ")"
 			table.addCell(row,"Dimensions",d)		# add dimensions
 			
-	table.printTable(1,["Module","Output"])
+	table.printTable(1,["Module","Output"])			# note that second argument enforces column order 
 	print "NOTE: select from the available outputs using the -s option\n"
 
 def matchLabel(label,pattern):
@@ -330,8 +353,14 @@ def matchLabel(label,pattern):
 	else:
 		return pattern == 'configs'
 
+# this function will take a comma separated string of labels and produce row and 
+# column headers out of it. Parameters:
+# label - comma separated list of labels
+# order - comma separated list of ordered labels, comes from --order flag
 def createHeaders(label,order):
 	labels = label.split(",")
+	
+	# if order is not given, last label from the list will become column header
 	if order == None:
 		col = labels[-1]
 		del labels[-1]
@@ -365,22 +394,18 @@ def createHeaders(label,order):
 # 2nd argument - output object to be printed
 def printOutput(name,o):
 	global options
-
-	# start by printing the name
-	print "\n", name
 	
 	# create table objects, options.output indicates display format
 	table = Table(options.output,0,options.row_filter)
 	if options.confidence: table_ci = Table(options.output,0,options.row_filter)
 	else: table_ci = None
-	
 	if options.all: table_all = Table(options.output,"-",options.row_filter)
 	else: table_all = None
 	
 	# 'no_header' variable will indicate if rows in the table will have headers printed
 	no_header = 1
 	
-	# helper function to load values into both table and table_ci
+	# helper function to load values into all three table objects (table_ci and table_all are optional)
 	def load(row,col,values,total):
 		mean,ci = mean_ci(values,total)
 		table.addCell(row,col,mean)
@@ -397,6 +422,7 @@ def printOutput(name,o):
 	if o.min_i == o.max_i: print_i = 0
 	if o.min_n == o.max_n: print_n = 0
 	
+	# helper function to shorten the label by removing common parts
 	def short(label):
 		if options.long: return label
 		global labels
@@ -408,11 +434,26 @@ def printOutput(name,o):
 			i += 1
 		return ",".join(result)
 	
+	if options.col_filter and len(o.data.keys()):
+		regexp = re.compile(options.col_filter, re.I)
+		columns = []
+		for col in o.data.keys():
+			if regexp.search(col): columns.append(col)
+	else:
+		columns = o.data.keys()
+		
+	# start by printing the name
+	if len(columns) == 0:
+		print "\n", name, "\n[Table is empty]\n"
+		return
+	elif len(columns) == 1 and len(columns[0]): print "\n", name, "-", columns[0]
+	else: print "\n", name
+	
 	# first breaking point of the function is to check the number of labels in the
 	# output. If multiple labels present then they will be used as column headers
-	if len(o.data.keys()) > 1:
+	if len(columns) > 1:
 		# loop through available labels in this output
-		for col in sorted_copy(o.data.keys()):
+		for col in sorted_copy(columns):
 			# extract the data for a particular label
 			data = o.data[col]
 			# if data has more than one entry, we will need row headers
@@ -436,8 +477,12 @@ def printOutput(name,o):
 							if key in data[label]:
 								# create a header for this row
 								row = short(label)
-								if print_n: row += ",node="+str(n)
-								if print_i: row += ",index="+str(i)
+								if print_n: 
+									if len(row): row += ",node="+str(n)
+									else: row = "node="+str(n)
+								if print_i: 
+									if len(row): row += ",index="+str(i)
+									else: row = "index="+str(i)
 								if options.order: row = ",".join(createHeaders(row,options.order))
 								
 								load(row,col,data[label][key],o.pernode_total(label))
@@ -469,8 +514,7 @@ def printOutput(name,o):
 	else:
 		# this happens when there is only one label in the output,
 		# That is single output value, for example energy spent.
-		l = o.data.keys()[0]
-		data = o.data[l]
+		data = o.data[columns[0]]
 		no_header = 0
 		
 		# per node option is present, will not aggregate the data here
@@ -491,8 +535,12 @@ def printOutput(name,o):
 						if key not in data[label]: continue
 						# determine row and column headers depending on which dimension is primary
 						row = short(label)
-						if print_n: row += ",node="+str(n)
-						if print_i: row += ",index="+str(i)
+						if print_n: 
+							if len(row): row += ",node="+str(n)
+							else: row = "node="+str(n)
+						if print_i: 
+							if len(row): row += ",index="+str(i)
+							else: row = "index="+str(i)
 						(col,row) = createHeaders(row,options.order or primary_i)
 						
 						load(row,col,data[label][key],o.pernode_total(label))
@@ -534,10 +582,10 @@ def printOutputs(pattern):
 
 # read data from inputfile
 def readFile(file):
-	if not os.path.exists(options.input) or not os.path.isfile(options.input):
-		print("WARNING: no such file " + file)
+	if not os.path.exists(file) or not os.path.isfile(file):
+		print"WARNING: no such file", file
 		return
-	f = open(options.input,"r")
+	f = open(file,"r")
 	lines = f.readlines()
 	f.close()
 

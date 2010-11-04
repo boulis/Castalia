@@ -20,10 +20,13 @@ col_sh = {	"b":"blue", 			"lb":"light-blue", 		"g":"green", 		"lg":"light-green"
 			"c":"cyan",				"db":"dark-blue",		"dg":"dark-green",	"m":"magenta",
 			"lm":"light-magenta", 	"dm":"dark-magenta",	"t":"turquoise",	"v":"violet",
 			"p":"purple", 			"pi":"pink",			"dv":"dark-violet",	"dc":"dark-cyan"}
+col_st = {	"radioBrdown":	["br","r","pi","b","g","dg"],
+			"macBrdown":	["r","o","dg","b","dc"],
+			"default": 		["r","g","b","m","dg","br","db","p","o","dc"] }
 
 parser = OptionParser(usage="usage: %prog [options]")
 parser.add_option("-d","--debug", dest="debug", default=False, action="store_true", help="Debug mode, will display gnuplot commands as they are dispatched")
-parser.add_option("-g","--greyscale", dest="grey", default=False, action="store_true", help="Use greyscale colors only")
+parser.add_option("-g","--greyscale", dest="grey", default=False, action="store_true", help="Use greyscale colors only, negates effect of --colors")
 parser.add_option("-l","--legend", dest="legend", type="string", default="", help="Set legend position, default is 'top right'")
 parser.add_option("-o","--output", dest="output", type="string", default="plot.ps", metavar="FILE", help="Select output file, default is 'plot.ps'")
 parser.add_option("-s","--style", dest="style", type="string", default="linespoints", help="Plot style to be used, supported values: " + ", ".join(styles))
@@ -42,7 +45,8 @@ parser.add_option("--ytitle", dest="ytitle", type="string", help="Set title of y
 
 options,args = parser.parse_args()
 
-lines = sys.stdin.readlines()
+if os.isatty(sys.stdin.fileno()): lines = []
+else: lines = sys.stdin.readlines()
 
 if options.colors and options.colors == '?':
 	f = os.popen(options.gnuplot,'w')
@@ -51,7 +55,10 @@ if options.colors and options.colors == '?':
 	f.close()
 	print "\tList of color shortcuts"
 	for c in sorted(col_sh):
-		print " ", c, "\t", col_sh[c]
+		print " ", c, "\t\t", col_sh[c]
+	print "\n\tList of predefined color styles"
+	for c in sorted(col_st):
+		print " ", c, "\t", ",".join(col_st[c])
 	sys.exit(0)
 
 title = ""
@@ -113,6 +120,10 @@ def extract_common(llist):
 		return result,",".join(common_l),common_t
 	else:
 		return raw_result,"",[]
+
+if not len(lines):
+	print "CastaliaPlot: ERROR nothing to plot"
+	sys.exit(0)
 
 for line in lines:
 	m = re.match(r"[-+ \n]+$",line)
@@ -279,9 +290,17 @@ else:
 	myprint(f, "set boxwidth " + str(options.boxwidth))
 
 colors = []
-if options.colors and not options.grey:
+if not options.grey:
+	if options.colors:
+		if options.colors in col_st:
+			colors = col_st[options.colors]
+		else:
+			colors = options.colors.split(",")
+	elif options.style == "linespoints":
+		colors = col_st["default"]
+
+if len(colors):			
 	myprint(f, "set style increment user")
-	colors = options.colors.split(",")
 	for i in range(len(colors)):
 		if colors[i] in col_sh:
 			colors[i] = col_sh[colors[i]]

@@ -27,7 +27,7 @@ col_st = {	"radioBrdown":	["br","r","pi","b","g","dg"],
 parser = OptionParser(usage="usage: %prog [options]")
 parser.add_option("-d","--debug", dest="debug", default=False, action="store_true", help="Debug mode, will display gnuplot commands as they are dispatched")
 parser.add_option("-g","--greyscale", dest="grey", default=False, action="store_true", help="Use greyscale colors only, negates effect of --colors")
-parser.add_option("-l","--legend", dest="legend", type="string", default="", help="Set legend position, default is 'top right'")
+parser.add_option("-l","--legend", dest="legend", type="string", help="Set legend position, default is 'top right'")
 parser.add_option("-o","--output", dest="output", type="string", default="plot.ps", metavar="FILE", help="Select output file, default is 'plot.ps'")
 parser.add_option("-s","--style", dest="style", type="string", default="linespoints", help="Plot style to be used, supported values: " + ", ".join(styles))
 parser.add_option("--color-opacity", dest="opacity", type="float", default=0.65, help="Set box colour opacity, default is 0.65")
@@ -36,6 +36,7 @@ parser.add_option("--gnuplot", dest="gnuplot", type="string", default="gnuplot",
 parser.add_option("--hist-box", dest="boxwidth", type="float", default="0.9", help="Set boxwidth of histogram columns")
 parser.add_option("--hist-gap", dest="histgap", type="float", help="Set gap between histogram columns")
 parser.add_option("--linewidth", dest="linewidth", type="float", default="1", help="Set linewidth, only with linespoints style")
+parser.add_option("--order-columns", dest="order", type="string", help="A comma separated list of column indexes. Columns can be reordered or skipped")
 parser.add_option("--ratio", dest="ratio", type="float", help="Set aspect ratio of the graph")
 parser.add_option("--rotate", dest="rotate", type="float", help="Set xtics rotation, in degrees (e.g. 45)")
 parser.add_option("--xrange", dest="xrange", type="string", metavar="[MIN:]MAX", help="Set range of x-axis")
@@ -44,6 +45,8 @@ parser.add_option("--yrange", dest="yrange", type="string", metavar="[MIN:]MAX",
 parser.add_option("--ytitle", dest="ytitle", type="string", help="Set title of y-axis, not displayed by deafult")
 
 options,args = parser.parse_args()
+if len(args):
+	print "CastaliaPlot: WARNING unknown command line arguments: '" + ", ".join(args) + "'\n\t(maybe missing quotes around a parameter value? e.g. -l \"top left\")"
 
 if os.isatty(sys.stdin.fileno()): lines = []
 else: lines = sys.stdin.readlines()
@@ -122,8 +125,10 @@ def extract_common(llist):
 		return raw_result,"",[]
 
 if not len(lines):
-	print "CastaliaPlot: ERROR nothing to plot"
-	sys.exit(0)
+	quit("CastaliaPlot: ERROR nothing to plot")
+	
+if options.style not in styles:
+	quit("CastaliaPlot: ERROR unknown style, supported values: " + ", ".join(styles))
 
 for line in lines:
 	m = re.match(r"[-+ \n]+$",line)
@@ -149,7 +154,7 @@ for line in lines:
 				print "CastaliaPlot: WARNING all values can only be plotted with linespoints style"
 				break
 		else:
-			quit("\nCastaliaPlot: ERROR unable to plot this table or bad input syntax at\n\t"+data[0])
+			quit("CastaliaPlot: ERROR unable to plot this table or bad input syntax at\n\t"+data[0])
 	elif title and not xlabels:
 		xlabels,xtitle,extra = extract_common(data)
 		extratitle.extend(extra)
@@ -186,6 +191,32 @@ extratitle.extend(extra)
 if len(extratitle):
 	title = title + " (" + ",".join(extratitle) + ")" 
 
+if options.order:
+	order = options.order.split(",")
+	new_table = []
+	new_xlabels = []
+	new_table_all = {}
+	if plot_all != -1: plot_all = 0
+	for i in order:
+		if not i.isdigit():
+			print "CastaliaPlot: WARNING syntax error in --order flag at '" + i + "'"
+			new_table = None
+			break
+		n = int(i)
+		if n > len(xlabels) or n < 1:
+			print "CastaliaPlot: WARNING --order index " + i + " is out of range"
+			new_table = None
+			break
+		new_table.append(table[n-1])
+		new_xlabels.append(xlabels[n-1])
+		if plot_all != -1:
+			new_table_all[plot_all] = table_all[n-1]
+			plot_all += 1; 
+	if new_table != None:
+		xlabels = new_xlabels
+		table = new_table
+		table_all = new_table_all		
+
 if options.style == "rowstacked":
 	tmp = ltitle;
 	ltitle = xtitle;
@@ -219,9 +250,6 @@ if plot_all != -1:
 		for d in table_all[n]:
 			myprint(fr, str(n) + " " + " ".join(d))		
 fr.close()
-
-if options.style not in styles:
-	quit("\nERROR: unknown style, supported values: " + ", ".join(styles))
 
 name,ext = options.output.rsplit(".",1)
 if ext != 'ps' and ext != 'eps':
@@ -263,7 +291,7 @@ if options.rotate:
 elif len(xtics_add): myprint(f, "set xtics (" + ', '.join(xtics_add) + ")")
 key = ""
 if ltitle != "": key += "title \"" + ltitle + "\" "
-if ltitle != "" or options.legend: key += options.legend
+if options.legend: key += options.legend
 if options.xtitle: myprint(f, "set xlabel '" + options.xtitle + "'")
 elif xtitle != "": myprint(f, "set xlabel '" + xtitle + "'")
 if options.ytitle: myprint(f, "set ylabel '" + options.ytitle + "'")
@@ -305,7 +333,7 @@ if len(colors):
 		if colors[i] in col_sh:
 			colors[i] = col_sh[colors[i]]
 		elif len(colors[i]) < 3:
-			print "\nCastaliaPlot: WARNING invalid color '" + colors[i] + "'"
+			print "CastaliaPlot: WARNING invalid color '" + colors[i] + "'"
 			continue
 		myprint(f, "set style line " + str(i+1) + " lt rgb \"" + colors[i] + "\"")
 
@@ -368,7 +396,7 @@ else:
 
 commands.getoutput("rm " + fname)
 if r and r != "":
-	quit("\nCastaliaPlot: ERROR\n" + r)
+	quit("CastaliaPlot: ERROR " + r)
 	
 
 

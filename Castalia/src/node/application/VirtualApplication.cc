@@ -54,7 +54,8 @@ void VirtualApplication::initialize()
 	 * 3)APP (self message) so that the node starts to operate.
 	 * We are using a random delay because we don't want the nodes to be synchronized
 	 */
-	double random_startup_delay = genk_dblrand(0) * 0.05;
+	double random_startup_delay = parent->par("startupOffset");
+	random_startup_delay += genk_dblrand(0) * (double)parent->par("startupRandomization");
 	sendDelayed(new cMessage("Sensor Dev Mgr [STARTUP]", NODE_STARTUP),
 		    simTime() + cpuClockDrift * random_startup_delay, "toSensorDeviceManager");
 	sendDelayed(new cMessage("Communication [STARTUP]", NODE_STARTUP),

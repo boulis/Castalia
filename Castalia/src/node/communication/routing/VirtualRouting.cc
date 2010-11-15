@@ -246,14 +246,14 @@ bool VirtualRouting::isNotDuplicatePacket(cPacket * pkt)
 	//extract source address and sequence number from the packet
 	RoutingPacket *netPkt = check_and_cast <RoutingPacket*>(pkt);
 	int src = resolveNetworkAddress(netPkt->getRoutingInteractionControl().source.c_str());
-	int sn = netPkt->getRoutingInteractionControl().sequenceNumber;
+	unsigned int sn = netPkt->getRoutingInteractionControl().sequenceNumber;
 
 	//resize packet history vector if necessary
 	if (src >= (int)pktHistory.size())
 		pktHistory.resize(src+1);
 		
 	//search for this sequence number in the list, corresponding to address 'src'
-	list<int>::iterator it1;
+	list<unsigned int>::iterator it1;
 	for (it1 = pktHistory[src].begin(); it1 != pktHistory[src].end(); it1++) {
 		//if such sequence number is found, packet is duplicate
 		if (*it1 == sn) return false;

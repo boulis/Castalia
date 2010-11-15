@@ -13,6 +13,10 @@
 #ifndef _VIRTUALROUTING_H_
 #define _VIRTUALROUTING_H_
 
+#include <queue>
+#include <vector>
+#include <omnetpp.h>
+
 #include "CastaliaModule.h"
 #include "TimerService.h"
 #include "CastaliaMessages.h"
@@ -40,7 +44,7 @@ class VirtualRouting: public CastaliaModule, public TimerService {
 	ResourceManager *resMgrModule;
 
 	queue< cPacket* > TXBuffer;
-	vector< list<int> > pktHistory;
+	vector< list< unsigned int> > pktHistory;
 
 	double cpuClockDrift;
 	int disabled;

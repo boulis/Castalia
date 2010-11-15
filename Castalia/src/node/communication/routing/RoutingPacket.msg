@@ -15,7 +15,7 @@ struct RoutingInteractionControl_type {
 	double LQI;
 	int nextHop;
 	int lastHop;
-	int sequenceNumber;
+	unsigned int sequenceNumber;
 	string pathFromSource;
 	string source;
 }

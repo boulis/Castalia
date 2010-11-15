@@ -19,13 +19,19 @@ import node.mobilityManager;
 
 module Node {
  parameters:
+ 	//node location is defined by five parameters below
 	double xCoor = default (0);
 	double yCoor = default (0);
 	double zCoor = default (0);
 	double phi = default (0);
 	double theta = default (0);
+	
+	double startupOffset = default (0);							//node startup offset (i.e. delay), in seconds 
+	double startupRandomization = default (0.05);				//node startup randomisation, in seconds
+	// Node will become active startupOffset + random(startupRandomization) 
+	// seconds after the start of simulation
 
-	string ApplicationName;	//the name of the implemented Application Module
+	string ApplicationName;										//the name of the implemented Application Module
 	string MobilityManagerName = default ("NoMobilityManager");	//the name of the implemented Mobility Module
 
  gates:

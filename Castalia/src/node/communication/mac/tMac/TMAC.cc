@@ -307,19 +307,6 @@ void TMAC::fromNetworkLayer(cPacket * netPkt, int destination)
 	}
 }
 
-void TMAC::finishSpecific()
-{
-	if (packetsSent.size() > 0) {
-		trace() << "Sent packets breakdown: ";
-		int total = 0;
-		for (map < string, int >::iterator i = packetsSent.begin(); i != packetsSent.end(); i++) {
-			trace() << i->first << ": " << i->second;
-			total += i->second;
-		}
-		trace() << "Total: " << total << "\n";
-	}
-}
-
 /* This function will reset the internal MAC state in the following way:
  * 1 -  Check if MAC is still in its active time, if timeout expired - go to sleep.
  * 2 -  Check if MAC is in the primary schedule wakeup (if so, MAC is able to start transmissions
@@ -501,6 +488,7 @@ void TMAC::fromRadioLayer(cPacket * pkt, double RSSI, double LQI)
 	int destination = macPkt->getDestination();
 	simtime_t nav = macPkt->getNav();
 
+	// first of all, check if the packet is to this node or not
 	if (destination != SELF_MAC_ADDRESS && destination != BROADCAST_MAC_ADDRESS) {
 		if (macState == MAC_CARRIER_SENSE_FOR_TX_RTS && useFRTS) {
 			//FRTS would need to be implemented here, for now just keep silent
@@ -516,8 +504,7 @@ void TMAC::fromRadioLayer(cPacket * pkt, double RSSI, double LQI)
 
 		/* received a RTS frame */
 		case RTS_TMAC_PACKET:{
-			//If this node is the destination, reply with a CTS, otherwise
-			//set a timeout and keep silent for the duration of communication
+			//Since this node is the destination (checked above), reply with a CTS
 			if (ctsPacket)
 				cancelAndDelete(ctsPacket);
 			ctsPacket = new TMacPacket("TMAC CTS packet", MAC_LAYER_PACKET);
@@ -531,7 +518,6 @@ void TMAC::fromRadioLayer(cPacket * pkt, double RSSI, double LQI)
 			toRadioLayer(ctsPacket);
 			toRadioLayer(createRadioCommand(SET_STATE, TX));
 
-			packetsSent["CTS"]++;
 			collectOutput("Sent packets breakdown", "CTS");
 			ctsPacket = NULL;
 
@@ -563,7 +549,8 @@ void TMAC::fromRadioLayer(cPacket * pkt, double RSSI, double LQI)
 		/* received DATA frame */
 		case DATA_TMAC_PACKET:{
 			// Forward the frame to upper layer first
-			toNetworkLayer(macPkt->decapsulate());
+			if (isNotDuplicatePacket(macPkt))
+				toNetworkLayer(macPkt->decapsulate());
 
 			// If the frame was sent to broadcast address, nothing else needs to be done
 			if (destination == BROADCAST_MAC_ADDRESS)
@@ -587,7 +574,6 @@ void TMAC::fromRadioLayer(cPacket * pkt, double RSSI, double LQI)
 			toRadioLayer(ackPacket);
 			toRadioLayer(createRadioCommand(SET_STATE, TX));
 
-			packetsSent["ACK"]++;
 			collectOutput("Sent packets breakdown", "ACK");
 			ackPacket = NULL;
 
@@ -683,7 +669,6 @@ void TMAC::carrierIsClear()
 
 			if (useRtsCts)
 				txRetries--;
-			packetsSent["RTS"]++;
 			collectOutput("Sent packets breakdown", "RTS");
 			rtsPacket = NULL;
 
@@ -703,7 +688,6 @@ void TMAC::carrierIsClear()
 				toRadioLayer(syncPacket);
 				toRadioLayer(createRadioCommand(SET_STATE, TX));
 
-				packetsSent["SYNC"]++;
 				collectOutput("Sent packets breakdown", "SYNC");
 				syncPacket = NULL;
 
@@ -753,7 +737,6 @@ void TMAC::sendDataPacket()
 	}
 	// create a copy of first message in the TX buffer and send it to the radio
 	toRadioLayer(TXBuffer.front()->dup());
-	packetsSent["DATA"]++;
 	collectOutput("Sent packets breakdown", "DATA");
 
 	//update MAC state based on transmission time and destination address

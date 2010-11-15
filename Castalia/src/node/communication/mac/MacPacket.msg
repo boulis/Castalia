@@ -16,6 +16,8 @@ enum MacControlMessage_type {
 struct MacInteractionControl_type {
 	double RSSI;
 	double LQI;
+	int source;
+	unsigned int sequenceNumber;
 }
 
 packet MacPacket {

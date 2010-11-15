@@ -33,9 +33,11 @@ void VirtualMac::initialize()
 	} else {
 		opp_error("\n[Mac]:\n Error in geting a valid reference to ResourceManager for direct method calls.");
 	}
+	
+	pktHistory.clear();
 	setTimerDrift(resMgrModule->getCPUClockDrift());
 	disabled = 1;
-	//declareOutput("Buffer overflow");
+	currentSequenceNumber = 1;
 }
 
 int VirtualMac::handleControlCommand(cMessage * msg)
@@ -53,7 +55,6 @@ int VirtualMac::handleRadioControlMessage(cMessage * msg)
 int VirtualMac::bufferPacket(cPacket * rcvFrame)
 {
 	if ((int)TXBuffer.size() >= macBufferSize) {
-		//collectOutput("Buffer overflow");  this is handled in specific MACs
 		cancelAndDelete(rcvFrame);
 		// send a control message to the upper layer
 		MacControlMessage *fullBuffMsg =
@@ -165,10 +166,13 @@ void VirtualMac::toRadioLayer(cMessage * macMsg)
 	send(macMsg, "toRadioModule");
 }
 
-void VirtualMac::encapsulatePacket(cPacket * macPkt, cPacket * netPkt)
+void VirtualMac::encapsulatePacket(cPacket * pkt, cPacket * netPkt)
 {
+	MacPacket *macPkt = check_and_cast <MacPacket*>(pkt);
 	macPkt->setByteLength(macFrameOverhead);
 	macPkt->setKind(MAC_LAYER_PACKET);
+	macPkt->getMacInteractionControl().sequenceNumber = currentSequenceNumber++;
+	macPkt->getMacInteractionControl().source = SELF_MAC_ADDRESS;
 	macPkt->encapsulate(netPkt);
 }
 
@@ -182,5 +186,26 @@ cPacket *VirtualMac::decapsulatePacket(cPacket * pkt)
 	    	macPkt->getMacInteractionControl().LQI;
 	netPkt->getRoutingInteractionControl().lastHop = SELF_MAC_ADDRESS;
 	return netPkt;
+}
+
+bool VirtualMac::isNotDuplicatePacket(cPacket * pkt) 
+{
+	//extract source address and sequence number from the packet
+	MacPacket *macPkt = check_and_cast <MacPacket*>(pkt);
+	int src = macPkt->getMacInteractionControl().source;
+	unsigned int sn = macPkt->getMacInteractionControl().sequenceNumber;
+
+	//resize packet history vector if necessary
+	if (src >= (int)pktHistory.size())
+		pktHistory.resize(src+1,0);
+		
+	//if recorded sequence number is less than new 
+	//then packet is new (i.e. not duplicate)
+	if (pktHistory[src] < sn) {
+		pktHistory[src] = sn;
+		return true;
+	}
+	
+	return false;
 }
 

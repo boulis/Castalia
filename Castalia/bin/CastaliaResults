@@ -18,7 +18,7 @@ z_values = {99:2.577,98.5:2.43,97.5:2.243,95:1.96,90:1.645,85:1.439,75:1.151}
 
 parser = OptionParser(usage="usage: %prog [options]")
 parser.add_option("-c","--confidence", dest="confidence", type="float", metavar="CL", help="Select desired confidence level (CL) and display confidence intervals where possible, supported values of CL: " + str(sorted(z_values.keys())))
-parser.add_option("-f","--filterRows", dest="row_filter", type="string", metavar="RE", help="Select a subset of rows by applying RE (regular expression) filter")
+parser.add_option("-f","--filter-rows", dest="row_filter", type="string", metavar="RE", help="Select a subset of rows by applying RE (regular expression) filter")
 parser.add_option("-i","--input", dest="input", type="string", metavar="FILE[,FILE]", help="Load results from each FILE")
 parser.add_option("-l","--long", dest="long", default=False, action="store_true", help="Display long (full) labels for table rows")
 parser.add_option("-n","--node", dest="pernode", default=False, action="store_true", help="Display results for each node individually")
@@ -26,8 +26,9 @@ parser.add_option("-o","--output", dest="output", type="int", default=1, metavar
 parser.add_option("-p","--percentage", dest="percentage", default=False, action="store_true", help="Display breakdowns as percentage of total amounts where possible")
 parser.add_option("-s","--show", dest="filter", type="string", metavar="RE", help="Select a subset of available outputs by applying RE (regular expression)")
 parser.add_option("--all", dest="all", default=False, action="store_true", help="Display ALL data points in a separate table")
-parser.add_option("--filterColumns", dest="col_filter", type="string", metavar="RE", help="Select a subset of columns by applying RE (regular expression) filter, only works with breakdown outputs")
+parser.add_option("--filter-columns", dest="col_filter", type="string", metavar="RE", help="Select a subset of columns by applying RE (regular expression) filter, only works with breakdown outputs")
 parser.add_option("--order", dest="order", type="string", metavar="STRING", help="Select label ordering for the table, first label will become column headers. Labels without '=' can be matched by keyword 'configs'")
+parser.add_option("--precision", dest="precision", type="int", default=3, metavar="N", help="Set precision of floating point numbers, in decimal places (default is 3)")
 parser.add_option("--sum", dest="sum", default=False, action="store_true", help="Display sum instead of average when data across more than one node is aggregated")
 (options,args) = parser.parse_args()
 
@@ -217,7 +218,7 @@ class Table():
 		for row in self.rows:
 			for col in self.cols:
 				if col in self.rows[row]:
-					value = str(round(float(self.rows[row][col])/sum[row],3))
+					value = str(round(float(self.rows[row][col])/sum[row],options.precision))
 					self.rows[row][col] = value
 					if len(value) > self.cols[col]: self.cols[col] = len(value)
 		
@@ -309,7 +310,7 @@ def mean_ci(list,amt=None):
 		if is_int(mean):
 			return int(mean), None
 		else:
-			return round(mean,3), None
+			return round(mean,options.precision), None
 
 	#calculate confidence interval
 	mean_sq = 0
@@ -319,9 +320,9 @@ def mean_ci(list,amt=None):
 	std = math.sqrt(mean_sq/amt)/math.sqrt(amt - 1)
 	ci = z_values[options.confidence]*std/math.sqrt(amt)
 	if is_int(mean):
-		return int(mean), round(ci,3)
+		return int(mean), round(ci,options.precision)
 	else:
-		return round(mean,3), round(ci,3)
+		return round(mean,options.precision), round(ci,options.precision)
 
 # this function will print a list of all modules that were added to the 'modules' 
 # dictionary. For each module a list of outputs is displayed, and for each output - it's dimensions

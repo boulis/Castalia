@@ -137,7 +137,8 @@ for line in lines:
 	if len(data) == 0: continue
 	if len(data) == 1:
 		if not title:
-			fulltitle = data[0]
+			if "-" in data[0]: fulltitle = data[0].rsplit("-",1)[0].strip()
+			else: fulltitle = data[0]
 			title = data[0].split(":")[1]
 		elif data[0] == fulltitle + " - confidence intervals":
 			if options.style == "linespoints":

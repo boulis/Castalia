@@ -126,13 +126,19 @@ void BridgeTest::handleSensorReading(SensorReadingMessage * sensorMsg)
 		return;
 	}
 
-	if (sensValue < reportTreshold)
+	if (sensValue < reportTreshold) {
+		trace() << "Sensed value " << sensValue << " is less than the treshold (" 
+			<< reportTreshold << "), discarding";
 		return;
+	}
 
 	currentSampleAccumulated += sampleSize;
-	if (currentSampleAccumulated < maxSampleAccumulated)
+	if (currentSampleAccumulated < maxSampleAccumulated) {
+		trace() << "Accumulated " << currentSampleAccumulated << "/" << maxSampleAccumulated << " bytes of samples";
 		return;
+	}
 
+	trace() << "Sending report packet, sequence number " << currSampleSN;
 	ApplicationGenericDataPacket *newPkt =
 	    createGenericDataPacket((double)self, currSampleSN, currentSampleAccumulated);
 	newPkt->setName(REPORT_PACKET_NAME);

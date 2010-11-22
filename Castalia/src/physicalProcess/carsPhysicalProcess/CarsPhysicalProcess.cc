@@ -34,8 +34,9 @@ void CarsPhysicalProcess::initialize()
 		}
 	}
 
-	scheduleAt(simTime() + genk_dblrand(0) * car_interarrival + car_interarrival / 2, 
-		new cMessage("New car arrival message", TIMER_SERVICE));
+	double arrival = genk_dblrand(0) * car_interarrival + car_interarrival / 2;
+	trace() << "First car arrival at " << arrival;
+	scheduleAt(arrival,	new cMessage("New car arrival message", TIMER_SERVICE));
 
 	declareOutput("Cars generated on the road");
 }
@@ -64,6 +65,7 @@ void CarsPhysicalProcess::handleMessage(cMessage * msg)
 			}
 
 			if (pos != -1) {
+				trace() << "New car arrives on the bridge, index " << pos;
 				if (genk_dblrand(0) > 0.5) {
 					sources_snapshots[pos][0].x = point1_x_coord;
 					sources_snapshots[pos][0].y = point1_y_coord;
@@ -77,10 +79,11 @@ void CarsPhysicalProcess::handleMessage(cMessage * msg)
 				}
 				sources_snapshots[pos][0].time = simTime();
 				sources_snapshots[pos][1].time = simTime() + road_length / car_speed;
+				collectOutput("Cars generated on the road");
 			}
 
-			collectOutput("Cars generated on the road");
-			scheduleAt(simTime() + genk_dblrand(0) * car_interarrival + car_interarrival / 2, msg);
+			double arrival = genk_dblrand(0) * car_interarrival + car_interarrival / 2;
+			scheduleAt(simTime() + arrival,	new cMessage("New car arrival message", TIMER_SERVICE));
 			return;
 		}
 

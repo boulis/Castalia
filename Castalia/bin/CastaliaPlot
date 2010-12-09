@@ -103,7 +103,7 @@ def extract_common(llist):
 
 	for l in raw:
 		common = os.path.commonprefix(l)
-		if common == l[0]: common_t.append(common)
+		if common == l[0] and common == l[-1]: common_t.append(common)
 		elif "=" in common:
 			common_l.append(common.split("=",1)[0])
 			if len(result) == 0:
@@ -271,7 +271,7 @@ myprint(f, "set output \"" + name + "\"")
 myprint(f, "set title \"" + title + "\"")
 
 if options.ratio:
-	myprint(f, "set size ratio " + options.ratio)
+	myprint(f, "set size ratio " + str(options.ratio))
 if options.xrange:
 	if ":" in options.xrange: 
 		rmin,rmax = options.xrange.split(":")

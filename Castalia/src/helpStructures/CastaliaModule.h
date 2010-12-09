@@ -91,7 +91,7 @@ class CastaliaModule: public virtual cSimpleModule {
 	void collectOutput(const char *, int, const char *, double);
 
 	void collectOutput(const char *descr) {
-		collectOutputNocheck(descr, -1, "total", 1);
+		collectOutputNocheck(descr, -1, "", 1);
 	}
 	void collectOutput(const char *descr, const char *label) {
 		collectOutputNocheck(descr, -1, label, 1);

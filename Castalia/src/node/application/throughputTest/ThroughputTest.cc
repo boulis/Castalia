@@ -57,7 +57,6 @@ void ThroughputTest::timerFiredCallback(int index)
 	}
 }
 
-
 // This method processes a received carrier sense interupt. Used only for demo purposes
 // in some simulations. Feel free to comment out the trace command.  
 void ThroughputTest::handleRadioControlMessage(RadioControlMessage *radioMsg)

@@ -99,7 +99,7 @@ void CastaliaModule::collectOutput(const char *descr, int index)
 {
 	if (index < 0)
 		opp_error("Negative output index not permitted");
-	collectOutputNocheck(descr, index, "total", 1);
+	collectOutputNocheck(descr, index, "", 1);
 }
 
 void CastaliaModule::collectOutput(const char *descr, int index,

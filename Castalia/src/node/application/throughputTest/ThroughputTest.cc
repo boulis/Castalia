@@ -21,10 +21,6 @@ void ThroughputTest::startup()
 	startupDelay = par("startupDelay");
 
 	packet_spacing = packet_rate > 0 ? 1 / float (packet_rate) : -1;
-	packet_info_table.clear();
-	total_packets_received = 0;
-	packets_lost_at_mac = 0;
-	packets_lost_at_network = 0;
 	dataSN = 0;
 
 	if (packet_spacing > 0 && recipientAddress.compare(SELF_NETWORK_ADDRESS) != 0)
@@ -33,7 +29,6 @@ void ThroughputTest::startup()
 		trace() << "Not sending packets";
 
 	declareOutput("Packets received per node");
-	declareOutput("total packets received");
 }
 
 void ThroughputTest::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
@@ -42,9 +37,8 @@ void ThroughputTest::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket,
 	int sequenceNumber = rcvPacket->getSequenceNumber();
 
 	if (recipientAddress.compare(SELF_NETWORK_ADDRESS) == 0) {
-		trace() << "Received packet from node " << source << ", SN = " << sequenceNumber;
-		collectOutput("total packets received");
-		update_packets_received(atoi(source), sequenceNumber);
+		trace() << "Received packet #" << sequenceNumber << " from node " << source;
+		collectOutput("Packets received per node", atoi(source));
 	} else {
 		toNetworkLayer(rcvPacket->dup(), recipientAddress.c_str());
 	}
@@ -54,7 +48,7 @@ void ThroughputTest::timerFiredCallback(int index)
 {
 	switch (index) {
 		case SEND_PACKET:{
-			trace() << "Sending packet with SN " << dataSN;
+			trace() << "Sending packet #" << dataSN;
 			toNetworkLayer(createGenericDataPacket(0, dataSN), par("nextRecipient"));
 			dataSN++;
 			setTimer(SEND_PACKET, packet_spacing);
@@ -63,17 +57,9 @@ void ThroughputTest::timerFiredCallback(int index)
 	}
 }
 
-// This method updates the number of packets received by node 0 from other nodes
-void ThroughputTest::update_packets_received(int srcID, int SN)
-{
-	packet_info_table[srcID].packets_received[SN]++;
-	if (packet_info_table[srcID].packets_received[SN] == 1)
-		collectOutput("Packets received per node", srcID);
-}
-
 
 // This method processes a received carrier sense interupt. Used only for demo purposes
-// in some simulation. Feel free to comment out the trace command.  
+// in some simulations. Feel free to comment out the trace command.  
 void ThroughputTest::handleRadioControlMessage(RadioControlMessage *radioMsg)
 {
 	switch (radioMsg->getRadioControlMessageKind()) {

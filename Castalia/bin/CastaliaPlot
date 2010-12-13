@@ -14,7 +14,7 @@
 import os, sys, commands, getopt, re
 from optparse import OptionParser
 			
-styles = ["linespoints","histogram"]
+styles = ["linespoints","histogram","stacked"]
 col_sh = {	"b":"blue", 			"lb":"light-blue", 		"g":"green", 		"lg":"light-green", 
 			"r":"red", 				"o":"orange", 			"y":"yellow", 		"br":"brown",
 			"c":"cyan",				"db":"dark-blue",		"dg":"dark-green",	"m":"magenta",
@@ -39,7 +39,6 @@ parser.add_option("--invert", dest="invert", default=False, action="store_true",
 parser.add_option("--linewidth", dest="linewidth", type="float", default="1", help="Set linewidth, only with linespoints style")
 parser.add_option("--order-columns", dest="order", type="string", help="A comma separated list of column indexes. Columns can be reordered or skipped (NOTE: this is applied BEFORE invert)")
 parser.add_option("--ratio", dest="ratio", type="float", help="Set aspect ratio of the graph")
-parser.add_option("--stacked", dest="stacked", default=False, action="store_true", help="Plot histogram bars stacked instead of near each other")
 parser.add_option("--xrotate", dest="rotate", type="float", help="Set xtics rotation, in degrees (e.g. 45)")
 parser.add_option("--xtitle", dest="xtitle", type="string", help="Set title of x-axis, will be determined automatically by default")
 parser.add_option("--yrange", dest="yrange", type="string", metavar="[MIN:]MAX", help="Set range of y-axis")
@@ -64,7 +63,7 @@ if options.colors and options.colors == '?':
 	for c in sorted(col_st):
 		print " ", c, "\t", ",".join(col_st[c])
 	sys.exit(0)
-if options.style != "histogram" or options.stacked:
+if options.style != "stacked":
 	options.invert = not options.invert
 
 title = ""
@@ -301,14 +300,16 @@ if options.xtitle: myprint(f, "set xlabel '" + options.xtitle + "'")
 elif xtitle != "": myprint(f, "set xlabel '" + xtitle + "'")
 if options.ytitle: myprint(f, "set ylabel '" + options.ytitle + "'")
 
-myprint(f, "set style data " + options.style)
-if options.style == "histogram":
+if options.style == "linespoints":
+	myprint(f, "set style data linespoints")
+else:
+	myprint(f, "set style data histogram")
 	if not options.histgap:
 		if len(labels) > 1: options.histgap = 1
 		else: options.histgap = 0
 	myprint(f, "set style histogram cluster gap " + str(options.histgap))
 	myprint(f, "set boxwidth " + str(options.boxwidth))
-	if options.stacked:
+	if options.style == "stacked":
 		myprint(f, "set style histogram rowstacked")
 	if options.grey:
 		myprint(f, "set style fill pattern border -1")

@@ -176,7 +176,6 @@ while (tmpconfig != ""):
 	
 	m = re.match(r"^([^=]*=)(\$\{[^\}]*\})(.*)$",tmpconfig)
 	if (m):
-		print m.group(1), m.group(2), m.group(3)
 		config += m.group(1)
 		config += str(len(customConfigList))
 		customConfigList.append(m.group(2))

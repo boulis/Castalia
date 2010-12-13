@@ -14,7 +14,7 @@
 import os, sys, commands, getopt, re
 from optparse import OptionParser
 			
-styles = ["linespoints","histogram","rowstacked","columnstacked"]
+styles = ["linespoints","histogram"]
 col_sh = {	"b":"blue", 			"lb":"light-blue", 		"g":"green", 		"lg":"light-green", 
 			"r":"red", 				"o":"orange", 			"y":"yellow", 		"br":"brown",
 			"c":"cyan",				"db":"dark-blue",		"dg":"dark-green",	"m":"magenta",
@@ -27,23 +27,24 @@ col_st = {	"radioBrdown":	["br","r","pi","b","g","dg"],
 parser = OptionParser(usage="usage: %prog [options]")
 parser.add_option("-d","--debug", dest="debug", default=False, action="store_true", help="Debug mode, will display gnuplot commands as they are dispatched")
 parser.add_option("-g","--greyscale", dest="grey", default=False, action="store_true", help="Use greyscale colors only, negates effect of --colors")
-parser.add_option("-l","--legend", dest="legend", type="string", help="Set legend position, default is 'top right'")
+parser.add_option("-l","--legend", dest="legend", type="string",metavar="LEGEND", help="Set legend position, default is 'top right', search for gnuplot's 'set key' for all possible options")
 parser.add_option("-o","--output", dest="output", type="string", default="plot.ps", metavar="FILE", help="Select output file, default is 'plot.ps'")
 parser.add_option("-s","--style", dest="style", type="string", default="linespoints", help="Plot style to be used, supported values: " + ", ".join(styles))
 parser.add_option("--color-opacity", dest="opacity", type="float", default=0.65, help="Set box colour opacity, default is 0.65")
 parser.add_option("--colors", dest="colors", type="string", help="Specify a comma-seprated list of colors to be used in the plot, or use '?' for full list available, arbitrary RGB values are supported with #RRGGBB format")
 parser.add_option("--gnuplot", dest="gnuplot", type="string", default="gnuplot", help="Path to gnuplot executable, default is 'gnuplot'")
-parser.add_option("--hist-box", dest="boxwidth", type="float", default="0.9", help="Set boxwidth of histogram columns")
+parser.add_option("--hist-box", dest="boxwidth", type="float", default="0.9", help="Set width of histogram columns")
 parser.add_option("--hist-gap", dest="histgap", type="float", help="Set gap between histogram columns")
+parser.add_option("--invert", dest="invert", default=False, action="store_true", help="Invert the table passed as input (i.e. make rows to be columns and vice versa)")
 parser.add_option("--linewidth", dest="linewidth", type="float", default="1", help="Set linewidth, only with linespoints style")
-parser.add_option("--order-columns", dest="order", type="string", help="A comma separated list of column indexes. Columns can be reordered or skipped")
+parser.add_option("--order-columns", dest="order", type="string", help="A comma separated list of column indexes. Columns can be reordered or skipped (NOTE: this is applied BEFORE invert)")
 parser.add_option("--ratio", dest="ratio", type="float", help="Set aspect ratio of the graph")
-parser.add_option("--rotate", dest="rotate", type="float", help="Set xtics rotation, in degrees (e.g. 45)")
-parser.add_option("--xrange", dest="xrange", type="string", metavar="[MIN:]MAX", help="Set range of x-axis")
+parser.add_option("--stacked", dest="stacked", default=False, action="store_true", help="Plot histogram bars stacked instead of near each other")
+parser.add_option("--xrotate", dest="rotate", type="float", help="Set xtics rotation, in degrees (e.g. 45)")
 parser.add_option("--xtitle", dest="xtitle", type="string", help="Set title of x-axis, will be determined automatically by default")
 parser.add_option("--yrange", dest="yrange", type="string", metavar="[MIN:]MAX", help="Set range of y-axis")
 parser.add_option("--ytitle", dest="ytitle", type="string", help="Set title of y-axis, not displayed by deafult")
-
+		
 options,args = parser.parse_args()
 if len(args):
 	print "CastaliaPlot: WARNING unknown command line arguments: '" + ", ".join(args) + "'\n\t(maybe missing quotes around a parameter value? e.g. -l \"top left\")"
@@ -63,6 +64,8 @@ if options.colors and options.colors == '?':
 	for c in sorted(col_st):
 		print " ", c, "\t", ",".join(col_st[c])
 	sys.exit(0)
+if options.style != "histogram" or options.stacked:
+	options.invert = not options.invert
 
 title = ""
 extratitle = []
@@ -79,9 +82,9 @@ table_all = {}
 def extract_common(llist):
 	common_l = []
 	common_t = []
+	result = []
 	raw = []
 	raw_extra = []
-	result = []
 	raw_result = []
 	maxlen = 0	
 	
@@ -130,40 +133,46 @@ if not len(lines):
 if options.style not in styles:
 	quit("CastaliaPlot: ERROR unknown style, supported values: " + ", ".join(styles))
 
+skip_one_line = 0
 for line in lines:
 	m = re.match(r"[-+ \n]+$",line)
 	if (m): continue
 	data = line.strip().strip("|").split("|")
 	if len(data) == 0: continue
+	if skip_one_line:
+		skip_one_line = 0
+		continue
 	if len(data) == 1:
 		if not title:
 			if "-" in data[0]: fulltitle = data[0].rsplit("-",1)[0].strip()
 			else: fulltitle = data[0]
 			title = data[0].split(":")[1]
 		elif data[0] == fulltitle + " - confidence intervals":
-			if options.style == "linespoints":
-				ci = datasets
-				xlabels = []
-			else:
-				print "CastaliaPlot: WARNING confidence intervals can only be plotted with linespoints style"
-				break
+			ci = datasets
+			skip_one_line = 1
 		elif data[0] == fulltitle + " - all values":
-			if options.style == "linespoints":
-				plot_all = 0
-				xlabels = []
-			else:
-				print "CastaliaPlot: WARNING all values can only be plotted with linespoints style"
-				break
+			plot_all = 0
+			skip_one_line = 1
 		else:
 			quit("CastaliaPlot: ERROR unable to plot this table or bad input syntax at\n\t"+data[0])
 	elif title and not xlabels:
 		xlabels,xtitle,extra = extract_common(data)
 		extratitle.extend(extra)
-	elif plot_all != -1:
-		if len(data) <= len(xlabels): 
-			print "CastaliaPlot: WARNING unexpected array length of all values plot"
-			plot_all = -1
-			break
+	elif plot_all == -1:
+		if ci == 0:
+			if len(data) > len(xlabels): labels.append(data.pop(0).strip())
+			else: labels.append("row " + str(datasets))			
+		else:
+			if len(data) > len(xlabels): data.pop(0)
+		if options.invert:
+			if datasets-ci >= len(table): table.append([])
+			for d in data: table[datasets-ci].append(d.strip())
+		else:
+			for row in range(len(data)):
+				if row >= len(table): table.append([])
+				table[row].append(data[row].strip())
+		datasets += 1
+	else:
 		l,n = data.pop(0).strip().split(" ",1)
 		n = int(n)
 		if labels[plot_all] != l: plot_all = plot_all + 1
@@ -171,23 +180,28 @@ for line in lines:
 			print "CastaliaPlot: WARNING unexpected label in the table '" + l + "'"
 			plot_all = -1
 			break
-		for i in range(len(data)):
-			if i not in table_all: table_all[i] = []
-			t = table_all[i]
-			if n >= len(t): t.append([data[i].strip()])
-			else: t[n].append(data[i].strip())
-	else:
-		datasets += 1
-		if len(data) > len(xlabels): labels.append(data.pop(0).strip())
-		else: labels.append("row " + str(datasets))
-		row = 0
-		for d in data:
-			if row >= len(table): table.append([])
-			table[row].append(d.strip())
-			row += 1
+		if options.invert:
+			for i in range(len(data)): data[i] = data[i].strip()		
+			if plot_all not in table_all: table_all[plot_all] = [ data ]
+			else: table_all[plot_all].append(data)
+		else:
+			for i in range(len(data)):
+				if i not in table_all: table_all[i] = []
+				t = table_all[i]
+				if n >= len(t): t.append([data[i].strip()])
+				else: t[n].append(data[i].strip())
 
 labels,ltitle,extra = extract_common(labels)
 extratitle.extend(extra)
+
+if options.invert:
+	tmp = ltitle;
+	ltitle = xtitle;
+	xtitle = tmp;
+	tmp = labels;
+	labels = xlabels;
+	xlabels = tmp;
+	if ci: ci = len(labels)
 
 if len(extratitle):
 	title = title + " (" + ",".join(extratitle) + ")" 
@@ -218,11 +232,6 @@ if options.order:
 		table = new_table
 		table_all = new_table_all		
 
-if options.style == "rowstacked":
-	tmp = ltitle;
-	ltitle = xtitle;
-	xtitle = tmp;
-
 fname = "data" + str(os.getpid()) + ".dat"
 fr = open(fname,"w")
 
@@ -236,20 +245,22 @@ if options.debug:
 
 xtics_add = []
 for x in range(len(xlabels)):
-	if options.style != "rowstacked":
-		xtics_add.append('"' + xlabels[x] + '" ' + str(x) + " 0") 
-		myprint(fr, str(x) + " " + " ".join(table.pop(0)))
-	else:
-		myprint(fr, "\"" + xlabels[x] + "\" " + " ".join(table.pop(0)))
-		
-if options.style == "rowstacked":
-	for x in range(len(labels)):
-		xtics_add.append('"' + labels[x] + '" ' + str(x) + " 0")
-		
+	xtics_add.append('"' + xlabels[x] + '" ' + str(x) + " 0") 
+	myprint(fr, str(x) + " " + " ".join(table.pop(0)))
+				
 if plot_all != -1:
-	for n in table_all:
-		for d in table_all[n]:
-			myprint(fr, str(n) + " " + " ".join(d))		
+	if options.style != "linespoints":
+		print "CastaliaPlot: WARNING --all flag of CastaliaResults is only compatible with linespoints style"
+		plot_all = -1
+	else:
+		for n in table_all:
+			for d in table_all[n]:
+				myprint(fr, str(n) + " " + " ".join(d))
+if ci != 0:
+	if options.style != "linespoints":
+		print "CastaliaPlot: WARNING -c flag of CastaliaResults is only compatible with linespoints style"
+		ci = 0
+	
 fr.close()
 
 name,ext = options.output.rsplit(".",1)
@@ -272,13 +283,6 @@ myprint(f, "set title \"" + title + "\"")
 
 if options.ratio:
 	myprint(f, "set size ratio " + str(options.ratio))
-if options.xrange:
-	if ":" in options.xrange: 
-		rmin,rmax = options.xrange.split(":")
-	else:
-		rmin = "0"
-		rmax = options.xrange
-	myprint(f, "set xrange ["+rmin+":"+rmax+"]")
 if options.yrange:
 	if ":" in options.yrange: 
 		rmin,rmax = options.yrange.split(":")
@@ -297,26 +301,19 @@ if options.xtitle: myprint(f, "set xlabel '" + options.xtitle + "'")
 elif xtitle != "": myprint(f, "set xlabel '" + xtitle + "'")
 if options.ytitle: myprint(f, "set ylabel '" + options.ytitle + "'")
 
-if options.style == "linespoints":
-	myprint(f, "set style data linespoints")
-else:
-	myprint(f, "set style data histogram")
-	if options.style == "histogram":
-		if options.histgap:
-			myprint(f, "set style histogram cluster gap " + str(options.histgap))
-		elif len(labels) > 1:
-			myprint(f, "set style histogram cluster gap 1")
-		else:
-			myprint(f, "set style histogram cluster gap 0")
-	elif options.style == "rowstacked":
-		myprint(f, "set style histogram columnstacked")
-	elif options.style == "columnstacked":
+myprint(f, "set style data " + options.style)
+if options.style == "histogram":
+	if not options.histgap:
+		if len(labels) > 1: options.histgap = 1
+		else: options.histgap = 0
+	myprint(f, "set style histogram cluster gap " + str(options.histgap))
+	myprint(f, "set boxwidth " + str(options.boxwidth))
+	if options.stacked:
 		myprint(f, "set style histogram rowstacked")
 	if options.grey:
 		myprint(f, "set style fill pattern border -1")
 	else:
 		myprint(f, "set style fill solid " + str(options.opacity) + " noborder")
-	myprint(f, "set boxwidth " + str(options.boxwidth))
 
 colors = []
 if not options.grey:
@@ -325,7 +322,7 @@ if not options.grey:
 			colors = col_st[options.colors]
 		else:
 			colors = options.colors.split(",")
-	elif options.style == "linespoints":
+	elif options.style == "linespoints" or options.style == "lines":
 		colors = col_st["default"]
 
 if len(colors):			
@@ -341,27 +338,23 @@ if len(colors):
 plots = []
 plots_ci = []
 plots_all = []
-if options.style == "rowstacked":
-	for i in range(0,len(labels)):
-		if i == 0: plots.append("using " + str(i+2) + ":key(1)")
-		else: plots.append("using " + str(i+2))
-else:
-	for i in range(0,len(labels)):
-		if options.style == "linespoints":
-			if ci != 0 and i >= ci:
-				plots_ci.append("using 1:" + str(i-ci+2) + ":" + str(i+2) + " notitle with yerrorbars lw " + str(options.linewidth))
-			else:
-				plots.append("using 1:" + str(i+2) + " title \"" + labels[i] + "\" lw " + str(options.linewidth))
+
+for i in range(0,len(labels)+ci):
+	if options.style == "linespoints" or options.style == "lines":
+		if ci != 0 and i >= ci:
+			plots_ci.append("using 1:" + str(i-ci+2) + ":" + str(i+2) + " title \"" + labels[i-ci] + "\" with yerrorbars lw " + str(options.linewidth))
 		else:
-			plots.append("using " + str(i+2) + " title \"" + labels[i] + "\"")
-		if plot_all != -1 and (ci == 0 or i < ci):
-			plots_all.append("using 1:" + str(i+2) + " notitle with points")
+			plots.append("using 1:" + str(i+2) + " title \"" + labels[i] + "\" lw " + str(options.linewidth))
+	else:
+		plots.append("using " + str(i+2) + " title \"" + labels[i] + "\"")
+	if plot_all != -1 and (ci == 0 or i < ci):
+		plots_all.append("using 1:" + str(i+2) + " title \"" + labels[i-ci] + "\" with points")
 
 if len(plots_ci) or len(plots_all):
 	myprint(f, "set multiplot")
-	myprint(f, "unset key")
+	if len(key): myprint(f, "set key " + key)
 	if not options.yrange: myprint(f, "set yrange [] writeback")
-	if not options.xrange: myprint(f, "set xrange [] writeback")
+	myprint(f, "set xrange [] writeback")
 	
 if len(plots_all):
 	myprint(f, "set datafile missing '-'")
@@ -374,13 +367,14 @@ else:
 if len(plots_ci):
 	if len(plots_all):
 		if not options.yrange: myprint(f, "set yrange restore")
-		if not options.xrange: myprint(f, "set xrange restore")
+		myprint(f, "set xrange restore")
 	myprint(f, "plot './" + fname + "' " + plot_extra + (", '' " + plot_extra).join(plots_ci))
 
 if len(plots_ci) or len(plots_all):
 	if not options.yrange: myprint(f, "set yrange restore")
-	if not options.xrange: myprint(f, "set xrange restore")
-if len(key): myprint(f, "set key " + key)
+	myprint(f, "set xrange restore")
+elif len(key): 
+	myprint(f, "set key " + key)
 myprint(f, "plot './" + fname + "' " + plot_extra + (", '' " + plot_extra).join(plots))
 
 if len(plots_ci) or plot_all != -1:

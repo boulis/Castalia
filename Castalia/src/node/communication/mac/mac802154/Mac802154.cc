@@ -34,7 +34,8 @@ void Mac802154::startup()
 	}
 
 	phyDataRate = par("phyDataRate");
-	phyDelayForListen2Tx = (double)par("phyDelayRx2Tx") / 1000.0;
+	phyDelaySleep2Tx = (double)par("phyDelaySleep2Tx") / 1000.0;
+	phyDelayRx2Tx = (double)par("phyDelayRx2Tx") / 1000.0;
 	phyDelayForValidCS = (double)par("phyDelayForValidCS") / 1000.0;
 	phyLayerOverhead = par("phyFrameOverhead");
 	phyBitsPerSymbol = par("phyBitsPerSymbol");
@@ -47,7 +48,7 @@ void Mac802154::startup()
 
 	symbolLen = 1 / (phyDataRate * 1000 / phyBitsPerSymbol);
 	ackWaitDuration = symbolLen * unitBackoffPeriod + 
-		phyDelayForListen2Tx * 2 + TX_TIME(ACK_PKT_SIZE);
+		phyDelayRx2Tx * 2 + TX_TIME(ACK_PKT_SIZE);
 
 	beaconPacket = NULL;
 	associateRequestPacket = NULL;
@@ -125,7 +126,7 @@ void Mac802154::timerFiredCallback(int index)
 				beaconPacket = NULL;
 
 				setTimer(FRAME_START, beaconInterval * symbolLen);
-				currentFrameStart = getClock() + phyDelayForListen2Tx;
+				currentFrameStart = getClock() + phyDelayRx2Tx;
 			} else {	// if not a PAN coordinator, then wait for beacon
 				toRadioLayer(createRadioCommand(SET_STATE, RX));
 				setMacState(MAC_STATE_WAIT_FOR_BEACON);

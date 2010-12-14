@@ -43,12 +43,14 @@ simple Mac802154 like node.communication.mac.iMac {
 	int minCAPLength = default (440);
 	int requestGTS = default (0);
 
-	//parameters dependent on physical layer
+	// parameters dependent on physical layer
+	// some are essential and are not defined as default
 	double phyDelayForValidCS = default (0.128);
-	double phyDataRate = default (250);
+	double phyDataRate;
+	double phyDelaySleep2Tx = default (0.2); //in ms
 	double phyDelayRx2Tx = default (0.02);	//in ms
 	int phyFrameOverhead = default (6);
-	int phyBitsPerSymbol = default (2);
+	int phyBitsPerSymbol; 
 
 	//reception guard time, in ms
 	double guardTime = default (1);

@@ -90,8 +90,8 @@ class Mac802154: public VirtualMac {
 	double nextPacketTime;
 	bool lockedGTS;
 	simtime_t phyDelayForValidCS;		// delay for valid CS
-	simtime_t phyDelayForSleep2Listen;	// delay to switch from sleep state to listen state
-	simtime_t phyDelayForListen2Tx;
+	simtime_t phyDelaySleep2Tx;
+	simtime_t phyDelayRx2Tx;
 	int phyLayerOverhead;
 	int phyBitsPerSymbol;
 	double phyDataRate;

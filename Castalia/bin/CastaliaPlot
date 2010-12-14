@@ -35,7 +35,7 @@ parser.add_option("--colors", dest="colors", type="string", help="Specify a comm
 parser.add_option("--gnuplot", dest="gnuplot", type="string", default="gnuplot", help="Path to gnuplot executable, default is 'gnuplot'")
 parser.add_option("--hist-box", dest="boxwidth", type="float", default="0.9", help="Set width of histogram columns")
 parser.add_option("--hist-gap", dest="histgap", type="float", help="Set gap between histogram columns")
-parser.add_option("--invert", dest="invert", default=True, action="store_false", help="Invert the table passed as input (i.e. make rows to be columns and vice versa)")
+parser.add_option("--invert", dest="invert", default=False, action="store_true", help="Invert the table passed as input (i.e. make rows to be columns and vice versa)")
 parser.add_option("--linewidth", dest="linewidth", type="float", default="1", help="Set linewidth, only with linespoints style")
 parser.add_option("--order-columns", dest="order", type="string", help="A comma separated list of column indexes. Columns can be reordered or skipped (NOTE: this is applied BEFORE invert)")
 parser.add_option("--ratio", dest="ratio", type="float", help="Set aspect ratio of the graph")
@@ -63,6 +63,9 @@ if options.colors and options.colors == '?':
 	for c in sorted(col_st):
 		print " ", c, "\t", ",".join(col_st[c])
 	sys.exit(0)
+
+if options.style == "stacked":
+	options.invert = not options.invert
 
 title = ""
 extratitle = []
@@ -267,7 +270,7 @@ else:
 	name = options.output
 
 if options.debug:
-	print("\n===DEBUG: gnuplot commands===")	
+	print("\n===DEBUG: gnuplot commands===")
 f = os.popen(options.gnuplot,'w')
 if options.grey:
 	myprint(f, "set term postscript enhanced")
@@ -321,7 +324,7 @@ if not options.grey:
 			colors = col_st[options.colors]
 		else:
 			colors = options.colors.split(",")
-	elif options.style == "linespoints" or options.style == "lines":
+	elif options.style == "linespoints":
 		colors = col_st["default"]
 
 if len(colors):			
@@ -339,7 +342,7 @@ plots_ci = []
 plots_all = []
 
 for i in range(0,len(labels)+ci):
-	if options.style == "linespoints" or options.style == "lines":
+	if options.style == "linespoints":
 		if ci != 0 and i >= ci:
 			plots_ci.append("using 1:" + str(i-ci+2) + ":" + str(i+2) + " title \"" + labels[i-ci] + "\" with yerrorbars lw " + str(options.linewidth))
 		else:

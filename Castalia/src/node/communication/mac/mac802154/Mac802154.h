@@ -147,7 +147,7 @@ class Mac802154: public VirtualMac {
 	void initiateCSMACA(int, int, simtime_t);
 	void initiateCSMACA();
 	void continueCSMACA();
-	void attemptTransmission();
+	void attemptTransmission(const char *);
 	void transmitNextPacket();
 	void issueGTSrequest();
 	void timerFiredCallback(int);

@@ -163,9 +163,12 @@ void Mac802154::timerFiredCallback(int index)
 				break;
 			}
 
-			attemptTransmission();
-			if (macState == MAC_STATE_IDLE)
-				toRadioLayer(createRadioCommand(SET_STATE, RX));
+			toRadioLayer(createRadioCommand(SET_STATE, RX));
+			// we delay transmission attempt by the time requred by radio to wake up
+			// note that GTS_START timer was scheduled exactly phyDelaySleep2Tx seconds
+			// earlier than the actual start time of GTS slot
+			setMacState(MAC_STATE_PROCESSING);
+			setTimer(ATTEMPT_TX, phyDelaySleep2Tx);
 			break;
 		}
 
@@ -183,7 +186,7 @@ void Mac802154::timerFiredCallback(int index)
 			if (macState == MAC_STATE_WAIT_FOR_DATA_ACK)
 				collectPacketState("NoAck");
 
-			attemptTransmission();
+			attemptTransmission("ATTEMPT_TX timer");
 			break;
 		}
 
@@ -200,7 +203,7 @@ void Mac802154::timerFiredCallback(int index)
 					setTimer(PERFORM_CCA, unitBackoffPeriod * symbolLen);
 				} else if (!nextPacket) {
 					trace() << "ERROR: CSMA_CA algorithm executed without any data to transmit";
-					attemptTransmission();
+					attemptTransmission("ERROR in CSMA_CA");
 				} else {
 					// CSMA-CA successful (CW == 0), can transmit the queued packet
 					transmitNextPacket();
@@ -215,7 +218,7 @@ void Mac802154::timerFiredCallback(int index)
 				if (NB > macMaxCSMABackoffs) {
 					collectPacketState("CSfail");
 					nextPacketRetries--;
-					attemptTransmission();
+					attemptTransmission("NB exeeded maxCSMAbackoffs");
 				} else {
 					setMacState(MAC_STATE_CSMA_CA);
 					continueCSMACA();
@@ -253,7 +256,7 @@ void Mac802154::fromNetworkLayer(cPacket * pkt, int dstMacAddress)
 
 	if (bufferPacket(macPacket)) {
 		if (macState == MAC_STATE_IDLE)
-			attemptTransmission();
+			attemptTransmission("New packet from network layer");
 	} else {
 		packetoverflow++;
 		//full buffer message
@@ -436,11 +439,12 @@ void Mac802154::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 			if (enableCAP && GTSstart != CAPend)
 				setTimer(START_SLEEPING, CAPend);
 			if (GTSstart != 0 && GTSstart != CAPend)
-				setTimer(GTS_START, GTSstart);
+				// we set GTS timer phyDelaySleep2Tx seconds earlier as radio will be sleeping
+				setTimer(GTS_START, GTSstart - phyDelaySleep2Tx);
 
 			if (associatedPAN == PANaddr) {
 				if (enableCAP) {
-					attemptTransmission();
+					attemptTransmission("CAP started");
 				} else {
 					setMacState(MAC_STATE_SLEEP);
 					toRadioLayer(createRadioCommand(SET_STATE, SLEEP));
@@ -589,7 +593,7 @@ void Mac802154::handleAckPacket(Mac802154Packet * rcvPacket)
 			if (requestGTS) {
 				issueGTSrequest();
 			} else {
-				attemptTransmission();
+				attemptTransmission("Associated with PAN");
 			}
 			break;
 		}
@@ -600,7 +604,7 @@ void Mac802154::handleAckPacket(Mac802154Packet * rcvPacket)
 				collectPacketState("Success");
 				trace() << "Packet successfully transmitted to " << rcvPacket->getSrcID();
 				nextPacketRetries = 0;
-				attemptTransmission();
+				attemptTransmission("ACK received");
 			}
 			break;
 		}
@@ -610,7 +614,7 @@ void Mac802154::handleAckPacket(Mac802154Packet * rcvPacket)
 			cancelAndDelete(nextPacket);
 			nextPacket = NULL;
 			if (enableCAP) {
-				attemptTransmission();
+				attemptTransmission("GTS request granted");
 			} else {
 				setMacState(MAC_STATE_SLEEP);
 				toRadioLayer(createRadioCommand(SET_STATE, SLEEP));
@@ -626,9 +630,10 @@ void Mac802154::handleAckPacket(Mac802154Packet * rcvPacket)
 }
 
 // This function will initiate a transmission (or retransmission) attempt after a given delay
-void Mac802154::attemptTransmission()
+void Mac802154::attemptTransmission(const char * descr)
 {
 	cancelTimer(ATTEMPT_TX);
+	trace() << "Attempt transmission, description: " << descr;
 
 	if (currentFrameStart + CAPend > getClock()) {	// we could use a timer here
 		// still in CAP period of the frame

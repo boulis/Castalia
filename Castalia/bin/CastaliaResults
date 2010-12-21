@@ -17,7 +17,7 @@ from optparse import OptionParser
 z_values = {99:2.577,98.5:2.43,97.5:2.243,95:1.96,90:1.645,85:1.439,75:1.151}
 
 parser = OptionParser(usage="usage: %prog [options]")
-parser.add_option("-c","--confidence", dest="confidence", type="float", metavar="CL", help="Select desired confidence level (CL) and display confidence intervals where possible, supported values of CL: " + str(sorted(z_values.keys())))
+parser.add_option("-c","--confidence-interval", dest="confidence", type="float", metavar="CI", help="Display confidence intervals where possible (http://en.wikipedia.org/wiki/Confidence_interval), supported values of CI: " + str(sorted(z_values.keys())))
 parser.add_option("-f","--filter-rows", dest="row_filter", type="string", metavar="RE", help="Select a subset of rows by applying RE (regular expression) filter")
 parser.add_option("-i","--input", dest="input", type="string", metavar="FILE[,FILE]", help="Load results from each FILE")
 parser.add_option("-l","--long", dest="long", default=False, action="store_true", help="Display long (full) labels for table rows")
@@ -25,6 +25,7 @@ parser.add_option("-n","--node", dest="pernode", default=False, action="store_tr
 parser.add_option("-o","--output", dest="output", type="int", default=1, metavar="[1|2]", help="Choose output type, supported values are 1 (visual) and 2 (compact)")
 parser.add_option("-p","--percentage", dest="percentage", default=False, action="store_true", help="Display breakdowns as percentage of total amounts where possible")
 parser.add_option("-s","--show", dest="filter", type="string", metavar="RE", help="Select a subset of available outputs by applying RE (regular expression)")
+parser.add_option("-v","--variability-interval", dest="varint", type="float", metavar="VI", help="Display variablility interval: the tightest interval that contains atleast VI% of the values (useful when running simulations with multiple seeds)")
 parser.add_option("--all", dest="all", default=False, action="store_true", help="Display ALL data points in a separate table")
 parser.add_option("--filter-columns", dest="col_filter", type="string", metavar="RE", help="Select a subset of columns by applying RE (regular expression) filter, only works with breakdown outputs")
 parser.add_option("--order", dest="order", type="string", metavar="STRING", help="Select label ordering for the table, first label will become column headers. Labels without '=' can be matched by keyword 'configs'")
@@ -74,7 +75,7 @@ def _generate_index(str):
 # simple function to determine if a number has floating point component
 def is_int(num):
 	if type(num) != float: return False
-	return num*10%10 == 0
+	return int(num) == num
 
 # table class, allows to populate table with information (i.e. cells)
 # in any arbitrary order, allows to have empty cells
@@ -324,6 +325,36 @@ def mean_ci(list,amt=None):
 	else:
 		return round(mean,options.precision), round(ci,options.precision)
 
+# find smallest range covering options.varint % of samples
+def varint(list):
+	# Calculate the required number of items to be included in the list
+	# NOTE -1 because list indexes start with 0, so for a list of 16 items,
+	# inxes to cover 100% will be list[0]-list[15]
+	amt = int(math.ceil(len(list)*options.varint/100.0))-1
+	# convert items in the list to floats and sort it
+	for i in range(len(list)):
+		list[i] = float(list[i])
+	list = sorted(list)
+	
+	# min_i: starting index of the interval of minimum length found so far
+	# min_int: the length of minimum length interval found so far
+	# current: starting index of the interval being checked
+	min_i = 0
+	min_int = list[amt] - list[0]
+	current = 1
+	# loop through all possible intervals to find one with shortest length
+	while current+amt < len(list):
+		new_int = list[amt+current] - list[current]
+		if new_int < min_int:
+			min_int = new_int
+			min_i = current
+		current += 1
+	# return final string interval in the format MIN:MAX
+	if is_int(list[min_i]) and is_int(list[min_i+amt]):
+		return str(int(list[min_i]))+":"+str(int(list[min_i+amt]))
+	else:
+		return str(round(list[min_i],options.precision))+":"+str(round(list[min_i+amt],options.precision))
+	
 # this function will print a list of all modules that were added to the 'modules' 
 # dictionary. For each module a list of outputs is displayed, and for each output - it's dimensions
 def printModules():
@@ -402,6 +433,8 @@ def printOutput(name,o):
 	else: table_ci = None
 	if options.all: table_all = Table(options.output,"-",options.row_filter)
 	else: table_all = None
+	if options.varint: table_varint = Table(options.output,"0:0",options.row_filter)
+	else: table_varint = None
 	
 	# 'no_header' variable will indicate if rows in the table will have headers printed
 	no_header = 1
@@ -415,6 +448,8 @@ def printOutput(name,o):
 		if table_all:
 			for i in range(len(values)):
 				table_all.addCell(row+" "+str(i),col,values[i])
+		if table_varint:
+			table_varint.addCell(row,col,varint(values))
 	
 	# print_i and print_n variables indicate wether index and node information
 	# is worth displaying (i.e. theres more than one index and more than one node)
@@ -566,6 +601,9 @@ def printOutput(name,o):
 	if options.confidence and len(table_ci.rows.keys()) > 0:
 		print name + " - confidence intervals"
 		table_ci.printTable(no_header)
+	if options.varint and len(table_varint.rows.keys()) > 0:
+		print name + " - variability intervals"
+		table_varint.printTable(no_header)
 	if options.all and len(table_all.rows.keys()) > 0:
 		print name + " - all values"
 		table_all.printTable(no_header)

@@ -156,7 +156,6 @@ void Mac802154::timerFiredCallback(int index)
 		}
 
 		case GTS_START:{
-			setTimer(START_SLEEPING, GTSlength);
 			if (macState == MAC_STATE_WAIT_FOR_DATA_ACK ||
 			    macState == MAC_STATE_WAIT_FOR_ASSOCIATE_RESPONSE ||
 			    macState == MAC_STATE_PROCESSING) {
@@ -438,9 +437,12 @@ void Mac802154::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 
 			if (enableCAP && GTSstart != CAPend)
 				setTimer(START_SLEEPING, CAPend);
-			if (GTSstart != 0 && GTSstart != CAPend)
-				// we set GTS timer phyDelaySleep2Tx seconds earlier as radio will be sleeping
-				setTimer(GTS_START, GTSstart - phyDelaySleep2Tx);
+			if (GTSstart != 0) {
+				setTimer(START_SLEEPING, GTSstart + GTSlength);
+				if (!enableCAP || GTSstart != CAPend)
+					// we set GTS timer phyDelaySleep2Tx seconds earlier as radio will be sleeping
+					setTimer(GTS_START, GTSstart - phyDelaySleep2Tx);
+			}
 
 			if (associatedPAN == PANaddr) {
 				if (enableCAP) {

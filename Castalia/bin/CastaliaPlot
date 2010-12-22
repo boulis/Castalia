@@ -116,7 +116,7 @@ def reorder(list):
 			print "CastaliaPlot: WARNING --order index " + i + " is out of range"
 			options.order = None
 			return list
-		result.append(list[n])
+		result.append(list[n-1])
 	return result
 
 # small function to remove spaces from list elements

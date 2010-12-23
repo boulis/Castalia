@@ -158,11 +158,11 @@ void BridgeTest::finishSpecific()
 					"Fail", report_info_table[i].seq - report_info_table[i].parts.size());
 		}
 	} else {
-		declareOutput("Reporgram reception");
+		declareOutput("Reprogram reception");
 		for (int i = 0; i < (int)version_info_table.size(); i++) {
-			collectOutput("Reporgram reception", "Success",
+			collectOutput("Reprogram reception", "Success",
 				      version_info_table[i].parts.size());
-			collectOutput("Reporgram reception", "Fail",
+			collectOutput("Reprogram reception", "Fail",
 				      version_info_table[i].seq - version_info_table[i].parts.size());
 		}
 	}

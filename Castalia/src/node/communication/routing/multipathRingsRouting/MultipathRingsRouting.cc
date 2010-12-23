@@ -115,7 +115,6 @@ void MultipathRingsRouting::fromApplicationLayer(cPacket * pkt, const char *dest
 			else
 				sendControlMessage(MPRINGS_NOT_CONNECTED);
 		} else {
-			cancelAndDelete(netPacket);
 			//Here we could send a control message to upper layer informing that our buffer is full
 		}
 	} else {		//++++ need to control flooding

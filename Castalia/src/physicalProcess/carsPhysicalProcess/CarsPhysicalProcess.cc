@@ -83,7 +83,7 @@ void CarsPhysicalProcess::handleMessage(cMessage * msg)
 			}
 
 			double arrival = genk_dblrand(0) * car_interarrival + car_interarrival / 2;
-			scheduleAt(simTime() + arrival,	new cMessage("New car arrival message", TIMER_SERVICE));
+			scheduleAt(simTime() + arrival,	msg);
 			return;
 		}
 

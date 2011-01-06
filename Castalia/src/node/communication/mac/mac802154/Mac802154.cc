@@ -285,7 +285,7 @@ void Mac802154::finishSpecific()
 		} else if (iter->first.find("CSfail") != string::npos) {
 			collectOutput("Packet breakdown", "Failed, busy channel", iter->second);
 		} else if (iter->first.find("NoPAN") != string::npos) {
-			collectOutput("Packet breakdown", "Failed, not connected to PAN", iter->second);
+			collectOutput("Packet breakdown", "Failed, no PAN", iter->second);
 		} else {
 			trace() << "Unknown packet breakdonw category: " << 
 				iter->first << " with " << iter->second << " packets";

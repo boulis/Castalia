@@ -1,3 +1,26 @@
+Castalia 3.1: Changes from 3.0
+------------------------------------------
+- Introduction of CastaliaPlot to create graphs
+  automatically based on CastaliaResults output
+
+- Features added to CastaliaResults
+  e.g., options --all --sum -v
+ 
+- Enhanced Tunable MAC with CSMA persistence 
+  options, and TX options
+
+- Dublicate packets handled in virtual routing
+  and virtual MAC modules
+
+- Radio module enhanced to handle TXing without
+  interruption
+ 
+- Minor cleanup and bug fixes:
+  Cleaned up throughput app,
+  bugs in GTS 802.15.4MAC
+  bug in multipathRings
+
+
 
 Castalia 3.0: Major changes from 2.3
 ------------------------------------------

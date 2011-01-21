@@ -7,7 +7,7 @@
  *                                                                          *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
  *      Attention:  License Inquiry.                                        *
- *                                                                          *  
+ *                                                                          *
  ****************************************************************************/
 
 #include "WirelessChannel.h"
@@ -72,7 +72,7 @@ void WirelessChannel::initialize(int stage)
 		numOfYCells = (int)ceil(yFieldSize / yCellSize);
 		numOfXCells = (int)ceil(xFieldSize / xCellSize);
 		numOfSpaceCells = numOfZCells * numOfYCells * numOfXCells;
-		
+
 	   /***************************************************************
 	    * Calculate some values that  help us transform a 1D index in
 	    * [0..numOfSpaceCells -1] to a 3D index x, y, z and vice versa.
@@ -105,7 +105,7 @@ void WirelessChannel::initialize(int stage)
 	topo->extractByNedTypeName(cStringTokenizer("node.Node").asVector());
 
 	for (int i = 0; i < numOfNodes; i++) {
-		VirtualMobilityManager *nodeMobilityModule = 
+		VirtualMobilityManager *nodeMobilityModule =
 			check_and_cast<VirtualMobilityManager*>
 			(topo->getNode(i)->getModule()->getSubmodule("MobilityManager"));
 		nodeLocation[i] = nodeMobilityModule->getLocation();
@@ -156,7 +156,7 @@ void WirelessChannel::initialize(int stage)
 
 			nodeLocation[i].cell = cell;
 		}
-		
+
 		/*************************************************
 		 * pushing ID i into the list cellOccupation[cell]
 		 * (if onlyStaticNodes cell=i )
@@ -178,6 +178,7 @@ void WirelessChannel::initialize(int stage)
 
 	float x1, x2, y1, y2, z1, z2, dist;
 	float PLd;		// path loss at distance dist, in dB
+	float bidirectionalPathLossJitter; // variation of the pathloss in the two directions of a link, in dB
 
 	/*******************************************************
 	 * Calculate the distance, beyond which we cannot
@@ -189,8 +190,8 @@ void WirelessChannel::initialize(int stage)
 	 * speed up the filling of the pathLoss array,
 	 * especially for the mobile case.
 	 *******************************************************/
-	float distanceThreshold = d0 * 
-		pow(10.0,(maxTxPower - signalDeliveryThreshold - PLd0 + 3 * sigma) / 
+	float distanceThreshold = d0 *
+		pow(10.0,(maxTxPower - signalDeliveryThreshold - PLd0 + 3 * sigma) /
 		(10.0 * pathLossExponent));
 
 	for (int i = 0; i < numOfSpaceCells; i++) {
@@ -230,9 +231,17 @@ void WirelessChannel::initialize(int stage)
 			if (dist > distanceThreshold)
 				continue;
 
-			PLd = PLd0 + 10.0 * pathLossExponent * log10(dist / d0) + normal(0, sigma);
-
-			float bidirectionalPathLossJitter = normal(0, bidirectionalSigma) / 2;
+			/* if the distance is very small (arbitrarily: smaller than one tenth
+			 * of the reference distance) then make the path loss 0dB
+			 */
+			if (dist < d0/10.0) {
+				PLd = 0;
+				bidirectionalPathLossJitter = 0;
+			}
+			else {
+				PLd = PLd0 + 10.0 * pathLossExponent * log10(dist / d0) + normal(0, sigma);
+				bidirectionalPathLossJitter = normal(0, bidirectionalSigma) / 2;
+			}
 
 			if (maxTxPower - PLd - bidirectionalPathLossJitter >= signalDeliveryThreshold) {
 				pathLoss[i].push_front(new PathLossElement(j,PLd + bidirectionalPathLossJitter));
@@ -247,7 +256,7 @@ void WirelessChannel::initialize(int stage)
 	}
 
 	trace() << "Number of distinct space cells: " << numOfSpaceCells;
-	trace() << "Each cell affects " << 
+	trace() << "Each cell affects " <<
 		(double)totalElements / numOfSpaceCells << " other cells on average";
 	trace() << "The pathLoss array of lists was allocated in " <<
 	    (double)(totalElements * elementSize) / 1048576 << " MBytes";
@@ -293,7 +302,7 @@ void WirelessChannel::handleMessage(cMessage * msg)
 
 	case WC_NODE_MOVEMENT:{
 
-			WirelessChannelNodeMoveMessage *mobilityMsg = 
+			WirelessChannelNodeMoveMessage *mobilityMsg =
 				check_and_cast <WirelessChannelNodeMoveMessage*>(msg);
 			int srcAddr = mobilityMsg->getNodeID();
 
@@ -313,8 +322,8 @@ void WirelessChannel::handleMessage(cMessage * msg)
 			nodeLocation[srcAddr].z = mobilityMsg->getZ();
 			nodeLocation[srcAddr].phi = mobilityMsg->getPhi();
 			nodeLocation[srcAddr].theta = mobilityMsg->getTheta();
-			if ((nodeLocation[srcAddr].x < 0.0) || 
-				(nodeLocation[srcAddr].y < 0.0) || 
+			if ((nodeLocation[srcAddr].x < 0.0) ||
+				(nodeLocation[srcAddr].y < 0.0) ||
 				(nodeLocation[srcAddr].z < 0.0))
 					opp_error("Wireless channel received faulty WC_NODE_MOVEMENT msg. We cannot have negative node coordinates");
 
@@ -383,14 +392,14 @@ void WirelessChannel::handleMessage(cMessage * msg)
 				float currentSignalReceived = signalMsg->getPower_dBm() - (*it1)->avgPathLoss;
 				if (temporalModelDefined) {
 					simtime_t timePassed_msec = (simTime() - (*it1)->lastObservationTime) * 1000;
-					simtime_t timeProcessed_msec = 
+					simtime_t timeProcessed_msec =
 							temporalModel->runTemporalModel(SIMTIME_DBL(timePassed_msec),
 							&((*it1)->lastObservedDiffFromAvgPathLoss));
 					currentSignalReceived += (*it1)->lastObservedDiffFromAvgPathLoss;
 					collectHistogram("Fade depth distribution",
 						     (*it1)->lastObservedDiffFromAvgPathLoss);
 					/* Update the observation time */
-					(*it1)->lastObservationTime = simTime() - 
+					(*it1)->lastObservationTime = simTime() -
 							(timePassed_msec - timeProcessed_msec) / 1000;
 				}
 
@@ -417,7 +426,7 @@ void WirelessChannel::handleMessage(cMessage * msg)
 			}	//for it1
 
 			if (receptioncount > 0)
-				trace() << "signal from node[" << srcAddr << "] reached " << 
+				trace() << "signal from node[" << srcAddr << "] reached " <<
 						receptioncount << " other nodes";
 			break;
 		}

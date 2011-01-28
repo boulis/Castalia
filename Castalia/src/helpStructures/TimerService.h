@@ -13,7 +13,7 @@
 #ifndef CASTALIA_TIMER
 #define CASTALIA_TIMER
 
-#define TIMER_MIN_SIZE 16
+#define TIMER_MIN_SIZE 8
 #define TIMER_MAX_SIZE 256
 
 #include <omnetpp.h>

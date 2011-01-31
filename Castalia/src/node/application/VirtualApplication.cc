@@ -97,7 +97,9 @@ void VirtualApplication::handleMessage(cMessage * msg)
 			ApplicationGenericDataPacket *rcvPacket;
 			rcvPacket = check_and_cast <ApplicationGenericDataPacket*>(msg);
 			ApplicationInteractionControl_type control = rcvPacket->getApplicationInteractionControl();
-			if (applicationID.compare(control.applicationID.c_str()) == 0) {
+			// We deliver only packets that have the correct appID. Unless 
+			// the appID is the empty string, in that case it will get all packets
+			if (applicationID.compare(control.applicationID.c_str()) == 0 || applicationID.compare("") == 0) {
 				if (latencyMax > 0 && latencyBuckets > 0)
 					collectHistogram("Application level latency, in ms",
 					1000 * SIMTIME_DBL(simTime() - control.timestamp));

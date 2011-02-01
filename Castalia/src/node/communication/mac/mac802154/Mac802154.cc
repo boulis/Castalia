@@ -168,6 +168,9 @@ void Mac802154::timerFiredCallback(int index)
 			// earlier than the actual start time of GTS slot
 			setMacState(MAC_STATE_PROCESSING);
 			setTimer(ATTEMPT_TX, phyDelaySleep2Tx);
+			
+			// set a timer to go to sleep after our GTS slot ends
+			setTimer(START_SLEEPING, phyDelaySleep2Tx + GTSlength);
 			break;
 		}
 
@@ -435,22 +438,26 @@ void Mac802154::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 				}
 			}
 
-			if (enableCAP && GTSstart != CAPend)
-				setTimer(START_SLEEPING, CAPend);
-			if (GTSstart != 0) {
-				setTimer(START_SLEEPING, GTSstart + GTSlength);
-				if (!enableCAP || GTSstart != CAPend)
-					// we set GTS timer phyDelaySleep2Tx seconds earlier as radio will be sleeping
-					setTimer(GTS_START, GTSstart - phyDelaySleep2Tx);
-			}
-
 			if (associatedPAN == PANaddr) {
 				if (enableCAP) {
 					attemptTransmission("CAP started");
+					//set timer to start sleeping
+					if (GTSstart == CAPend)
+						// if GTS slot starts right after CAP, then
+						// we start sleeping after both CAP and GTS slots end
+						setTimer(START_SLEEPING, CAPend + GTSlength);
+					else
+						// if GTS slot does not start after CAP (or no GTS at all)
+						// then we start sleeping right after CAP ends
+						setTimer(START_SLEEPING, CAPend);
 				} else {
 					setMacState(MAC_STATE_SLEEP);
 					toRadioLayer(createRadioCommand(SET_STATE, SLEEP));
 				}
+				if (GTSstart != 0 && (!enableCAP || GTSstart != CAPend))
+					// if GTS slot exists and does not start after CAP (or CAP is disabled) 
+					// then we set GTS timer phyDelaySleep2Tx seconds earlier as radio will be sleeping
+					setTimer(GTS_START, GTSstart - phyDelaySleep2Tx);
 			}
 
 			setTimer(FRAME_START, baseSuperframeDuration * (1 << beaconOrder) *

@@ -125,7 +125,7 @@ class Mac802154: public VirtualMac {
 	simtime_t desyncTime;
 	simtime_t desyncTimeStart;
 
-	 map<int,bool> associatedDevices;	// map of assoicated devices (for PAN coordinator)
+	map<int,bool> associatedDevices;	// map of assoicated devices (for PAN coordinator)
 
     /*--- 802154Mac packet pointers (sometimes packet is created not immediately before sending) ---*/
 	Mac802154Packet *beaconPacket;
@@ -133,7 +133,7 @@ class Mac802154: public VirtualMac {
 	Mac802154Packet *nextPacket;
 
     /*--- 802154Mac GTS list --- */
-	 vector<GTSspec> GTSlist;	// list of GTS specifications (for PAN coordinator, currently unused)
+	vector<GTSspec> GTSlist;	// list of GTS specifications (for PAN coordinator)
 
  protected:
 	virtual void startup();

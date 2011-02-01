@@ -172,18 +172,17 @@ void VirtualRouting::handleMessage(cMessage * msg)
 			break;
 		}
 
-	/*--------------------------------------------------------------------------------------------------------------
-	 * Message sent by the Resource Manager when battery is out of energy.
-	 * Node has to shut down.
-	 *--------------------------------------------------------------------------------------------------------------*/
+	/* Message sent by the ResourceManager module
+	 * when battery is out of energy. Node shuts down.
+	 */
 		case OUT_OF_ENERGY:{
 			disabled = 1;
 			break;
 		}
 
-	/*--------------------------------------------------------------------------------------------------------------
-	 * Message received by the ResourceManager module. It commands the module to stop its operation.
-	 *--------------------------------------------------------------------------------------------------------------*/
+	/* Message sent by the ResourceManager module. 
+	 * It commands the module to stop its operation.
+	 */
 		case DESTROY_NODE:{
 			disabled = 1;
 			break;

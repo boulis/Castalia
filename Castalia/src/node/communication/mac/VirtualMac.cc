@@ -120,6 +120,11 @@ void VirtualMac::handleMessage(cMessage * msg)
 			break;
 		}
 
+                case DESTROY_NODE:{
+                        disabled = 1;
+                        break;
+                }
+
 		case MAC_CONTROL_COMMAND:{
 			if (handleControlCommand(msg))
 				return;

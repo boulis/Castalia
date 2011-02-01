@@ -118,11 +118,11 @@ void ResourceManager::consumeEnergy(double amount)
 
 	if (remainingEnergy < amount) {
 		remainingEnergy = 0;
-		send(new cMessage("Destroy node message", DESTROY_NODE), "toSensorDevManager");
-		send(new cMessage("Destroy node message", DESTROY_NODE), "toApplication");
-		send(new cMessage("Destroy node message", DESTROY_NODE), "toNetwork");
-		send(new cMessage("Destroy node message", DESTROY_NODE), "toMac");
-		send(new cMessage("Destroy node message", DESTROY_NODE), "toRadio");
+		send(new cMessage("Destroy node message", OUT_OF_ENERGY), "toSensorDevManager");
+		send(new cMessage("Destroy node message", OUT_OF_ENERGY), "toApplication");
+		send(new cMessage("Destroy node message", OUT_OF_ENERGY), "toNetwork");
+		send(new cMessage("Destroy node message", OUT_OF_ENERGY), "toMac");
+		send(new cMessage("Destroy node message", OUT_OF_ENERGY), "toRadio");
 	} else
 		remainingEnergy -= amount;
 }

@@ -22,12 +22,6 @@ void Radio::initialize()
 	disabled = 1;
 
 	rssiIntegrationTime = symbolsForRSSI * RXmode->bitsPerSymbol / RXmode->datarate;
-	timeOfLastSignalChange = 0.0;	// even if left uninitialized, it should not matter.
-
-	TotalPowerReceived_type initialTotalPower;
-	initialTotalPower.power_dBm = -200.0;
-	initialTotalPower.startTime = 0.0;
-	totalPowerReceived.push_front(initialTotalPower);
 
 	CSinterruptMsg = NULL;
 	stateTransitionMsg = NULL;
@@ -51,6 +45,11 @@ void Radio::handleMessage(cMessage * msg)
 
 		case NODE_STARTUP:{
 			disabled = 0;
+			timeOfLastSignalChange = simTime();
+		        TotalPowerReceived_type initialTotalPower;
+		        initialTotalPower.power_dBm = RXmode->noiseFloor;
+		        initialTotalPower.startTime = simTime();
+		        totalPowerReceived.push_front(initialTotalPower);
 			break;
 		}
 
@@ -99,7 +98,7 @@ void Radio::handleMessage(cMessage * msg)
 
 				// calculate bit errors for the last segment of unchanged signal conditions
 				int numOfBits = (int)ceil(RXmode->datarate * SIMTIME_DBL(simTime() - timeOfLastSignalChange));
-				double BER = SNR2BER(it1->power_dBm - addPower_dBm(it1->currentInterference, RXmode->noiseFloor));
+				double BER = SNR2BER(it1->power_dBm - it1->currentInterference);
 				it1->bitErrors += bitErrors(BER, numOfBits, maxErrorsAllowed(it1->encoding) - it1->bitErrors);
 
 				// update currentInterference in the received signal structure (*it)
@@ -120,7 +119,7 @@ void Radio::handleMessage(cMessage * msg)
 					break;
 
 				case NO_INTERFERENCE_NO_COLLISIONS:
-					newSignal.currentInterference = -200.0;
+					newSignal.currentInterference = RXmode->noiseFloor;
 					break;
 
 				case SIMPLE_COLLISION_MODEL:
@@ -129,11 +128,11 @@ void Radio::handleMessage(cMessage * msg)
 					if (totalPowerReceived.front().power_dBm > RXmode->sensitivity - 6.0)
 						newSignal.currentInterference = 0.0;
 					else
-						newSignal.currentInterference = -200.0;
+						newSignal.currentInterference = RXmode->noiseFloor;
 					break;
 
 				case COMPLEX_INTERFERENCE_MODEL:	// not implemented yet
-					newSignal.currentInterference = -200.0;
+					newSignal.currentInterference = RXmode->noiseFloor;
 					break;
 			}
 
@@ -212,7 +211,7 @@ void Radio::handleMessage(cMessage * msg)
 
 				//calculate bit errors for the last segment of unchanged signal conditions
 				int numOfBits = (int)ceil(RXmode->datarate * SIMTIME_DBL(simTime() - timeOfLastSignalChange));
-				double BER = SNR2BER(it1->power_dBm - addPower_dBm(it1->currentInterference, RXmode->noiseFloor));
+				double BER = SNR2BER(it1->power_dBm - it1->currentInterference);
 				it1->bitErrors += bitErrors(BER, numOfBits, maxErrorsAllowed(it1->encoding) - it1->bitErrors);
 
 				//update currentInterference in the received signal structure (*it)
@@ -230,11 +229,10 @@ void Radio::handleMessage(cMessage * msg)
 					// decapsulate the packet and add the RSSI and LQI fields
 					MacPacket *macPkt = check_and_cast<MacPacket*>(wcMsg->decapsulate());
 					macPkt->getMacInteractionControl().RSSI = readRSSI();
-					macPkt->getMacInteractionControl().LQI = endingSignal->power_dBm -
-							addPower_dBm(endingSignal->maxInterference, RXmode->noiseFloor);
+					macPkt->getMacInteractionControl().LQI = endingSignal->power_dBm - endingSignal->maxInterference;
 					sendDelayed(macPkt, PROCESSING_DELAY, "toMacModule");
 					// collect stats
-					if (endingSignal->maxInterference == -200.0) {
+					if (endingSignal->maxInterference == RXmode->noiseFloor) {
 						stats.RxReachedNoInterference++;
 						trace() << "Received packet (WC_SIGNAL_END) from node " << signalID << ", with no interference";
 					}
@@ -244,7 +242,7 @@ void Radio::handleMessage(cMessage * msg)
 					}
 				} else {
 					// collect stats
-					if (endingSignal->maxInterference == -200.0) {
+					if (endingSignal->maxInterference == RXmode->noiseFloor) {
 						stats.RxFailedNoInterference++;
 						trace() << "Failed packet (WC_SIGNAL_END) from node " << signalID << ", NO interference";
 					}
@@ -684,6 +682,8 @@ void Radio::updateTotalPowerReceived(list<ReceivedSignal_type>::iterator endingS
 	// we are assuming additive power. In reality it is more complex.
 	newElement.power_dBm =
 		subtractPower_dBm(totalPowerReceived.front().power_dBm, endingSignal->power_dBm);
+	if (newElement.power_dBm < RXmode->noiseFloor)
+		newElement.power_dBm = RXmode->noiseFloor; 
 	newElement.startTime = simTime();
 	totalPowerReceived.push_front(newElement);
 }
@@ -694,7 +694,7 @@ void Radio::updateTotalPowerReceived(list<ReceivedSignal_type>::iterator endingS
 void Radio::updateTotalPowerReceived()
 {
 	TotalPowerReceived_type newElement;
-	newElement.power_dBm = -200.0;	// initialize to a value which is practically 0 mW
+	newElement.power_dBm = RXmode->noiseFloor;
 	/* Go through the list of currently received signals and add up their powers
 	 * We are assuming additive power. In reality it is more complex.
 	 * Also do some housekeeping while calculating total power:
@@ -768,6 +768,8 @@ void Radio::updateInterference(list<ReceivedSignal_type>::iterator it1,
 		case ADDITIVE_INTERFERENCE_MODEL:{
 			it1->currentInterference =
 					subtractPower_dBm(it1->currentInterference, endingSignal->power_dBm);
+			if (it1->currentInterference < RXmode->noiseFloor)
+				it1->currentInterference = RXmode->noiseFloor;
 			if (it1->currentInterference > it1->maxInterference)
 				it1->maxInterference = it1->currentInterference;
 			return;
@@ -784,7 +786,7 @@ void Radio::updateInterference(list<ReceivedSignal_type>::iterator it1,
 double Radio::readRSSI()
 {
 
-	double RSSI = -200.0;
+	double RSSI = -200.0; // initialize to a very small value
 
 	// if we are not RXing return the appropriate error code
 	if (state != RX)

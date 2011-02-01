@@ -39,8 +39,10 @@ parser.add_option("--invert", dest="invert", default=False, action="store_true",
 parser.add_option("--linewidth", dest="linewidth", type="float", default="2", help="Set linewidth, only with linespoints style")
 parser.add_option("--order-columns", dest="order", type="string", help="A comma separated list of column indexes. Columns can be reordered or skipped (NOTE: this is applied BEFORE invert)")
 parser.add_option("--ratio", dest="ratio", type="float", help="Set aspect ratio of the graph")
+parser.add_option("--scale", dest="scale", type="int", metavar="N", help="Scale the graph to N% of it's maximum size")
+parser.add_option("--title", dest="title", type="string", help="Set title of the graph, determined automatically by default")
 parser.add_option("--xrotate", dest="rotate", type="float", help="Set xtics rotation, in degrees (e.g. 45)")
-parser.add_option("--xtitle", dest="xtitle", type="string", help="Set title of x-axis, will be determined automatically by default")
+parser.add_option("--xtitle", dest="xtitle", type="string", help="Set title of x-axis, determined automatically by default")
 parser.add_option("--yrange", dest="yrange", type="string", metavar="[MIN:]MAX", help="Set range of y-axis")
 parser.add_option("--ytitle", dest="ytitle", type="string", help="Set title of y-axis, not displayed by deafult")
 
@@ -121,13 +123,30 @@ def reorder(list):
 
 # small function to remove spaces from list elements
 # remove empty elements, and remove any quotes (") 
-# because gnuplot doesnt like them
+# because gnuplot will get confused by them
 def cleanup(list):
 	result = []
 	for item in list:
 		item = item.strip().replace("\"","")
 		if len(item): result.append(item)
 	return result
+
+# short function to check for valid executable, source:
+# http://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
+def which(program):
+    def is_exe(fpath):
+        return os.path.exists(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+    return None
 
 options,args = parser.parse_args()
 if len(args):
@@ -136,6 +155,10 @@ if len(args):
 # check if stdin is attached to a pipe (i.e. CastaliaResults | CastaliaPlot)
 if os.isatty(sys.stdin.fileno()): lines = []
 else: lines = sys.stdin.readlines()
+
+# check if gnuplot executable is present
+if not which(options.gnuplot):
+	quit("\nERROR: gnuplot executable not found (need to install gnuplot?)")
 
 # print color information if --colors ?
 if options.colors and options.colors == '?':
@@ -314,10 +337,22 @@ else:
 	myprint(f, "set term postscript enhanced color")
 	
 myprint(f, "set output \"" + name + "\"")
-myprint(f, "set title \"" + title + "\"")
+if options.title and len(options.title) > 0:
+	myprint(f, "set title \"" + options.title + "\"")	
+else:
+	myprint(f, "set title \"" + title + "\"")
 
+if options.scale:
+	scale = " " + str(float(options.scale)/100) + " ";
+else:
+	scale = " "
 if options.ratio:
-	myprint(f, "set size ratio " + str(options.ratio))
+	ratio = " ratio " + str(options.ratio)
+else:
+	ratio = ""
+if options.scale or options.ratio:
+	myprint(f, "set size" + scale + ratio)
+
 if options.yrange:
 	if ":" in options.yrange: 
 		rmin,rmax = options.yrange.split(":")

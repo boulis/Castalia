@@ -50,12 +50,13 @@ void ResourceManager::initialize()
 
 void ResourceManager::calculateEnergySpent()
 {
-	simtime_t timePassed = simTime() - timeOfLastCalculation;
-	trace() << "energy consumed in the last " << timePassed << 
-			"s is " <<(timePassed * currentNodePower);
-	consumeEnergy(SIMTIME_DBL(timePassed * currentNodePower / 1000.0));
-	timeOfLastCalculation = simTime();
 	if (remainingEnergy > 0) {
+		simtime_t timePassed = simTime() - timeOfLastCalculation;
+		trace() << "energy consumed in the last " << timePassed << 
+			"s is " <<(timePassed * currentNodePower);
+		consumeEnergy(SIMTIME_DBL(timePassed * currentNodePower / 1000.0));
+		timeOfLastCalculation = simTime();
+
 		cancelEvent(energyMsg);
 		scheduleAt(simTime() + periodicEnergyCalculationInterval, energyMsg);
 	}
@@ -116,13 +117,14 @@ void ResourceManager::consumeEnergy(double amount)
 {
 	Enter_Method("consumeEnergy(double amount)");
 
-	if (remainingEnergy < amount) {
+	if (remainingEnergy <= amount) {
 		remainingEnergy = 0;
 		send(new cMessage("Destroy node message", OUT_OF_ENERGY), "toSensorDevManager");
 		send(new cMessage("Destroy node message", OUT_OF_ENERGY), "toApplication");
 		send(new cMessage("Destroy node message", OUT_OF_ENERGY), "toNetwork");
 		send(new cMessage("Destroy node message", OUT_OF_ENERGY), "toMac");
 		send(new cMessage("Destroy node message", OUT_OF_ENERGY), "toRadio");
+                remainingEnergy = 0;
 	} else
 		remainingEnergy -= amount;
 }

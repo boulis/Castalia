@@ -50,18 +50,22 @@ void VirtualApplication::initialize()
 	constantDataPayload = par("constantDataPayload");
 	isSink = hasPar("isSink") ? par("isSink") : false;
 
-	/* Send the STARTUP message to 1)Sensor_Manager, 2)Commmunication module, and
-	 * 3)APP (self message) so that the node starts to operate.
-	 * We are using a random delay because we don't want the nodes to be synchronized
-	 */
-	double random_startup_delay = parent->par("startupOffset");
-	random_startup_delay += genk_dblrand(0) * (double)parent->par("startupRandomization");
+	double startup_delay = parent->par("startupOffset");
+	// Randomize the delay if the startupRandomization is non-zero
+	startup_delay += genk_dblrand(0) * (double)parent->par("startupRandomization");
+
+        /* Send the STARTUP message to 1)Sensor_Manager, 2)Commmunication module,
+         * 3) Resource Manager, and $)APP (self message) so that the node starts
+         * operation. Note that we send the message to the Resource Mgr through
+	 * the unconnected gate "powerConsumption" using sendDirect()
+         */
 	sendDelayed(new cMessage("Sensor Dev Mgr [STARTUP]", NODE_STARTUP),
-		    simTime() + cpuClockDrift * random_startup_delay, "toSensorDeviceManager");
+		    simTime() +  startup_delay, "toSensorDeviceManager");
 	sendDelayed(new cMessage("Communication [STARTUP]", NODE_STARTUP),
-		    simTime() + cpuClockDrift * random_startup_delay, "toCommunicationModule");
-	scheduleAt(simTime() + cpuClockDrift * random_startup_delay,
-		   new cMessage("App [STARTUP]", NODE_STARTUP));
+		    simTime() +  startup_delay, "toCommunicationModule");
+	sendDirect(new cMessage("Resource Mgr [STARTUP]", NODE_STARTUP),
+		    startup_delay, 0, resMgrModule, "powerConsumption");
+	scheduleAt(simTime() + startup_delay, new cMessage("App [STARTUP]", NODE_STARTUP));
 
 	/* Latency measurement is optional. An application can not define the 
 	 * following two parameters. If they are not defined then the

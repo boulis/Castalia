@@ -77,7 +77,6 @@ void VirtualMac::handleMessage(cMessage * msg)
 
 	if (disabled && msgKind != NODE_STARTUP) {
 		delete msg;
-		msg = NULL;	// safeguard
 		return;
 	}
 
@@ -85,6 +84,7 @@ void VirtualMac::handleMessage(cMessage * msg)
 
 		case NODE_STARTUP:{
 			disabled = 0;
+			send(new cMessage("MAC --> Radio startup message", NODE_STARTUP), "toRadioModule");
 			startup();
 			break;
 		}

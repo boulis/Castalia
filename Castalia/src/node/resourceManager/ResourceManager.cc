@@ -41,11 +41,8 @@ void ResourceManager::initialize()
 
 	currentNodePower = baselineNodePower;
 	remainingEnergy = initialEnergy;
-	timeOfLastCalculation = simTime();
 	totalRamData = 0;
-
-	energyMsg = new cMessage("Periodic energy calculation message", TIMER_SERVICE);
-	scheduleAt(simTime() + periodicEnergyCalculationInterval, energyMsg);
+	disabled = 1;
 }
 
 void ResourceManager::calculateEnergySpent()
@@ -67,7 +64,20 @@ void ResourceManager::calculateEnergySpent()
  */
 void ResourceManager::handleMessage(cMessage * msg)
 {
+	if (disabled && msg->getKind() != NODE_STARTUP) {
+		delete msg;
+		return;
+	}
+
 	switch (msg->getKind()) {
+
+		case NODE_STARTUP:{
+			disabled = 0;
+			timeOfLastCalculation = simTime();
+			energyMsg = new cMessage("Periodic energy calculation", TIMER_SERVICE);
+        		scheduleAt(simTime() + periodicEnergyCalculationInterval, energyMsg);
+			break;
+		}
 	
 		case TIMER_SERVICE:{
 			calculateEnergySpent();

@@ -19,7 +19,7 @@ void Radio::initialize()
 	// self can be used as a full MAC address
 	self = getParentModule()->getParentModule()->getIndex();
 	readIniFileParameters();
-	disabled = 0;
+	disabled = 1;
 
 	rssiIntegrationTime = symbolsForRSSI * RXmode->bitsPerSymbol / RXmode->datarate;
 	timeOfLastSignalChange = 0.0;	// even if left uninitialized, it should not matter.
@@ -42,12 +42,17 @@ void Radio::initialize()
 void Radio::handleMessage(cMessage * msg)
 {
 
-	if (disabled) {
+	if (disabled && msg->getKind() != NODE_STARTUP) {
 		delete msg;
 		return;
 	}
 
 	switch (msg->getKind()) {
+
+		case NODE_STARTUP:{
+			disabled = 0;
+			break;
+		}
 
 		/*********************************************
 		 * New signal message from wireless channel.

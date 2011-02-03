@@ -228,8 +228,8 @@ void Radio::handleMessage(cMessage * msg)
 				if (endingSignal->bitErrors <= maxErrorsAllowed(endingSignal->encoding)) {
 					// decapsulate the packet and add the RSSI and LQI fields
 					MacPacket *macPkt = check_and_cast<MacPacket*>(wcMsg->decapsulate());
-					macPkt->getMacInteractionControl().RSSI = readRSSI();
-					macPkt->getMacInteractionControl().LQI = endingSignal->power_dBm - endingSignal->maxInterference;
+					macPkt->getMacRadioInfoExchange().RSSI = readRSSI();
+					macPkt->getMacRadioInfoExchange().LQI = endingSignal->power_dBm - endingSignal->maxInterference;
 					sendDelayed(macPkt, PROCESSING_DELAY, "toMacModule");
 					// collect stats
 					if (endingSignal->maxInterference == RXmode->noiseFloor) {
@@ -295,7 +295,7 @@ void Radio::handleMessage(cMessage * msg)
 				// send a command to change to RX, or SLEEP
 				RadioControlCommand *radioCmd = new RadioControlCommand("TX->RX or SLEEP", RADIO_CONTROL_COMMAND);
 				radioCmd->setRadioControlCommandKind(SET_STATE);
-				if (stateAfterTX == SLEEP) 
+				if (stateAfterTX == SLEEP)
 					radioCmd->setState(SLEEP);
 				else 	radioCmd->setState(RX);
 				scheduleAt(simTime(), radioCmd);
@@ -683,7 +683,7 @@ void Radio::updateTotalPowerReceived(list<ReceivedSignal_type>::iterator endingS
 	newElement.power_dBm =
 		subtractPower_dBm(totalPowerReceived.front().power_dBm, endingSignal->power_dBm);
 	if (newElement.power_dBm < RXmode->noiseFloor)
-		newElement.power_dBm = RXmode->noiseFloor; 
+		newElement.power_dBm = RXmode->noiseFloor;
 	newElement.startTime = simTime();
 	totalPowerReceived.push_front(newElement);
 }

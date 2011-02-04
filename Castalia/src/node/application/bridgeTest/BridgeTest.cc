@@ -1,5 +1,5 @@
 /****************************************************************************
- *  Copyright: National ICT Australia,  2007 - 2010                         *
+ *  Copyright: National ICT Australia,  2007 - 2011                         *
  *  Developed at the ATP lab, Networked Systems research theme              *
  *  Author(s): Yuriy Tselishchev                                            *
  *  This file is distributed under the terms in the attached LICENSE file.  *
@@ -7,7 +7,7 @@
  *                                                                          *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
  *      Attention:  License Inquiry.                                        *
- *                                                                          *  
+ *                                                                          *
  ****************************************************************************/
 
 #include "BridgeTest.h"
@@ -65,7 +65,7 @@ void BridgeTest::timerFiredCallback(int timer)
 		}
 
 		case SEND_REPROGRAM_PACKET:{
-			ApplicationGenericDataPacket *newPkt =
+			ApplicationPacket *newPkt =
 			    createGenericDataPacket(currentVersion, currentVersionPacket,  maxPayload);
 			newPkt->setName(REPROGRAM_PACKET_NAME);
 			trace() << "Sending reprogram packet, version " <<
@@ -79,7 +79,7 @@ void BridgeTest::timerFiredCallback(int timer)
 	}
 }
 
-void BridgeTest::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
+void BridgeTest::fromNetworkLayer(ApplicationPacket * rcvPacket,
 			const char *source, double rssi, double lqi)
 {
 	string packetName(rcvPacket->getName());
@@ -105,7 +105,7 @@ void BridgeTest::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket,
 	} else if (packetName.compare(REPROGRAM_PACKET_NAME) == 0) {
 		// this is version (reprogramming) packet
 		if (!isSink && updateVersionTable(data, sequenceNumber)) {
-			// forward the packet only if not sink and its a new packet 
+			// forward the packet only if not sink and its a new packet
 			// updateVersionTable returns 0 for duplicate packets
 			toNetworkLayer(rcvPacket->dup(), BROADCAST_NETWORK_ADDRESS);
 		}
@@ -127,7 +127,7 @@ void BridgeTest::handleSensorReading(SensorReadingMessage * sensorMsg)
 	}
 
 	if (sensValue < reportTreshold) {
-		trace() << "Sensed value " << sensValue << " is less than the treshold (" 
+		trace() << "Sensed value " << sensValue << " is less than the treshold ("
 			<< reportTreshold << "), discarding";
 		return;
 	}
@@ -152,9 +152,9 @@ void BridgeTest::finishSpecific()
 	if (isSink) {
 		declareOutput("Report reception");
 		for (int i = 0; i < (int)report_info_table.size(); i++) {
-			collectOutput("Report reception", report_info_table[i].source, 
+			collectOutput("Report reception", report_info_table[i].source,
 					"Success", report_info_table[i].parts.size());
-			collectOutput("Report reception", report_info_table[i].source, 
+			collectOutput("Report reception", report_info_table[i].source,
 					"Fail", report_info_table[i].seq - report_info_table[i].parts.size());
 		}
 	} else {

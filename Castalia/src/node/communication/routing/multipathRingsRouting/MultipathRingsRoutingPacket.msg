@@ -1,7 +1,7 @@
 //****************************************************************************
-//*  Copyright: National ICT Australia,  2007 - 2010                         *
+//*  Copyright: National ICT Australia,  2007 - 2011                         *
 //*  Developed at the ATP lab, Networked Systems research theme              *
-//*  Author(s): Dimosthenis Pediaditakis, Yuriy Tselishchev                  *
+//*  Author(s): Athanassios Boulis, Yuriy Tselishchev                        *
 //*  This file is distributed under the terms in the attached LICENSE file.  *
 //*  If you do not find this file, copies can be found by writing to:        *
 //*                                                                          *
@@ -23,10 +23,7 @@ enum multipathRingsRoutingPacketDef {
 
 packet MultipathRingsRoutingPacket extends RoutingPacket {
 	int multipathRingsRoutingPacketKind enum (multipathRingsRoutingPacketDef);	// 1 byte
-	string source;		// 4 bytes
-	string destination;	// 4 bytes
 	int sinkID;			// 2 bytes
-	int sequenceNumber;	// 1 byte
 	int senderLevel;	// 1 byte
 
 	//DATA packet overhead contains all fields, making its total size 13 bytes

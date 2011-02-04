@@ -1,5 +1,5 @@
 /****************************************************************************
- *  Copyright: National ICT Australia,  2007 - 2010                         *
+ *  Copyright: National ICT Australia,  2007 - 2011                         *
  *  Developed at the ATP lab, Networked Systems research theme              *
  *  Author(s): Dimosthenis Pediaditakis, Yuriy Tselishchev                  *
  *  This file is distributed under the terms in the attached LICENSE file.  *
@@ -7,7 +7,7 @@
  *                                                                          *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
  *      Attention:  License Inquiry.                                        *
- *                                                                          *  
+ *                                                                          *
  ****************************************************************************/
 
 #ifndef _VALUEREPORTING_H_
@@ -37,7 +37,7 @@ class ValueReporting: public VirtualApplication {
 
  protected:
 	void startup();
-	void fromNetworkLayer(ApplicationGenericDataPacket *, const char *, double, double);
+	void fromNetworkLayer(ApplicationPacket *, const char *, double, double);
 	void handleSensorReading(SensorReadingMessage *);
 	void timerFiredCallback(int);
 };

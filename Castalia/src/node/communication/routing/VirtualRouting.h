@@ -1,13 +1,13 @@
 /****************************************************************************
- *  Copyright: National ICT Australia,  2007 - 2010                         *
+ *  Copyright: National ICT Australia,  2007 - 2011                         *
  *  Developed at the ATP lab, Networked Systems research theme              *
- *  Author(s): Yuriy Tselishchev                                            *
+ *  Author(s): Yuriy Tselishchev, Athanassios Boulis                        *
  *  This file is distributed under the terms in the attached LICENSE file.  *
  *  If you do not find this file, copies can be found by writing to:        *
  *                                                                          *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
  *      Attention:  License Inquiry.                                        *
- *                                                                          *  
+ *                                                                          *
  ****************************************************************************/
 
 #ifndef _VIRTUALROUTING_H_
@@ -47,14 +47,14 @@ class VirtualRouting: public CastaliaModule, public TimerService {
 	vector< list< unsigned int> > pktHistory;
 
 	double cpuClockDrift;
-	int disabled;
+	bool disabled;
 
 	Radio *radioModule;
 	string selfAddress;
 	int self;
 
 	virtual void initialize();
-	virtual void startup() { } 
+	virtual void startup() { }
 	virtual void handleMessage(cMessage * msg);
 	virtual void finish();
 
@@ -77,4 +77,4 @@ class VirtualRouting: public CastaliaModule, public TimerService {
 	virtual void handleNetworkControlCommand(cMessage *) { }
 };
 
-#endif				//BYPASSROUTINGMODULE
+#endif				//_VIRTUALROUTING_H_

@@ -1,5 +1,5 @@
 /****************************************************************************
- *  Copyright: National ICT Australia,  2007 - 2010                         *
+ *  Copyright: National ICT Australia,  2007 - 2011                         *
  *  Developed at the ATP lab, Networked Systems research theme              *
  *  Author(s): Athanassios Boulis, Yuriy Tselishchev                        *
  *  This file is distributed under the terms in the attached LICENSE file.  *
@@ -7,7 +7,7 @@
  *                                                                          *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
  *      Attention:  License Inquiry.                                        *
- *                                                                          *  
+ *                                                                          *
  ****************************************************************************/
 
 
@@ -41,16 +41,16 @@ class VirtualApplication: public CastaliaModule, public TimerService {
 	int latencyBuckets;
 
 	/*--- Custom class parameters ---*/
-	int self;				// the node's ID
-	string selfAddress;
-	ResourceManager *resMgrModule;			//a pointer to the object of the Resource Manager Module
-	VirtualMobilityManager *mobilityModule;	//a pointer to the mobilityModule object
-	Radio *radioModule;				//a pointer to the radio module object
-	int disabled;
+	int self;								// the node's ID
+	string selfAddress;						// the node's routing level address
+	ResourceManager *resMgrModule;			// a pointer to the Resource Manager module
+	VirtualMobilityManager *mobilityModule;	// a pointer to the mobility Manager module
+	Radio *radioModule;						// a pointer to the Radio module
+	bool disabled;
 	double cpuClockDrift;
 
 	virtual void initialize();
-	virtual void startup() {} 
+	virtual void startup() {}
 	virtual void handleMessage(cMessage * msg);
 	virtual void finish();
 	virtual void finishSpecific() {}
@@ -59,8 +59,8 @@ class VirtualApplication: public CastaliaModule, public TimerService {
 	void toNetworkLayer(cMessage *);
 	void toNetworkLayer(cPacket *, const char *);
 
-	ApplicationGenericDataPacket *createGenericDataPacket(double, int, int = -1);
-	virtual void fromNetworkLayer(ApplicationGenericDataPacket *, const char *, double, double) = 0;
+	ApplicationPacket *createGenericDataPacket(double, unsigned int, int = -1);
+	virtual void fromNetworkLayer(ApplicationPacket *, const char *, double, double) = 0;
 	virtual void handleSensorReading(SensorReadingMessage *) {}
 	virtual void handleNetworkControlMessage(cMessage *) {}
 	virtual void handleMacControlMessage(cMessage *) {}

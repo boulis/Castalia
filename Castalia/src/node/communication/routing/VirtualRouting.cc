@@ -1,15 +1,15 @@
 /****************************************************************************
- *  Copyright: National ICT Australia,  2007 - 2010                         *
+ *  Copyright: National ICT Australia,  2007 - 2011                         *
  *  Developed at the ATP lab, Networked Systems research theme              *
- *  Author(s): Yuriy Tselishchev                                            *
+ *  Author(s): Yuriy Tselishchev, Athanassios Boulis                        *
  *  This file is distributed under the terms in the attached LICENSE file.  *
  *  If you do not find this file, copies can be found by writing to:        *
  *                                                                          *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
  *      Attention:  License Inquiry.                                        *
- *                                                                          *  
+ *                                                                          *
  ****************************************************************************/
- 
+
 #include "VirtualRouting.h"
 void VirtualRouting::initialize()
 {
@@ -17,34 +17,30 @@ void VirtualRouting::initialize()
 	netDataFrameOverhead = par("netDataFrameOverhead");
 	netBufferSize = par("netBufferSize");
 
+	/* Get a valid references to the Resources Manager module and the
+	 * Radio module, so that we can make direct calls to their public methods
+	 */
+	radioModule = check_and_cast <Radio*>(getParentModule()->getSubmodule("Radio"));
+	resMgrModule = check_and_cast <ResourceManager*>(getParentModule()->getParentModule()->getSubmodule("ResourceManager"));
+
+	if (resMgrModule || radioModule)
+		opp_error("\n Virtual Routing init: Error in geting a valid reference module(s).");
+
 	self = getParentModule()->getParentModule()->getIndex();
+	// create the routing level address using self
+	stringstream out; out << self; 	selfAddress = out.str();
 
-	//get a valid reference to the object of the Radio module so that we can make direct 
-	//calls to its public methods instead of using extra messages & message types 
-	//for tighlty couplped operations.
-	radioModule = check_and_cast <Radio*>(gate("toMacModule")->getNextGate()->getOwnerModule()->gate("toRadioModule")->getNextGate()->getOwnerModule());
-
-	//get a valid reference to the object of the Resources Manager module so that
-	//we can make direct calls to its public methods instead of using extra messages 
-	//& message types for tighlty couplped operations.
-	cModule *parentParent = getParentModule()->getParentModule();
-	if (parentParent->findSubmodule("ResourceManager") != -1) {
-		resMgrModule = check_and_cast <ResourceManager*>(parentParent->getSubmodule("ResourceManager"));
-	} else {
-		opp_error("\n[Network]:\n Error in geting a valid reference to ResourceManager for direct method calls.");
-	}
 	cpuClockDrift = resMgrModule->getCPUClockDrift();
 	setTimerDrift(cpuClockDrift);
 	pktHistory.clear();
-	
-	disabled = 1;
+
+	disabled = true;
 	currentSequenceNumber = 0;
-	stringstream out;
-	out << self;
-	selfAddress = out.str();
+
 	declareOutput("Buffer overflow");
 }
 
+// A function to send control messages to lower layers
 void VirtualRouting::toMacLayer(cMessage * msg)
 {
 	if (msg->getKind() == NETWORK_LAYER_PACKET)
@@ -52,10 +48,11 @@ void VirtualRouting::toMacLayer(cMessage * msg)
 	send(msg, "toMacModule");
 }
 
+// A function to send packets to MAC, requires a destination address
 void VirtualRouting::toMacLayer(cPacket * pkt, int destination)
 {
 	RoutingPacket *netPacket = check_and_cast <RoutingPacket*>(pkt);
-	netPacket->getRoutingInteractionControl().nextHop = destination;
+	netPacket->getNetMacInfoExchange().nextHop = destination;
 	send(netPacket, "toMacModule");
 }
 
@@ -67,78 +64,79 @@ void VirtualRouting::toApplicationLayer(cMessage * msg)
 void VirtualRouting::encapsulatePacket(cPacket * pkt, cPacket * appPkt)
 {
 	RoutingPacket *netPkt = check_and_cast <RoutingPacket*>(pkt);
+	// set the size to just the overhead. encapsulate(appPkt)
+	// will add the size of the app packet automatically
 	netPkt->setByteLength(netDataFrameOverhead);
 	netPkt->setKind(NETWORK_LAYER_PACKET);
-	netPkt->getRoutingInteractionControl().source = SELF_NETWORK_ADDRESS;
-	netPkt->getRoutingInteractionControl().sequenceNumber = currentSequenceNumber++;
+	netPkt->setSource(selfAddress);
+	netPkt->setSequenceNumber(currentSequenceNumber++);
 	netPkt->encapsulate(appPkt);
 }
 
-cPacket *VirtualRouting::decapsulatePacket(cPacket * pkt)
+cPacket* VirtualRouting::decapsulatePacket(cPacket * pkt)
 {
 	RoutingPacket *netPkt = check_and_cast <RoutingPacket*>(pkt);
-	ApplicationGenericDataPacket *appPkt = check_and_cast <ApplicationGenericDataPacket*>(netPkt->decapsulate());
+	ApplicationPacket *appPkt = check_and_cast <ApplicationPacket*>(netPkt->decapsulate());
 
-	appPkt->getApplicationInteractionControl().RSSI = netPkt->getRoutingInteractionControl().RSSI;
-	appPkt->getApplicationInteractionControl().LQI = netPkt->getRoutingInteractionControl().LQI;
-	appPkt->getApplicationInteractionControl().source = netPkt->getRoutingInteractionControl().source;
+	appPkt->getAppNetInfoExchange().RSSI = netPkt->getNetMacInfoExchange().RSSI;
+	appPkt->getAppNetInfoExchange().LQI = netPkt->getNetMacInfoExchange().LQI;
+	appPkt->getAppNetInfoExchange().source = netPkt->getSource;
 	return appPkt;
 }
 
 void VirtualRouting::handleMessage(cMessage * msg)
 {
 	int msgKind = msg->getKind();
-	if (disabled && msgKind != NODE_STARTUP) {
+	if (disabled && msgKind != NODE_STARTUP)
+	{
 		delete msg;
-		msg = NULL;	// safeguard
 		return;
 	}
 
 	switch (msgKind) {
 
-	/*--------------------------------------------------------------------------------------------------------------
-	 * Sent by the Application submodule in order to start/switch-on the Network submodule.
-	 *--------------------------------------------------------------------------------------------------------------*/
-		case NODE_STARTUP:{
-			disabled = 0;
+		case NODE_STARTUP:
+		{
+			disabled = false;
 			send(new cMessage("Network --> Mac startup message", NODE_STARTUP), "toMacModule");
 			startup();
 			break;
 		}
 
-	/*--------------------------------------------------------------------------------------------------------------
-	 * Sent by the Application submodule. We need to push it into the buffer and schedule 
-	 * its forwarding to the MAC buffer for TX.
-	 *--------------------------------------------------------------------------------------------------------------*/
-		case APPLICATION_PACKET:{
-			ApplicationGenericDataPacket *appPacket = check_and_cast <ApplicationGenericDataPacket*>(msg);
-			if (maxNetFrameSize > 0 && maxNetFrameSize < appPacket->getByteLength() + netDataFrameOverhead) {
+		case APPLICATION_PACKET:
+		{
+			ApplicationPacket *appPacket = check_and_cast <ApplicationPacket*>(msg);
+			if (maxNetFrameSize > 0 && maxNetFrameSize < appPacket->getByteLength() + netDataFrameOverhead)
+			{
 				trace() << "Oversized packet dropped. Size:" << appPacket->getByteLength() <<
-				    ", Network layer overhead:" << netDataFrameOverhead << 
+				    ", Network layer overhead:" << netDataFrameOverhead <<
 				    ", max Network packet size:" << maxNetFrameSize;
 				break;
 			}
 			trace() << "Received [" << appPacket->getName() << "] from application layer";
-			fromApplicationLayer(appPacket, appPacket->getApplicationInteractionControl().destination.c_str());	
-			//fromApplicationLayer() now has control of the packet, we use return here to avoid deleting
-			//it. This is done since the packet will most likely be encapsulated and forwarded to MAC layer.
-			//An alternative way would be to use dup() here, but this will not change things for
-			//fromApplicationLayer() function (i.e. it will need to delete the packet if its not forwarded)
-			//but will create an unneeded packet duplication call here
+
+			/* Control is now passed to a specific routing protocol by calling fromApplicationLayer()
+			 * Notice that after the call we RETURN (not BREAK) so that the packet is not deleted.
+			 * This is done since the packet will most likely be encapsulated and forwarded to the
+			 * MAC layer. If the protocol specific function wants to discard the packet is has
+			 * to delete it.
+			 */
+			fromApplicationLayer(appPacket, appPacket->getApplicationInteractionControl().destination.c_str());
 			return;
 		}
 
-	/*--------------------------------------------------------------------------------------------------------------
-	 * Data Frame Received from the MAC layer
-	 *--------------------------------------------------------------------------------------------------------------*/
-		case NETWORK_LAYER_PACKET:{
+		case NETWORK_LAYER_PACKET:
+		{
 			RoutingPacket *netPacket = check_and_cast <RoutingPacket*>(msg);
 			trace() << "Received [" << netPacket->getName() << "] from MAC layer";
-			RoutingInteractionControl_type control = netPacket->getRoutingInteractionControl();
-			fromMacLayer(netPacket, control.lastHop, control.RSSI, control.LQI);
-			//although we passed the message control to function fromMacLayer(), we still use break here 
-			//instead of return. This is to allow fromMacLayer function to worry only about encapsulated
-			//packet, making sure that the network layer packet gets deleted anyway
+			NetMacInfoExchange_type info = netPacket->getNetMacInfoExchange();
+
+			/* Control is now passed to a specific routing protocol by calling fromMacLayer()
+			 * Notice that after the call we BREAK so that the NET packet gets deleted.
+			 * This will not delete the encapsulated APP packet if it gets decapsulated
+			 * by fromMacLayer(), i.e., the normal/expected action.
+			 */
+			fromMacLayer(netPacket, info.lastHop, info.RSSI, info.LQI);
 			break;
 		}
 
@@ -149,22 +147,22 @@ void VirtualRouting::handleMessage(cMessage * msg)
 
 		case MAC_CONTROL_MESSAGE:{
 			handleMacControlMessage(msg);
-			return;
+			return; // msg not deleted
 		}
 
 		case RADIO_CONTROL_MESSAGE:{
 			handleRadioControlMessage(msg);
-			return;
+			return; // msg not deleted
 		}
 
 		case MAC_CONTROL_COMMAND:{
 			toMacLayer(msg);
-			return;
+			return; // msg not deleted
 		}
 
 		case RADIO_CONTROL_COMMAND:{
 			toMacLayer(msg);
-			return;
+			return; // msg not deleted
 		}
 
 		case NETWORK_CONTROL_COMMAND:{
@@ -172,19 +170,13 @@ void VirtualRouting::handleMessage(cMessage * msg)
 			break;
 		}
 
-	/* Message sent by the ResourceManager module
-	 * when battery is out of energy. Node shuts down.
-	 */
 		case OUT_OF_ENERGY:{
-			disabled = 1;
+			disabled = true;
 			break;
 		}
 
-	/* Message sent by the ResourceManager module. 
-	 * It commands the module to stop its operation.
-	 */
 		case DESTROY_NODE:{
-			disabled = 1;
+			disabled = true;
 			break;
 		}
 
@@ -212,6 +204,7 @@ void VirtualRouting::finish()
 {
 	CastaliaModule::finish();
 	cPacket *pkt;
+	// clear the buffer from all remaining packets
 	while (!TXBuffer.empty()) {
 		pkt = TXBuffer.front();
 		TXBuffer.pop();
@@ -228,7 +221,7 @@ int VirtualRouting::bufferPacket(cPacket * rcvFrame)
 	} else {
 		TXBuffer.push(rcvFrame);
 		trace() << "Packet buffered from application layer, buffer state: " <<
-		    TXBuffer.size() << "/" << netBufferSize;
+				TXBuffer.size() << "/" << netBufferSize;
 		return 1;
 	}
 }
@@ -240,7 +233,7 @@ int VirtualRouting::resolveNetworkAddress(const char *netAddr)
 	return atoi(netAddr);
 }
 
-bool VirtualRouting::isNotDuplicatePacket(cPacket * pkt) 
+bool VirtualRouting::isNotDuplicatePacket(cPacket * pkt)
 {
 	//extract source address and sequence number from the packet
 	RoutingPacket *netPkt = check_and_cast <RoutingPacket*>(pkt);
@@ -250,14 +243,14 @@ bool VirtualRouting::isNotDuplicatePacket(cPacket * pkt)
 	//resize packet history vector if necessary
 	if (src >= (int)pktHistory.size())
 		pktHistory.resize(src+1);
-		
+
 	//search for this sequence number in the list, corresponding to address 'src'
 	list<unsigned int>::iterator it1;
 	for (it1 = pktHistory[src].begin(); it1 != pktHistory[src].end(); it1++) {
 		//if such sequence number is found, packet is duplicate
 		if (*it1 == sn) return false;
 	}
-	
+
 	//no such sequence number found, this is new packet
 	pktHistory[src].push_front(sn);
 	if (pktHistory[src].size() > PACKET_HISTORY_SIZE)

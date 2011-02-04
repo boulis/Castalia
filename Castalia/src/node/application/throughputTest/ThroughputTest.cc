@@ -1,5 +1,5 @@
 /****************************************************************************
- *  Copyright: National ICT Australia,  2007 - 2010                         *
+ *  Copyright: National ICT Australia,  2007 - 2011                         *
  *  Developed at the ATP lab, Networked Systems research theme              *
  *  Author(s): Athanassios Boulis, Yuriy Tselishchev                        *
  *  This file is distributed under the terms in the attached LICENSE file.  *
@@ -7,7 +7,7 @@
  *                                                                          *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
  *      Attention:  License Inquiry.                                        *
- *                                                                          *  
+ *                                                                          *
  ****************************************************************************/
 
 #include "ThroughputTest.h"
@@ -31,7 +31,7 @@ void ThroughputTest::startup()
 	declareOutput("Packets received per node");
 }
 
-void ThroughputTest::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
+void ThroughputTest::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket,
 		const char *source, double rssi, double lqi)
 {
 	int sequenceNumber = rcvPacket->getSequenceNumber();
@@ -39,8 +39,12 @@ void ThroughputTest::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket,
 	if (recipientAddress.compare(SELF_NETWORK_ADDRESS) == 0) {
 		trace() << "Received packet #" << sequenceNumber << " from node " << source;
 		collectOutput("Packets received per node", atoi(source));
+	// Packet has to be forwarded to the next hop recipient
 	} else {
-		toNetworkLayer(rcvPacket->dup(), recipientAddress.c_str());
+		ApplicationPacket* fwdPacket = rcvPacket->dup();
+		// Reset the size of the packet, otherwise the app overhead will keep adding on
+		fwdPacket->setByteLength(0);
+		toNetworkLayer(fwdPacket, recipientAddress.c_str());
 	}
 }
 
@@ -58,7 +62,7 @@ void ThroughputTest::timerFiredCallback(int index)
 }
 
 // This method processes a received carrier sense interupt. Used only for demo purposes
-// in some simulations. Feel free to comment out the trace command.  
+// in some simulations. Feel free to comment out the trace command.
 void ThroughputTest::handleRadioControlMessage(RadioControlMessage *radioMsg)
 {
 	switch (radioMsg->getRadioControlMessageKind()) {

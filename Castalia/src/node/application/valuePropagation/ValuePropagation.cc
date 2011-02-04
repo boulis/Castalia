@@ -1,5 +1,5 @@
 /*******************************************************************************
- *  Copyright: National ICT Australia,  2007 - 2010                            *
+ *  Copyright: National ICT Australia,  2007 - 2011                            *
  *  Developed at the ATP lab, Networked Systems research theme                 *
  *  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis, Yuriy Tselishchev *
  *  This file is distributed under the terms in the attached LICENSE file.     *
@@ -7,7 +7,7 @@
  *                                                                             *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia                *
  *      Attention:  License Inquiry.                                           *
- *                                                                             *  
+ *                                                                             *
  *******************************************************************************/
 
 #include "ValuePropagation.h"
@@ -35,8 +35,7 @@ void ValuePropagation::timerFiredCallback(int index)
 	}
 }
 
-void ValuePropagation::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
-		const char *source, double rssi, double lqi)
+void ValuePropagation::fromNetworkLayer(ApplicationPacket * rcvPacket, const char *source, double rssi, double lqi)
 {
 	double receivedData = rcvPacket->getData();
 

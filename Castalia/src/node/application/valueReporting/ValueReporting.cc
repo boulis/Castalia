@@ -1,5 +1,5 @@
 /****************************************************************************
- *  Copyright: National ICT Australia,  2007 - 2010                         *
+ *  Copyright: National ICT Australia,  2007 - 2011                         *
  *  Developed at the ATP lab, Networked Systems research theme              *
  *  Author(s): Dimosthenis Pediaditakis, Yuriy Tselishchev                  *
  *  This file is distributed under the terms in the attached LICENSE file.  *
@@ -7,7 +7,7 @@
  *                                                                          *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
  *      Attention:  License Inquiry.                                        *
- *                                                                          *  
+ *                                                                          *
  ****************************************************************************/
 
 #include "ValueReporting.h"
@@ -27,7 +27,7 @@ void ValueReporting::startup()
 void ValueReporting::timerFiredCallback(int index)
 {
 	switch (index) {
-		
+
 		case REQUEST_SAMPLE:{
 			requestSensorReading();
 			setTimer(REQUEST_SAMPLE, maxSampleInterval);
@@ -36,7 +36,7 @@ void ValueReporting::timerFiredCallback(int index)
 	}
 }
 
-void ValueReporting::fromNetworkLayer(ApplicationGenericDataPacket * genericPacket,
+void ValueReporting::fromNetworkLayer(ApplicationPacket * genericPacket,
 		 const char *source, double rssi, double lqi)
 {
 	ValueReportingDataPacket *rcvPacket = check_and_cast<ValueReportingDataPacket*>(genericPacket);
@@ -60,7 +60,7 @@ void ValueReporting::handleSensorReading(SensorReadingMessage * rcvReading)
 	tmpData.locY = mobilityModule->getLocation().y;
 
 	ValueReportingDataPacket *packet2Net =
-	    new ValueReportingDataPacket("Application Packet Application->Mac", APPLICATION_PACKET);
+	    new ValueReportingDataPacket("Value reporting pck", APPLICATION_PACKET);
 	packet2Net->setExtraData(tmpData);
 	packet2Net->setData(sensValue);
 	packet2Net->setSequenceNumber(currSentSampleSN);

@@ -1,13 +1,13 @@
 /*******************************************************************************
- *  Copyright: National ICT Australia,  2007 - 2010                            *
+ *  Copyright: National ICT Australia,  2007 - 2011                            *
  *  Developed at the ATP lab, Networked Systems research theme                 *
- *  Author(s): Dimosthenis Pediaditakis, Yuriy Tselishchev                     *
+ *  Author(s): Athanassios Boulis, Yuriy Tselishchev                           *
  *  This file is distributed under the terms in the attached LICENSE file.     *
  *  If you do not find this file, copies can be found by writing to:           *
  *                                                                             *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia                *
  *      Attention:  License Inquiry.                                           *
- *                                                                             *  
+ *                                                                             *
  *******************************************************************************/
 
 #include "MultipathRingsRouting.h"
@@ -154,7 +154,7 @@ void MultipathRingsRouting::fromMacLayer(cPacket * pkt, int macAddress, double r
 
 			if (dst.compare(BROADCAST_NETWORK_ADDRESS) == 0 ||
 					dst.compare(SELF_NETWORK_ADDRESS) == 0) {
-				// We are not filtering packets that are sent to this node directly or to 
+				// We are not filtering packets that are sent to this node directly or to
 				// broadcast network address, making application layer responsible for them
 				toApplicationLayer(pkt->decapsulate());
 
@@ -168,7 +168,7 @@ void MultipathRingsRouting::fromMacLayer(cPacket * pkt, int macAddress, double r
 							trace() << "Discarding duplicate packet from node " << src;
 					} else if (sinkID == currentSinkID) {
 						// We want to rebroadcast this packet since we are not its destination
-						// For this, a copy of the packet is created and sender level field is 
+						// For this, a copy of the packet is created and sender level field is
 						// updated before calling toMacLayer() function
 						MultipathRingsRoutingPacket *dupPacket = netPacket->dup();
 						dupPacket->setSenderLevel(currentLevel);

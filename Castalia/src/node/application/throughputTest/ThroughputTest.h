@@ -7,7 +7,7 @@
  *                                                                          *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
  *      Attention:  License Inquiry.                                        *
- *                                                                          *  
+ *                                                                          *
  ****************************************************************************/
 
 #ifndef _THROUGHPUTTEST_H_
@@ -32,7 +32,7 @@ class ThroughputTest: public VirtualApplication {
 
  protected:
 	void startup();
-	void fromNetworkLayer(ApplicationGenericDataPacket *, const char *, double, double);
+	void fromNetworkLayer(ApplicationPacket *, const char *, double, double);
 	void handleRadioControlMessage(RadioControlMessage *);
 	void timerFiredCallback(int);
 };

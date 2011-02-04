@@ -1,5 +1,5 @@
 /****************************************************************************
- *  Copyright: National ICT Australia,  2007 - 2010                         *
+ *  Copyright: National ICT Australia,  2007 - 2011                         *
  *  Developed at the ATP lab, Networked Systems research theme              *
  *  Author(s): Athanassios Boulis, Yuriy Tselishchev                        *
  *  This file is distributed under the terms in the attached LICENSE file.  *
@@ -7,7 +7,7 @@
  *                                                                          *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
  *      Attention:  License Inquiry.                                        *
- *                                                                          *  
+ *                                                                          *
  ****************************************************************************/
 
 #include "VirtualApplication.h"
@@ -15,36 +15,26 @@
 void VirtualApplication::initialize()
 {
 	/* Get a valid references to the objects of the Resources Manager module
-	 * the Mobility module and the radio module, so that we can make direct
+	 * the Mobility module and the Radio module, so that we can make direct
 	 * calls to their public methods
 	 */
 	cModule *parent = getParentModule();
-
-	if (parent->findSubmodule("ResourceManager") != -1) {
-		resMgrModule = check_and_cast <ResourceManager*>(parent->getSubmodule("ResourceManager"));
-	} else {
-		opp_error("\n[Application]:\n Error in geting a valid reference to ResourceManager for direct method calls.");
-	}
-
-	if (parent->findSubmodule("MobilityManager") != -1) {
-		mobilityModule = check_and_cast <VirtualMobilityManager*>(parent->getSubmodule("MobilityManager"));
-	} else {
-		opp_error("\n[Application]:\n Error in geting a valid reference to MobilityManager for direct method calls.");
-	}
-
-	// we make no checks here
+	resMgrModule = check_and_cast <ResourceManager*>(parent->getSubmodule("ResourceManager"));
+	mobilityModule = check_and_cast <VirtualMobilityManager*>(parent->getSubmodule("MobilityManager"));
 	radioModule = check_and_cast <Radio*>(parent->getSubmodule("Communication")->getSubmodule("Radio"));
+	// check that all the pointers are valid
+	if (resMgrModule || mobilityModule || radioModule)
+		opp_error("\n Virtual App init: Error in geting a valid reference module(s).");
 
 	self = parent->getIndex();
+	// create the routing level address using self
+	stringstream out; out << self; selfAddress = out.str();
+
 	cpuClockDrift = resMgrModule->getCPUClockDrift();
 	setTimerDrift(cpuClockDrift);
-	disabled = 1;
+	disabled = true;
 
-	stringstream out;
-	out << self;
-	selfAddress = out.str();
-
-	applicationID = par("applicationID").stringValue();
+	applicationID = par("applicationID").stringValue(); // make sure par() returns a string
 	priority = par("priority");
 	packetHeaderOverhead = par("packetHeaderOverhead");
 	constantDataPayload = par("constantDataPayload");
@@ -54,11 +44,11 @@ void VirtualApplication::initialize()
 	// Randomize the delay if the startupRandomization is non-zero
 	startup_delay += genk_dblrand(0) * (double)parent->par("startupRandomization");
 
-        /* Send the STARTUP message to 1)Sensor_Manager, 2)Commmunication module,
-         * 3) Resource Manager, and $)APP (self message) so that the node starts
-         * operation. Note that we send the message to the Resource Mgr through
+	/* Send the STARTUP message to 1)Sensor_Manager, 2)Commmunication module,
+	 * 3) Resource Manager, and $)APP (self message) so that the node starts
+	 * operation. Note that we send the message to the Resource Mgr through
 	 * the unconnected gate "powerConsumption" using sendDirect()
-         */
+	 */
 	sendDelayed(new cMessage("Sensor Dev Mgr [STARTUP]", NODE_STARTUP),
 		    simTime() +  startup_delay, "toSensorDeviceManager");
 	sendDelayed(new cMessage("Communication [STARTUP]", NODE_STARTUP),
@@ -67,7 +57,7 @@ void VirtualApplication::initialize()
 		    startup_delay, 0, resMgrModule, "powerConsumption");
 	scheduleAt(simTime() + startup_delay, new cMessage("App [STARTUP]", NODE_STARTUP));
 
-	/* Latency measurement is optional. An application can not define the 
+	/* Latency measurement is optional. An application can define the
 	 * following two parameters. If they are not defined then the
 	 * declareHistogram and collectHistogram statement are not called.
 	 */
@@ -81,9 +71,9 @@ void VirtualApplication::handleMessage(cMessage * msg)
 {
 	int msgKind = msg->getKind();
 
-	if (disabled && msgKind != NODE_STARTUP) {
+	if (disabled && msgKind != NODE_STARTUP)
+	{
 		delete msg;
-		msg = NULL;	// safeguard
 		return;
 	}
 
@@ -91,7 +81,7 @@ void VirtualApplication::handleMessage(cMessage * msg)
 
 		case NODE_STARTUP:
 		{
-			disabled = 0;
+			disabled = false;
 			startup();
 			break;
 		}
@@ -99,15 +89,14 @@ void VirtualApplication::handleMessage(cMessage * msg)
 		case APPLICATION_PACKET:
 		{
 			ApplicationGenericDataPacket *rcvPacket;
-			rcvPacket = check_and_cast <ApplicationGenericDataPacket*>(msg);
-			ApplicationInteractionControl_type control = rcvPacket->getApplicationInteractionControl();
-			// We deliver only packets that have the correct appID. Unless 
-			// the appID is the empty string, in that case it will get all packets
-			if (applicationID.compare(control.applicationID.c_str()) == 0 || applicationID.compare("") == 0) {
+			rcvPacket = check_and_cast <ApplicationPacket*>(msg);
+			AppNetInfoExchange_type info = rcvPacket->getAppNetInfoExchange();
+			// If the packet has the correct appID OR the appID is the empty string,
+			// the packet is delivered by calling the app-specific function fromNetworkLayer()
+			if (applicationID.compare(rcvPacket.applicationID) == 0 || applicationID.compare("") == 0) {
+				fromNetworkLayer(rcvPacket, info.source.c_str(), info.RSSI, info.LQI);
 				if (latencyMax > 0 && latencyBuckets > 0)
-					collectHistogram("Application level latency, in ms",
-					1000 * SIMTIME_DBL(simTime() - control.timestamp));
-				fromNetworkLayer(rcvPacket, control.source.c_str(), control.RSSI, control.LQI);
+					collectHistogram("Application level latency, in ms", 1000 * SIMTIME_DBL(simTime() - info.timestamp));
 			}
 			break;
 		}
@@ -122,18 +111,6 @@ void VirtualApplication::handleMessage(cMessage * msg)
 		{
 			SensorReadingMessage *sensMsg = check_and_cast <SensorReadingMessage*>(msg);
 			handleSensorReading(sensMsg);
-			break;
-		}
-
-		case OUT_OF_ENERGY:
-		{
-			disabled = 1;
-			break;
-		}
-
-		case DESTROY_NODE:
-		{
-			disabled = 1;
 			break;
 		}
 
@@ -156,6 +133,18 @@ void VirtualApplication::handleMessage(cMessage * msg)
 			break;
 		}
 
+		case OUT_OF_ENERGY:
+		{
+			disabled = true;
+			break;
+		}
+
+		case DESTROY_NODE:
+		{
+			disabled = true;
+			break;
+		}
+
 		default:
 		{
 			opp_error("Application module received unexpected message");
@@ -163,7 +152,6 @@ void VirtualApplication::handleMessage(cMessage * msg)
 	}
 
 	delete msg;
-	msg = NULL;		// safeguard
 }
 
 void VirtualApplication::finish()
@@ -172,10 +160,9 @@ void VirtualApplication::finish()
 	DebugInfoWriter::closeStream();
 }
 
-ApplicationGenericDataPacket *VirtualApplication::createGenericDataPacket(double data, int seqNum, int size)
+ApplicationPacket* VirtualApplication::createGenericDataPacket(double data, unsigned int seqNum, int size)
 {
-	ApplicationGenericDataPacket *newPacket =
-	    new ApplicationGenericDataPacket("Application generic packet", APPLICATION_PACKET);
+	ApplicationPacket *newPacket = new ApplicationPacket("App generic packet", APPLICATION_PACKET);
 	newPacket->setData(data);
 	newPacket->setSequenceNumber(seqNum);
 	if (size > 0) newPacket->setByteLength(size);
@@ -186,15 +173,16 @@ void VirtualApplication::requestSensorReading(int index)
 {
 	// send the request message to the Sensor Device Manager
 	SensorReadingMessage *reqMsg =
-		new SensorReadingMessage("app 2 sensor dev manager (Sample request)", SENSOR_READING_MESSAGE);
+		new SensorReadingMessage("App to Sensor Mgr: sample request", SENSOR_READING_MESSAGE);
 
-	//we need the index of the vector in the sensorTypes vector
-	//to distinguish the self messages for each sensor
+	// We need the index of the vector in the sensorTypes vector
+	// to distinguish the self messages for each sensor
 	reqMsg->setSensorIndex(index);
 
 	send(reqMsg, "toSensorDeviceManager");
 }
 
+// A function used to send control messages
 void VirtualApplication::toNetworkLayer(cMessage * msg)
 {
 	if (msg->getKind() == APPLICATION_PACKET)
@@ -202,17 +190,19 @@ void VirtualApplication::toNetworkLayer(cMessage * msg)
 	send(msg, "toCommunicationModule");
 }
 
+// A function used to send data packets
 void VirtualApplication::toNetworkLayer(cPacket * pkt, const char *dst)
 {
-	ApplicationGenericDataPacket *appPkt = check_and_cast <ApplicationGenericDataPacket*>(pkt);
+	ApplicationPacket *appPkt = check_and_cast <ApplicationPacket*>(pkt);
 	appPkt->getApplicationInteractionControl().destination = string(dst);
-	appPkt->getApplicationInteractionControl().source = string(SELF_NETWORK_ADDRESS);
+	appPkt->getApplicationInteractionControl().source = selfAddress;
 	appPkt->getApplicationInteractionControl().applicationID = applicationID;
 	appPkt->getApplicationInteractionControl().timestamp = simTime();
 	int size = appPkt->getByteLength();
-	if (size == 0) size = constantDataPayload;
+	if (size == 0)
+		size = constantDataPayload;
 	if (packetHeaderOverhead > 0) size += packetHeaderOverhead;
-	trace() << "Sending [" << appPkt->getName() << "] of size " << 
+	trace() << "Sending [" << appPkt->getName() << "] of size " <<
 		size << " bytes to communication layer";
 	appPkt->setByteLength(size);
 	send(appPkt, "toCommunicationModule");

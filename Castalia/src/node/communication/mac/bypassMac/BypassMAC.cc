@@ -1,30 +1,26 @@
 /****************************************************************************
- *  Copyright: National ICT Australia,  2007 - 2010                         *
+ *  Copyright: National ICT Australia,  2007 - 2011                         *
  *  Developed at the ATP lab, Networked Systems research theme              *
- *  Author(s): Yuriy Tselishchev                                            *
+ *  Author(s): Yuriy Tselishchev, Athanassios Boulis                        *
  *  This file is distributed under the terms in the attached LICENSE file.  *
  *  If you do not find this file, copies can be found by writing to:        *
  *                                                                          *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
  *      Attention:  License Inquiry.                                        *
- *                                                                          *  
+ *                                                                          *
  ****************************************************************************/
 
 #include "BypassMAC.h"
 
 Define_Module(BypassMAC);
 
-/* We handle packet received from upper (network) layer. 
- * Here we need to create a packet, specific for this particular MAC (BypassMacPacket used)
+/* Handle packet received from upper (network) layer.
+ * We need to create a MAC packet, (here it can just be the generic MacPacket)
  * and encapsulate the received network packet before forwarding it to RadioLayer
  */
 void BypassMAC::fromNetworkLayer(cPacket * pkt, int destination)
 {
-	//First step is creating a wrapper packet. Note that MAC_DATA_FRAME is used as message kind. This is generic
-	//constant defined in CastaliaMessages.h to ensure that all Castalia modules are working with a single set
-	//of unique message kinds
-	BypassMacPacket *macFrame =
-	    new BypassMacPacket("BypassRouting packet", MAC_LAYER_PACKET);
+	MacPacket *macFrame = new MacPacket("BypassRouting packet", MAC_LAYER_PACKET);
 	encapsulatePacket(macFrame, pkt);
 	macFrame->setSource(SELF_MAC_ADDRESS);
 	macFrame->setDestination(destination);
@@ -32,19 +28,21 @@ void BypassMAC::fromNetworkLayer(cPacket * pkt, int destination)
 	toRadioLayer(createRadioCommand(SET_STATE, TX));
 }
 
-/* We handle packet received from lower (radio) layer. Values of RSSI and LQI are ignored.
- * Since we only sent BypassMACSimpleFrame packets to the radio, we can assume that we will only 
- * receive the same type of packet back. However for various reasons (e.g. if someone decides to use 
- * two or more different MAC protocols in a single simulation we will use dynamic_cast here and 
- * only decapsulate and forward packets of type BypassMACSimpleFrame.
+/* Handle packet received from lower (radio) layer.
+ * We accept packets from all MAC protocols (cast to the base class MacPacket)
+ * Then we filter by the destination field. By default we set the generic
+ * destination field to broadcast when we encapsulate a NET packet. If a
+ * specific protocol does not change that field then bypassMAC will be
+ * operating in a promiscuous mode.
  */
 void BypassMAC::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 {
-	BypassMacPacket *macPkt = dynamic_cast <BypassMacPacket*>(pkt);
+	MacPacket *macPkt = dynamic_cast <MacPacket*>(pkt);
 	if (macPkt == NULL)
 		return;
 	if (macPkt->getDestination() == SELF_MAC_ADDRESS ||
-	    macPkt->getDestination() == BROADCAST_MAC_ADDRESS) {
+	    macPkt->getDestination() == BROADCAST_MAC_ADDRESS)
+	{
 		toNetworkLayer(decapsulatePacket(macPkt));
 	}
 }

@@ -1,7 +1,7 @@
 //****************************************************************************
-//*  Copyright: National ICT Australia,  2007 - 2010                         *
+//*  Copyright: National ICT Australia,  2007 - 2011                         *
 //*  Developed at the ATP lab, Networked Systems research theme              *
-//*  Author(s): Yuriy Tselishchev                                            *
+//*  Author(s): Yuriy Tselishchev, Athanassios Boulis                        *
 //*  This file is distributed under the terms in the attached LICENSE file.  *
 //*  If you do not find this file, copies can be found by writing to:        *
 //*                                                                          *
@@ -22,8 +22,6 @@ enum TunableMacFrameTypeDef {
 }
 
 packet TunableMacPacket extends MacPacket {
-	int frameType enum (TunableMacFrameTypeDef);	//1 byte
-	int source;		//4 bytes
-	int destination;	//4 bytes
+	int frameType enum (TunableMacFrameTypeDef);
 }
 

@@ -194,10 +194,10 @@ void VirtualApplication::toNetworkLayer(cMessage * msg)
 void VirtualApplication::toNetworkLayer(cPacket * pkt, const char *dst)
 {
 	ApplicationPacket *appPkt = check_and_cast <ApplicationPacket*>(pkt);
-	appPkt->getApplicationInteractionControl().destination = string(dst);
-	appPkt->getApplicationInteractionControl().source = selfAddress;
-	appPkt->getApplicationInteractionControl().applicationID = applicationID;
-	appPkt->getApplicationInteractionControl().timestamp = simTime();
+	appPkt->getAppNetInfoExchange().destination = string(dst);
+	appPkt->getAppNetInfoExchange().source = selfAddress;
+	appPkt->getAppNetInfoExchange().timestamp = simTime();
+	appPkt->setApplicationID(applicationID);
 	int size = appPkt->getByteLength();
 	if (size == 0)
 		size = constantDataPayload;

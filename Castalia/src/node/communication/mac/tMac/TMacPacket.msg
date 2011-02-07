@@ -1,5 +1,5 @@
 //****************************************************************************
-//*  Copyright: National ICT Australia,  2007 - 2010                         *
+//*  Copyright: National ICT Australia,  2007 - 2011                         *
 //*  Developed at the ATP lab, Networked Systems research theme              *
 //*  Author(s): Athanassios Boulis, Yuriy Tselishchev                        *
 //*  This file is distributed under the terms in the attached LICENSE file.  *
@@ -27,10 +27,10 @@ enum TmacPacket_type {
 }
 
 packet TMacPacket extends MacPacket {
-	// These are basic fields, essential for any packet (9 bytes in total)
+	// This a basic field, essential for any packet
+	// size including source and destination field (found 
+	// in the generic MacPAcket) is 9 bytes in total
 	int type enum (TmacPacket_type);	// 1 byte
-	int source = 0;						// 4 bytes
-	int destination = 0;				// 4 bytes
 
 	// RTS and CTS frames also contain nav field, bringing their size to 13 bytes
 	simtime_t nav = 0;					// 4 bytes

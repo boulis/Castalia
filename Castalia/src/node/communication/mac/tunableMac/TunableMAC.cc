@@ -227,10 +227,11 @@ void TunableMAC::handleCarrierSenseResult(int returnCode)
 void TunableMAC::fromNetworkLayer(cPacket * netPkt, int destination)
 {
 	TunableMacPacket *macPkt = new TunableMacPacket("TunableMac data packet", MAC_LAYER_PACKET);
+	// *first* encapsulate the packet the then set its dest and source fields.
+	encapsulatePacket(macPkt, netPkt);
 	macPkt->setSource(SELF_MAC_ADDRESS);
 	macPkt->setDestination(destination);
 	macPkt->setFrameType(DATA_FRAME);
-	encapsulatePacket(macPkt, netPkt);
 	collectOutput("TunableMAC packet breakdown", "Received from App");
 
 	/* We always try to buffer the packet first */

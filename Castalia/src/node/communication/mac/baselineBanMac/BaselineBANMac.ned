@@ -39,7 +39,7 @@ simple BaselineBANMac like node.communication.mac.iMac {
 	double pTIFS = default(0.03);				//in msecs, time to start TXing a frame after you received one
 	double pTimeSleepToTX = default(0.2);		//in msecs, time to start TXing after being sleeping, NOT included in spec.
 	int phyLayerOverhead = default(6);			//in bytes
-	double phyDataRate;				//in Kbps (1024 used to be the default, but now we have to define it to avaid mistakes) 
+	double phyDataRate;				//in Kbps (1024 used to be the default, but now we have to define it to avoid mistakes) 
 	double mClockAccuracy = default(0.0001);	//fraction, clock drift
  
  gates:

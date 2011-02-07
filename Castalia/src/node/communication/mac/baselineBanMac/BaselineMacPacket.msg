@@ -88,7 +88,7 @@ packet BaselineMacPacket extends MacPacket {
     int frameSubtype enum(Frame_subtype);			//2 bits
     int moreData;									//1 bit
     int firstFrame;									//1 bit		total: 2 bytes
-    int sequenceNumber;								//1 byte
+    int sequenceNum;								//1 byte
     int fragmentNumber; 							//3 bits
     //reserved 5 bits											total: 4 bytes
 													//			total header: 7 bytes

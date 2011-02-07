@@ -31,7 +31,7 @@ void ThroughputTest::startup()
 	declareOutput("Packets received per node");
 }
 
-void ThroughputTest::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket,
+void ThroughputTest::fromNetworkLayer(ApplicationPacket * rcvPacket,
 		const char *source, double rssi, double lqi)
 {
 	int sequenceNumber = rcvPacket->getSequenceNumber();

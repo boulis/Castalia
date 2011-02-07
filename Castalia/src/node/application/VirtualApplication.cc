@@ -88,12 +88,11 @@ void VirtualApplication::handleMessage(cMessage * msg)
 
 		case APPLICATION_PACKET:
 		{
-			ApplicationGenericDataPacket *rcvPacket;
-			rcvPacket = check_and_cast <ApplicationPacket*>(msg);
+			ApplicationPacket *rcvPacket = check_and_cast <ApplicationPacket*>(msg);
 			AppNetInfoExchange_type info = rcvPacket->getAppNetInfoExchange();
 			// If the packet has the correct appID OR the appID is the empty string,
 			// the packet is delivered by calling the app-specific function fromNetworkLayer()
-			if (applicationID.compare(rcvPacket.applicationID) == 0 || applicationID.compare("") == 0) {
+			if (applicationID.compare(rcvPacket->getApplicationID()) == 0 || applicationID.compare("") == 0) {
 				fromNetworkLayer(rcvPacket, info.source.c_str(), info.RSSI, info.LQI);
 				if (latencyMax > 0 && latencyBuckets > 0)
 					collectHistogram("Application level latency, in ms", 1000 * SIMTIME_DBL(simTime() - info.timestamp));
@@ -197,7 +196,7 @@ void VirtualApplication::toNetworkLayer(cPacket * pkt, const char *dst)
 	appPkt->getAppNetInfoExchange().destination = string(dst);
 	appPkt->getAppNetInfoExchange().source = selfAddress;
 	appPkt->getAppNetInfoExchange().timestamp = simTime();
-	appPkt->setApplicationID(applicationID);
+	appPkt->setApplicationID(applicationID.c_str());
 	int size = appPkt->getByteLength();
 	if (size == 0)
 		size = constantDataPayload;

@@ -68,7 +68,7 @@ void VirtualRouting::encapsulatePacket(cPacket * pkt, cPacket * appPkt)
 	// will add the size of the app packet automatically
 	netPkt->setByteLength(netDataFrameOverhead);
 	netPkt->setKind(NETWORK_LAYER_PACKET);
-	netPkt->setSource(selfAddress);
+	netPkt->setSource(SELF_NETWORK_ADDRESS);
 	netPkt->setSequenceNumber(currentSequenceNumber++);
 	netPkt->encapsulate(appPkt);
 }
@@ -80,7 +80,7 @@ cPacket* VirtualRouting::decapsulatePacket(cPacket * pkt)
 
 	appPkt->getAppNetInfoExchange().RSSI = netPkt->getNetMacInfoExchange().RSSI;
 	appPkt->getAppNetInfoExchange().LQI = netPkt->getNetMacInfoExchange().LQI;
-	appPkt->getAppNetInfoExchange().source = netPkt->getSource;
+	appPkt->getAppNetInfoExchange().source = netPkt->getSource();
 	return appPkt;
 }
 
@@ -121,7 +121,7 @@ void VirtualRouting::handleMessage(cMessage * msg)
 			 * MAC layer. If the protocol specific function wants to discard the packet is has
 			 * to delete it.
 			 */
-			fromApplicationLayer(appPacket, appPacket->getApplicationInteractionControl().destination.c_str());
+			fromApplicationLayer(appPacket, appPacket->getAppNetInfoExchange().destination.c_str());
 			return;
 		}
 
@@ -237,8 +237,8 @@ bool VirtualRouting::isNotDuplicatePacket(cPacket * pkt)
 {
 	//extract source address and sequence number from the packet
 	RoutingPacket *netPkt = check_and_cast <RoutingPacket*>(pkt);
-	int src = resolveNetworkAddress(netPkt->getRoutingInteractionControl().source.c_str());
-	unsigned int sn = netPkt->getRoutingInteractionControl().sequenceNumber;
+	int src = resolveNetworkAddress(netPkt->getSource());
+	unsigned int sn = netPkt->getSequenceNumber();
 
 	//resize packet history vector if necessary
 	if (src >= (int)pktHistory.size())

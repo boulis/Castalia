@@ -139,8 +139,7 @@ void BridgeTest::handleSensorReading(SensorReadingMessage * sensorMsg)
 	}
 
 	trace() << "Sending report packet, sequence number " << currSampleSN;
-	ApplicationGenericDataPacket *newPkt =
-	    createGenericDataPacket((double)self, currSampleSN, currentSampleAccumulated);
+	ApplicationPacket *newPkt = createGenericDataPacket((double)self, currSampleSN, currentSampleAccumulated);
 	newPkt->setName(REPORT_PACKET_NAME);
 	toNetworkLayer(newPkt, reportDestination.c_str());
 	currentSampleAccumulated = 0;

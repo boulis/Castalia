@@ -42,7 +42,7 @@ void SimpleAggregation::timerFiredCallback(int index)
 	}
 }
 
-void SimpleAggregation::fromNetworkLayer(ApplicationGenericDataPacket * rcvPacket, 
+void SimpleAggregation::fromNetworkLayer(ApplicationPacket * rcvPacket, 
 		const char *source, double rssi, double lqi)
 {
 	double theData = rcvPacket->getData();

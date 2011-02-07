@@ -37,8 +37,8 @@ packet TMacPacket extends MacPacket {
 
 	// Sequence number is essential for ACK and DATA frames, but they do not 
 	// contain NAV field, therefore the size of ACK packet and MAC 
-	// layer overhead in general is 11 bytes
-	int sequenceNumber = 0;				// 2 bytes
+	// layer overhead in general is 11 bytes. We use the field in the
+	// generic MacPacket and count it as 2 bytes.
 
 	// SYNC packet has only three fields: sequence number, sync value and sync ID, 
 	// making its total size only 11 bytes (1 extra byte comes from packet type) 

@@ -98,7 +98,7 @@ void VirtualMac::handleMessage(cMessage * msg)
 			 * Radio layer. If the protocol specific function wants to discard the packet is has
 			 * to delete it.
 			 */
-			fromNetworkLayer(pkt, pkt->getRoutingInteractionControl().nextHop);
+			fromNetworkLayer(pkt, pkt->getNetMacInfoExchange().nextHop);
 			return;
 		}
 
@@ -203,8 +203,8 @@ bool VirtualMac::isNotDuplicatePacket(cPacket * pkt)
 {
 	//extract source address and sequence number from the packet
 	MacPacket *macPkt = check_and_cast <MacPacket*>(pkt);
-	int src = macPkt->getMacRadioInfoExchange().source;
-	unsigned int sn = macPkt->getMacRadioInfoExchange().sequenceNumber;
+	int src = macPkt->getSource();
+	unsigned int sn = macPkt->getSequenceNumber();
 
 	//resize packet history vector if necessary
 	if (src >= (int)pktHistory.size())

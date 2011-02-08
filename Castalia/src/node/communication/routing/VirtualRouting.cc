@@ -23,7 +23,7 @@ void VirtualRouting::initialize()
 	radioModule = check_and_cast <Radio*>(getParentModule()->getSubmodule("Radio"));
 	resMgrModule = check_and_cast <ResourceManager*>(getParentModule()->getParentModule()->getSubmodule("ResourceManager"));
 
-	if (resMgrModule || radioModule)
+	if (!resMgrModule || !radioModule)
 		opp_error("\n Virtual Routing init: Error in geting a valid reference module(s).");
 
 	self = getParentModule()->getParentModule()->getIndex();

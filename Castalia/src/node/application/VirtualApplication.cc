@@ -23,7 +23,7 @@ void VirtualApplication::initialize()
 	mobilityModule = check_and_cast <VirtualMobilityManager*>(parent->getSubmodule("MobilityManager"));
 	radioModule = check_and_cast <Radio*>(parent->getSubmodule("Communication")->getSubmodule("Radio"));
 	// check that all the pointers are valid
-	if (resMgrModule || mobilityModule || radioModule)
+	if (!resMgrModule || !mobilityModule || !radioModule)
 		opp_error("\n Virtual App init: Error in geting a valid reference module(s).");
 
 	self = parent->getIndex();

@@ -42,7 +42,7 @@ void ResourceManager::initialize()
 	currentNodePower = baselineNodePower;
 	remainingEnergy = initialEnergy;
 	totalRamData = 0;
-	disabled = 1;
+	disabled = true;
 }
 
 void ResourceManager::calculateEnergySpent()
@@ -59,20 +59,17 @@ void ResourceManager::calculateEnergySpent()
 	}
 }
 
-/* The ResourceManager module is not connected with other modules. They use instead its public methods.
- * The only possible message is periodic energy consumption. There is no message object associated to that message kind.
+/* The ResourceManager module has only one "unconnected" port where it can receive messages that
+ * update the power drawn by a module, or a NODE_STARTUP message. If disabled we still process
+ * messages because we want to have the latest power drawn from any module.
  */
 void ResourceManager::handleMessage(cMessage * msg)
 {
-	if (disabled && msg->getKind() != NODE_STARTUP) {
-		delete msg;
-		return;
-	}
 
 	switch (msg->getKind()) {
 
 		case NODE_STARTUP:{
-			disabled = 0;
+			disabled = false;
 			timeOfLastCalculation = simTime();
 			energyMsg = new cMessage("Periodic energy calculation", TIMER_SERVICE);
         		scheduleAt(simTime() + periodicEnergyCalculationInterval, energyMsg);
@@ -91,7 +88,8 @@ void ResourceManager::handleMessage(cMessage * msg)
 			trace() << "New power consumption, id = " << id << ", oldPower = " << 
 					currentNodePower << ", newPower = " << 
 					currentNodePower - oldPower + resMsg->getPowerConsumed();
-			calculateEnergySpent();
+			if (!disabled)
+				calculateEnergySpent();
 			currentNodePower = currentNodePower - oldPower + resMsg->getPowerConsumed();
 			storedPowerConsumptions[id] = resMsg->getPowerConsumed();
 			break;

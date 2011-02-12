@@ -194,7 +194,7 @@ class Radio: public CastaliaModule {
 	// what state to enter after TX
 	BasicState_type stateAfterTX;
 
-	int disabled;
+	bool disabled;
 
 	PktBreakdown stats;
 

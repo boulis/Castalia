@@ -1,5 +1,5 @@
 /****************************************************************************
- *  Copyright: National ICT Australia,  2007 - 2010                         *
+ *  Copyright: National ICT Australia,  2007 - 2011                         *
  *  Developed at the ATP lab, Networked Systems research theme              *
  *  Author(s): Athanassios Boulis, Yuriy Tselishchev                        *
  *  This file is distributed under the terms in the attached LICENSE file.  *
@@ -19,7 +19,7 @@ void Radio::initialize()
 	// self can be used as a full MAC address
 	self = getParentModule()->getParentModule()->getIndex();
 	readIniFileParameters();
-	disabled = 1;
+	disabled = true;
 
 	rssiIntegrationTime = symbolsForRSSI * RXmode->bitsPerSymbol / RXmode->datarate;
 
@@ -44,7 +44,7 @@ void Radio::handleMessage(cMessage * msg)
 	switch (msg->getKind()) {
 
 		case NODE_STARTUP:{
-			disabled = 0;
+			disabled = false;
 			timeOfLastSignalChange = simTime();
 		        TotalPowerReceived_type initialTotalPower;
 		        initialTotalPower.power_dBm = RXmode->noiseFloor;
@@ -123,10 +123,10 @@ void Radio::handleMessage(cMessage * msg)
 					break;
 
 				case SIMPLE_COLLISION_MODEL:
-					// if other received signals are 6dBm below RX sensitivity or more
-					// this is considered catastrophic interference.
-					if (totalPowerReceived.front().power_dBm > RXmode->sensitivity - 6.0)
-						newSignal.currentInterference = 0.0;
+					// if other received signals are larger than the noise floor
+					// then this is considered catastrophic interference.
+					if (totalPowerReceived.front().power_dBm > RXmode->noiseFloor)
+						newSignal.currentInterference = 0.0; // this is a large value in dBm
 					else
 						newSignal.currentInterference = RXmode->noiseFloor;
 					break;
@@ -674,16 +674,22 @@ void Radio::updateTotalPowerReceived(double newSignalPower)
 }
 
 /* Update the history of total power received. Overloaded method
- * This version is used when an old signal ends
+ * This version is used when a signal ends
  */
 void Radio::updateTotalPowerReceived(list<ReceivedSignal_type>::iterator endingSignal)
 {
 	TotalPowerReceived_type newElement;
-	// we are assuming additive power. In reality it is more complex.
-	newElement.power_dBm =
-		subtractPower_dBm(totalPowerReceived.front().power_dBm, endingSignal->power_dBm);
-	if (newElement.power_dBm < RXmode->noiseFloor)
-		newElement.power_dBm = RXmode->noiseFloor;
+	newElement.power_dBm = RXmode->noiseFloor;
+	/* Go through the list of currently received signals and add up their powers
+	 * Do not include the endindSignal. Adding the powers is more accurate
+	 * than subtracting the endingSignal from the totalPower (errors accumulate)
+	 * We are assuming additive power. In reality it is more complex.
+	 */
+	list<ReceivedSignal_type>::iterator it1;
+	for (it1 = receivedSignals.begin(); it1 != receivedSignals.end(); it1++) {
+		if (it1 != endingSignal)
+			newElement.power_dBm = addPower_dBm(newElement.power_dBm, it1->power_dBm);
+	}	
 	newElement.startTime = simTime();
 	totalPowerReceived.push_front(newElement);
 }
@@ -715,7 +721,7 @@ void Radio::updateTotalPowerReceived()
 }
 
 /* Update interference of one element in the receivedSignals list. Overloaded method.
- * This version is used when a new signal is added (WC_SIGNAL_START)
+ * This version is used when a new signal starts (WC_SIGNAL_START)
  * Note that the last argument is a message
  */
 void Radio::updateInterference(list<ReceivedSignal_type>::iterator it1,
@@ -728,6 +734,8 @@ void Radio::updateInterference(list<ReceivedSignal_type>::iterator it1,
 		}		// nothing, this signal will not affect other signals
 
 		case SIMPLE_COLLISION_MODEL:{
+			// an arbritrary rule: if the signal is more than 6dB less than sensitivity,
+			// intereference is considered catastrophic.
 			if (wcMsg->getPower_dBm() > RXmode->sensitivity - 6.0) {
 				it1->bitErrors = maxErrorsAllowed(it1->encoding) + 1;	// corrupt the signal
 				it1->maxInterference = 0.0;	// a big interference value in dBm
@@ -749,10 +757,10 @@ void Radio::updateInterference(list<ReceivedSignal_type>::iterator it1,
 }
 
 /* Update interference of one element in the receivedSignals list. Overloaded method.
- * This version is used when a new signal is subtracted (WC_SIGNAL_END)
- * note that the last argument is an iterator to a list
+ * This version is used when a new signal ends (WC_SIGNAL_END)
+ * note that the last argument is an iterator to a list (the ending signal)
  */
-void Radio::updateInterference(list<ReceivedSignal_type>::iterator it1,
+void Radio::updateInterference(list<ReceivedSignal_type>::iterator remainingSignal,
 					list<ReceivedSignal_type>::iterator endingSignal)
 {
 	switch (collisionModel) {
@@ -766,12 +774,19 @@ void Radio::updateInterference(list<ReceivedSignal_type>::iterator it1,
 		}		// do nothing, this signal corrupted/destroyed other signals already
 
 		case ADDITIVE_INTERFERENCE_MODEL:{
-			it1->currentInterference =
-					subtractPower_dBm(it1->currentInterference, endingSignal->power_dBm);
-			if (it1->currentInterference < RXmode->noiseFloor)
-				it1->currentInterference = RXmode->noiseFloor;
-			if (it1->currentInterference > it1->maxInterference)
-				it1->maxInterference = it1->currentInterference;
+			/* Calculate interference by going  through the list of currently received signals
+	 		 * currently received signal (except from endingSigngal and self) and add them up.
+	 		 * This is more accurate than subtracting the endingSignal power from the 
+	 		 * current interference because in the second case, errors can accumulate
+			 * (substractPower_dBm and addPower_dBm return only approximate results)
+	 		 */
+			remainingSignal->currentInterference = RXmode->noiseFloor;
+			list<ReceivedSignal_type>::iterator it1;
+			for (it1 = receivedSignals.begin(); it1 != receivedSignals.end(); it1++) {
+				if (it1 == remainingSignal || it1 == endingSignal)
+					continue;
+				remainingSignal->currentInterference = addPower_dBm(remainingSignal->currentInterference, it1->power_dBm);
+			}	
 			return;
 		}
 

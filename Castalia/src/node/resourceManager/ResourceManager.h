@@ -43,7 +43,7 @@ class ResourceManager: public CastaliaModule {
 	map<int,double> storedPowerConsumptions;
 
 	cMessage *energyMsg;
-	int disabled;
+	bool disabled;
 
  protected:
 	virtual void initialize();

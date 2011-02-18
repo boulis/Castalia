@@ -1,3 +1,24 @@
+
+Castalia 3.2: Changes from 3.1
+------------------------------------------
+- Bug fixes: 
+   -sleeping bug in 802.15.4 MAC
+   -possible segfault in TimerService code
+   -bugs with DESTROY_NODE and OUT_OF_ENERGY msgs
+   -bug with NODE_STARTUP. Now the Radio and
+    Resource Mgr receive and are affected by 
+    the node startup msg
+   -readRSSI was returning -197dBm when no signal
+    was received. Now the noiseFloor is returned
+
+- Better structured and cleaned the Virtual app/
+  rouring/MAC classes and associated generic packets.  
+ 
+- Added --title and --scale flags to CastaliaPlot, 
+  added check for valid gnuplot executable
+
+
+
 Castalia 3.1: Changes from 3.0
 ------------------------------------------
 - Introduction of CastaliaPlot to create graphs

@@ -46,10 +46,10 @@ void Radio::handleMessage(cMessage * msg)
 		case NODE_STARTUP:{
 			disabled = false;
 			timeOfLastSignalChange = simTime();
-		        TotalPowerReceived_type initialTotalPower;
-		        initialTotalPower.power_dBm = RXmode->noiseFloor;
-		        initialTotalPower.startTime = simTime();
-		        totalPowerReceived.push_front(initialTotalPower);
+			TotalPowerReceived_type initialTotalPower;
+			initialTotalPower.power_dBm = RXmode->noiseFloor;
+			initialTotalPower.startTime = simTime();
+			totalPowerReceived.push_front(initialTotalPower);
 			break;
 		}
 
@@ -689,7 +689,7 @@ void Radio::updateTotalPowerReceived(list<ReceivedSignal_type>::iterator endingS
 	for (it1 = receivedSignals.begin(); it1 != receivedSignals.end(); it1++) {
 		if (it1 != endingSignal)
 			newElement.power_dBm = addPower_dBm(newElement.power_dBm, it1->power_dBm);
-	}	
+	}
 	newElement.startTime = simTime();
 	totalPowerReceived.push_front(newElement);
 }
@@ -776,7 +776,7 @@ void Radio::updateInterference(list<ReceivedSignal_type>::iterator remainingSign
 		case ADDITIVE_INTERFERENCE_MODEL:{
 			/* Calculate interference by going  through the list of currently received signals
 	 		 * currently received signal (except from endingSigngal and self) and add them up.
-	 		 * This is more accurate than subtracting the endingSignal power from the 
+	 		 * This is more accurate than subtracting the endingSignal power from the
 	 		 * current interference because in the second case, errors can accumulate
 			 * (substractPower_dBm and addPower_dBm return only approximate results)
 	 		 */
@@ -786,7 +786,7 @@ void Radio::updateInterference(list<ReceivedSignal_type>::iterator remainingSign
 				if (it1 == remainingSignal || it1 == endingSignal)
 					continue;
 				remainingSignal->currentInterference = addPower_dBm(remainingSignal->currentInterference, it1->power_dBm);
-			}	
+			}
 			return;
 		}
 

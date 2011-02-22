@@ -166,7 +166,9 @@ tmpconfig = config
 config = ""
 
 while (tmpconfig != ""):
-	m = re.match(r"^([^=]*=)(\"[^\"]*\")(.*)$",tmpconfig)
+
+	# try to match a custom config of the form 'setParam="text"'
+	m = re.match(r"^([^=]*=)(\"[^\"]*\")(.*)$",tmpconfig) 
 	if (m):
 		config += m.group(1)
 		config += str(len(customConfigList))
@@ -174,14 +176,26 @@ while (tmpconfig != ""):
 		tmpconfig = m.group(3)
 		continue
 	
-	m = re.match(r"^([^=]*=)(\$\{[^\}]*\})(.*)$",tmpconfig)
+	# try to match a custom config of the form 'setParam=${name=val1,val2,val3}'
+	m = re.match(r"^([^=]*=)(\$\{[^=\}]+=[^\}]+\})(.*)$",tmpconfig) 
 	if (m):
 		config += m.group(1)
 		config += str(len(customConfigList))
 		customConfigList.append(m.group(2))
 		tmpconfig = m.group(3)
 		continue
+
+	# try to match a custom config of the form 'setParam=${val1,val2,val3}'
+	m = re.match(r"^([^=]+=)\$\{([^=\}]+)\}(.*)$",tmpconfig) 
+	if (m):
+		config += m.group(1)
+		config += str(len(customConfigList))
+		# transform ${val1,val2,val3} into ${name=val1,val2,val3}
+		customConfigList.append("${" + m.group(1).strip(',') + m.group(2) + "}")
+		tmpconfig = m.group(3)
+		continue
 	
+	# try to match a custom config of the form 'setParam=val'
 	m = re.match(r"^([^=]*=)([^,\[]*)(.*)$",tmpconfig)
 	if (m):
 		config += m.group(1)
@@ -194,6 +208,8 @@ while (tmpconfig != ""):
 	if (m):
 		config += m.group(1)
 		tmpconfig = ""
+	else:
+		quit("\nERROR: Unexpected configuration syntax:\n" + tmpconfig)
 
 while (config != ""):
 	m = re.match(r"^([^\[]*[^,\[]),?(.*)$",config)
@@ -248,6 +264,24 @@ else:
 	for c in baseConfigList:
 		if c not in configIterations: tmpList2.append(c)
 	labelList.append(",".join(tmpList2))
+
+for i in range(0,len(labelList)):
+	labels = labelList[i].split(",")
+	j = 0;
+	while j < len(labels):
+		if ('=' in labels[j]):
+			name,value = labels[j].split("=")
+			value = customConfigList[int(value)]
+			m = re.match("^\$\{(.+)\}$",value)
+			if (m):					# this is a parameter study
+				# delete it from labels - omnet will make a label for it
+				del labels[j]
+				continue
+			else:					# this is not a parameter study
+				# just substitute the right value
+				labels[j] = name + "=" + value
+		j += 1;
+	labelList[i] = ",".join(labels)
 
 ini_num = 0
 if options.output: fr = open(options.output,"w")

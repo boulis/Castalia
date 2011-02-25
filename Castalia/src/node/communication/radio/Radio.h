@@ -87,6 +87,9 @@ struct TotalPowerReceived_type {
 struct TransitionElement {
 	double delay;		// in ms
 	double power;		// in mW
+
+	/* initialize the struct (C++ syntax) */
+	TransitionElement():delay(0), power(0) {}
 };
 
 struct SleepLevel_type {

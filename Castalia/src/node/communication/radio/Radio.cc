@@ -388,8 +388,11 @@ void Radio::handleRadioControlCommand(RadioControlCommand * radioCmd)
 		 * to handle the transition, when the TX buffer is empty.
 		 */
 		case SET_STATE:{
-			// if we are asked to change to the current state, do nothing
-			if ((state == radioCmd->getState()) || (changingToState == radioCmd->getState()))
+			/* If we are asked to change to the current (stable) state,
+			 * or the state we are changing to anyway, do nothing
+			 */
+			if ((state == radioCmd->getState()) && (changingToState == -1))
+				|| (changingToState == radioCmd->getState())
 				break;
 
 			/* If we are asked to change from TX, and this is an external

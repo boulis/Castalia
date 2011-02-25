@@ -148,6 +148,7 @@ def which(program):
                 return exe_file
     return None
 
+command = "CastaliaPlot " + " ".join(sys.argv[1:])
 options,args = parser.parse_args()
 if len(args):
 	print "CastaliaPlot: WARNING unknown command line arguments: '" + ", ".join(args) + "'\n\t(maybe missing quotes around a parameter value? e.g. -l \"top left\")"
@@ -155,6 +156,10 @@ if len(args):
 # check if stdin is attached to a pipe (i.e. CastaliaResults | CastaliaPlot)
 if os.isatty(sys.stdin.fileno()): lines = []
 else: lines = sys.stdin.readlines()
+
+if len(lines) and "\r" in lines[0]:
+	command = lines.pop(0).replace("\r"," ").strip() + " | " + command
+	command = "\"" + command.replace("\"","'") + "\""
 
 # check if gnuplot executable is present
 if not which(options.gnuplot):
@@ -464,15 +469,18 @@ if len(plots_ci) or plot_all != -1:
 f.flush()
 f.close()
 
-if name != options.output:
-	r = commands.getoutput("convert -rotate 90 " + name + " " + options.output + " 2>&1")
-	commands.getoutput("rm " + name)	
+r = ""
+
+# check if 'convert' executable is present
+if not which("convert"):
+	print "CastaliaPlot: WARNING 'convert' tool not found, only ps and eps formats will be supported"
 else:
-	r = ""
+	if name != options.output:
+		command = "-label " + command + " -comment " + command
+		r = commands.getoutput("convert -rotate 90 " + command + " " + name + " " + options.output + " 2>&1")
+		commands.getoutput("rm " + name)
 
 commands.getoutput("rm " + fname)
 if r and r != "":
 	quit("CastaliaPlot: ERROR " + r)
-	
-
 

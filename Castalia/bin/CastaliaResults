@@ -31,6 +31,9 @@ parser.add_option("--filter-columns", dest="col_filter", type="string", metavar=
 parser.add_option("--order", dest="order", type="string", metavar="STRING", help="Select label ordering for the table, first label will become column headers. Labels without '=' can be matched by keyword 'configs'")
 parser.add_option("--precision", dest="precision", type="int", default=3, metavar="N", help="Set precision of floating point numbers, in decimal places (default is 3)")
 parser.add_option("--sum", dest="sum", default=False, action="store_true", help="Display sum instead of average when data across more than one node is aggregated")
+
+command = "CastaliaResults " + " ".join(sys.argv[1:])
+print command + "\r" + " "*len(command),
 (options,args) = parser.parse_args()
 
 if options.confidence and options.confidence not in z_values:

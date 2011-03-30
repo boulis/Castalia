@@ -243,7 +243,7 @@ float diffQPSK_SNR2BER(float SNR)
 
 	if (SNR < 6.0)
 		return 1.0;
-	if (SNR > 12.2)
+	if (SNR >= 12.2)
 		return 0.0;
 
 	// the index of the array element that is just less than SNR

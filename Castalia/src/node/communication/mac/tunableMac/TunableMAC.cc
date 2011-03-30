@@ -1,5 +1,5 @@
 /***************************************************************************
- *  Copyright: National ICT Australia,  2007 - 2010                        *
+ *  Copyright: National ICT Australia,  2007 - 2011                        *
  *  Developed at the ATP lab, Networked Systems theme                      *
  *  Author(s): Athanassios Boulis, Yuriy Tselishchev                       *
  *  This file is distributed under the terms in the attached LICENSE file. *
@@ -32,6 +32,8 @@ void TunableMAC::startup()
 	phyDelayForValidCS = (double)par("phyDelayForValidCS") / 1000.0;	// convert msecs to secs
 	phyLayerOverhead = par("phyFrameOverhead");
 
+	beaconTxTime = ((double)(beaconFrameSize + phyLayerOverhead)) * 8.0 / (1000.0 * phyDataRate);
+
 	switch (backoffType) {
 		case 0:{
 			if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
@@ -60,6 +62,8 @@ void TunableMAC::startup()
 	}
 	backoffBaseValue = ((double)par("backoffBaseValue")) / 1000.0;	// convert msecs to secs
 
+	// start listening, and schedule a timer to sleep if needed
+	toRadioLayer(createRadioCommand(SET_STATE, RX));
 	if ((dutyCycle > 0.0) && (dutyCycle < 1.0)) {
 		sleepInterval = listenInterval * ((1.0 - dutyCycle) / dutyCycle);
 		setTimer(START_SLEEPING, listenInterval);
@@ -135,10 +139,7 @@ void TunableMAC::handleCarrierSenseResult(int returnCode)
 			 */
 			backoffTimes = 0;
 			if ((dutyCycle > 0.0) && (dutyCycle < 1.0)) {
-				double beaconTxTime = ((double)(beaconFrameSize +
-				      phyLayerOverhead)) * 8.0 / (1000.0 * phyDataRate);
-				double step = beaconTxTime + listenInterval / 2.0;
-				remainingBeaconsToTx = (int)ceil(sleepInterval * beaconIntervalFraction / step);
+				remainingBeaconsToTx = (int)ceil(sleepInterval * beaconIntervalFraction / beaconTxTime);
 			} else {
 				remainingBeaconsToTx = 0;
 			}
@@ -325,14 +326,15 @@ void TunableMAC::sendBeaconsOrData()
 		beaconFrame->setByteLength(beaconFrameSize);
 		toRadioLayer(beaconFrame);
 		toRadioLayer(createRadioCommand(SET_STATE, TX));
-		collectOutput("TunableMAC packet breakdown", "beacons");
+		trace() << "Sending Beacon";
+		collectOutput("TunableMAC packet breakdown", "sent beacons");
 
-		/* Set timer to send next beacon (or data packet)
-		 * We send beacons with half of the listen interval between them
+		/* Set timer to send next beacon (or data packet). Schedule
+		 * the timer a little faster than it actually takes to TX a
+		 * a beacon, because we want to TX beacons back to back and
+		 * we have to account for clock drift.
 		 */
-		double beaconTxTime = ((double)(beaconFrameSize + phyLayerOverhead)) *
-				8.0 / (1000.0 * phyDataRate);
-		setTimer(SEND_BEACONS_OR_DATA, beaconTxTime + listenInterval / 2.0);
+		setTimer(SEND_BEACONS_OR_DATA, beaconTxTime * 0.98);
 
 	} else {
 		if (TXBuffer.empty()) {
@@ -345,10 +347,14 @@ void TunableMAC::sendBeaconsOrData()
 		toRadioLayer(createRadioCommand(SET_STATE, TX));
 
 		// Record whether this was an original transmission or a retransmission
-		if (numTxTries == numTx)
-			collectOutput("TunableMAC packet breakdown", "data pkts");
-		else
-			collectOutput("TunableMAC packet breakdown", "copies of data pkts");
+		if (numTxTries == numTx){
+			trace() << "Sending data packet";
+			collectOutput("TunableMAC packet breakdown", "sent data pkts");
+		}
+		else{
+			trace() << "Sending copy of data packet";
+			collectOutput("TunableMAC packet breakdown", "copies of sent data pkts");
+		}
 
 		double packetTxTime = ((double)(TXBuffer.front()->getByteLength() +
 		      phyLayerOverhead)) * 8.0 / (1000.0 * phyDataRate);
@@ -399,16 +405,21 @@ void TunableMAC::sendBeaconsOrData()
 void TunableMAC::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 {
 	TunableMacPacket *macFrame = dynamic_cast <TunableMacPacket*>(pkt);
-	if (macFrame == NULL)
+	if (macFrame == NULL){
+		collectOutput("TunableMAC packet breakdown", "filtered, other MAC");
 		return;
+	}
 
 	int destination = macFrame->getDestination();
-	if (destination != SELF_MAC_ADDRESS && destination != BROADCAST_MAC_ADDRESS)
+	if (destination != SELF_MAC_ADDRESS && destination != BROADCAST_MAC_ADDRESS){
+		collectOutput("TunableMAC packet breakdown", "filtered, other dest");
 		return;
+	}
 
 	switch (macFrame->getFrameType()) {
 
 		case BEACON_FRAME:{
+			collectOutput("TunableMAC packet breakdown", "received beacons");
 			if (macState == MAC_STATE_DEFAULT) {
 				if ((dutyCycle > 0.0) && (dutyCycle < 1.0))
 					cancelTimer(START_SLEEPING);
@@ -419,6 +430,8 @@ void TunableMAC::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 				/* We ignore the received beacon packet because we
 				 * are in the process of sending our own data
 				 */
+				trace() << "ignoring beacon, we are in MAC_STATE_TX"; 
+				collectOutput("TunableMAC packet breakdown", "received beacons, ignored");
 				break;
 			}
 			macState = MAC_STATE_RX;
@@ -442,11 +455,16 @@ void TunableMAC::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 
 		case DATA_FRAME:{
 			toNetworkLayer(macFrame->decapsulate());
+			collectOutput("TunableMAC packet breakdown", "received data pkts");
 			if (macState == MAC_STATE_RX) {
 				cancelTimer(ATTEMPT_TX);
 				attemptTx();
 			}
 			break;
+		}
+		default:{
+			trace() << "WARNING: Received packet type UNKNOWN";
+			collectOutput("TunableMAC packet breakdown", "unrecognized type");
 		}
 	}
 }

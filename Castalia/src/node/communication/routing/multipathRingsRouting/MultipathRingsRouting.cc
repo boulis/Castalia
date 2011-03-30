@@ -7,7 +7,7 @@
  *                                                                             *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia                *
  *      Attention:  License Inquiry.                                           *
- *                                                                             *
+ *                                                                             *  
  *******************************************************************************/
 
 #include "MultipathRingsRouting.h"
@@ -19,8 +19,13 @@ void MultipathRingsRouting::startup()
 	netSetupTimeout = (double)par("netSetupTimeout") / 1000.0;
 	mpathRingsSetupFrameOverhead = par("mpathRingsSetupFrameOverhead");
 
-	// make sure that in your omnetpp.ini you have used an Application module that has the boolean parameter "isSink"
-	isSink = gate("toCommunicationModule")->getNextGate()->getOwnerModule()->gate("toApplicationModule")->getNextGate()->getOwnerModule()->par("isSink");
+	// check that the Application module used has the boolean parameter "isSink"
+	cModule *appModule = getParentModule()->getParentModule()->getSubmodule("Application");
+	if (appModule->hasPar("isSink"))
+		isSink = appModule->par("isSink");
+	else
+		opp_error("\nMultiPathRings routing has to be used with an application that defines the parameter isSink");
+
 	currentLevel = tmpLevel = isSink ? 0 : NO_LEVEL;
 	currentSinkID = tmpSinkID = isSink ? self : NO_SINK;
 
@@ -154,7 +159,7 @@ void MultipathRingsRouting::fromMacLayer(cPacket * pkt, int macAddress, double r
 
 			if (dst.compare(BROADCAST_NETWORK_ADDRESS) == 0 ||
 					dst.compare(SELF_NETWORK_ADDRESS) == 0) {
-				// We are not filtering packets that are sent to this node directly or to
+				// We are not filtering packets that are sent to this node directly or to 
 				// broadcast network address, making application layer responsible for them
 				toApplicationLayer(pkt->decapsulate());
 
@@ -168,7 +173,7 @@ void MultipathRingsRouting::fromMacLayer(cPacket * pkt, int macAddress, double r
 							trace() << "Discarding duplicate packet from node " << src;
 					} else if (sinkID == currentSinkID) {
 						// We want to rebroadcast this packet since we are not its destination
-						// For this, a copy of the packet is created and sender level field is
+						// For this, a copy of the packet is created and sender level field is 
 						// updated before calling toMacLayer() function
 						MultipathRingsRoutingPacket *dupPacket = netPacket->dup();
 						dupPacket->setSenderLevel(currentLevel);

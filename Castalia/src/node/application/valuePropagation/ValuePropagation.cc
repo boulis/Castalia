@@ -72,5 +72,7 @@ void ValuePropagation::finishSpecific()
 		collectOutput("got value", "yes/no", 1);
 	else
 		collectOutput("got value", "yes/no", 0);
+	declareOutput("app packets received");
+	collectOutput("app packets received", "", totalPackets);
 }
 

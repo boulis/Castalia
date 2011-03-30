@@ -68,7 +68,7 @@ class TunableMAC: public VirtualMac {
 	int numTxTries;
 	int backoffTimes;	// number of consequtive backoff times
 	int remainingBeaconsToTx;
-
+	double beaconTxTime;	// time it takes to TX a beacon in secs
 	double sleepInterval;	// in secs
 
  protected:

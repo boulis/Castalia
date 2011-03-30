@@ -44,7 +44,7 @@ simple TunableMAC like node.communication.mac.iMac {
 
 	int macMaxPacketSize = default (0);
 	int macPacketOverhead = default (9);
-	int beaconFrameSize = default (14);
+	int beaconFrameSize = default (125);  // have a big beacon, to avoid much processing overhead, but fit at least 2 in the listening interval
 	int macBufferSize = default (32);
 
 	//========== Make sure you update the data rate if you change radios ==========

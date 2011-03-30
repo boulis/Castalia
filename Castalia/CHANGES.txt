@@ -10,14 +10,24 @@ Castalia 3.2: Changes from 3.1
     the node startup msg
    -readRSSI was returning -197dBm when no signal
     was received. Now the noiseFloor is returned
+   -error accumulating in rare cases due to 
+    subtract_dBm(). Now this method is not used. 
+
+- TunableMAC: changed the beacon TX to not leave
+  gaps. Collect richer output
 
 - Better structured and cleaned the Virtual app/
   rouring/MAC classes and associated generic packets.  
+
+- VirtualApp: empty appID means no filtering of packets
  
 - Added --title and --scale flags to CastaliaPlot, 
   added check for valid gnuplot executable
 
-
+- Images (png, gif, jpg) produced with CastaliaPlot
+  contain in the header metadata the full command
+  that produced them.
+ 
 
 Castalia 3.1: Changes from 3.0
 ------------------------------------------

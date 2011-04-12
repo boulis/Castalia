@@ -7,7 +7,7 @@
  *                                                                          *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
  *      Attention:  License Inquiry.                                        *
- *                                                                          *  
+ *                                                                          *
  ****************************************************************************/
 
 #include "Mac802154.h"
@@ -47,7 +47,7 @@ void Mac802154::startup()
 	 **************************************************************************************************/
 
 	symbolLen = 1 / (phyDataRate * 1000 / phyBitsPerSymbol);
-	ackWaitDuration = symbolLen * unitBackoffPeriod + 
+	ackWaitDuration = symbolLen * unitBackoffPeriod +
 		phyDelayRx2Tx * 2 + TX_TIME(ACK_PKT_SIZE);
 
 	beaconPacket = NULL;
@@ -146,7 +146,7 @@ void Mac802154::timerFiredCallback(int index)
 				desyncTimeStart = getClock();
 			} else if (associatedPAN != -1) {
 				trace() << "Missed beacon from PAN " << associatedPAN <<
-				    ", will wake up to receive next beacon in " << 
+				    ", will wake up to receive next beacon in " <<
 				    beaconInterval * symbolLen - guardTime * 3 << " seconds";
 				setMacState(MAC_STATE_SLEEP);
 				toRadioLayer(createRadioCommand(SET_STATE, SLEEP));
@@ -168,13 +168,13 @@ void Mac802154::timerFiredCallback(int index)
 			// earlier than the actual start time of GTS slot
 			setMacState(MAC_STATE_PROCESSING);
 			setTimer(ATTEMPT_TX, phyDelaySleep2Tx);
-			
+
 			// set a timer to go to sleep after our GTS slot ends
 			setTimer(START_SLEEPING, phyDelaySleep2Tx + GTSlength);
 			break;
 		}
 
-		// previous transmission is reset, attempt a new transmission 
+		// previous transmission is reset, attempt a new transmission
 		case ATTEMPT_TX:{
 			if (macState != MAC_STATE_IN_TX
 			    && macState != MAC_STATE_WAIT_FOR_DATA_ACK
@@ -250,11 +250,11 @@ void Mac802154::timerFiredCallback(int index)
 void Mac802154::fromNetworkLayer(cPacket * pkt, int dstMacAddress)
 {
 	Mac802154Packet *macPacket = new Mac802154Packet("802.15.4 MAC data packet", MAC_LAYER_PACKET);
-	macPacket->setSrcID(SELF_MAC_ADDRESS);	//if we are connected, we would have short MAC address assigned, 
+	encapsulatePacket(macPacket, pkt);
+	macPacket->setSrcID(SELF_MAC_ADDRESS);	//if we are connected, we would have short MAC address assigned,
 	//but we are not using short addresses in this model
 	macPacket->setDstID(dstMacAddress);
 	macPacket->setMac802154PacketType(MAC_802154_DATA_PACKET);
-	encapsulatePacket(macPacket, pkt);
 
 	if (bufferPacket(macPacket)) {
 		if (macState == MAC_STATE_IDLE)
@@ -290,7 +290,7 @@ void Mac802154::finishSpecific()
 		} else if (iter->first.find("NoPAN") != string::npos) {
 			collectOutput("Packet breakdown", "Failed, no PAN", iter->second);
 		} else {
-			trace() << "Unknown packet breakdonw category: " << 
+			trace() << "Unknown packet breakdonw category: " <<
 				iter->first << " with " << iter->second << " packets";
 		}
 	}
@@ -414,7 +414,7 @@ void Mac802154::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 
 			for (int i = 0; i < (int)rcvPacket->getGTSlistArraySize(); i++) {
 				if (lockedGTS && rcvPacket->getGTSlist(i).owner == SELF_MAC_ADDRESS) {
-					GTSstart = (rcvPacket->getGTSlist(i).start - 1) * 
+					GTSstart = (rcvPacket->getGTSlist(i).start - 1) *
 						baseSlotDuration * (1 << frameOrder) * symbolLen;
 					GTSend = GTSstart + rcvPacket->getGTSlist(i).length *
 					    baseSlotDuration * (1 << frameOrder) * symbolLen;
@@ -455,7 +455,7 @@ void Mac802154::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 					toRadioLayer(createRadioCommand(SET_STATE, SLEEP));
 				}
 				if (GTSstart != 0 && (!enableCAP || GTSstart != CAPend))
-					// if GTS slot exists and does not start after CAP (or CAP is disabled) 
+					// if GTS slot exists and does not start after CAP (or CAP is disabled)
 					// then we set GTS timer phyDelaySleep2Tx seconds earlier as radio will be sleeping
 					setTimer(GTS_START, GTSstart - phyDelaySleep2Tx);
 			}
@@ -579,7 +579,7 @@ void Mac802154::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 		}
 
 		default:{
-			trace() << "WARNING: unknown packet type received " << rcvPacket->getMac802154PacketType() << 
+			trace() << "WARNING: unknown packet type received " << rcvPacket->getMac802154PacketType() <<
 					" [" << rcvPacket->getName() << "]";
 		}
 	}
@@ -672,7 +672,7 @@ void Mac802154::attemptTransmission(const char * descr)
 			cancelAndDelete(nextPacket);
 			nextPacket = NULL;
 		} else {
-			trace() << "Continuing transmission of [" << nextPacket->getName() << 
+			trace() << "Continuing transmission of [" << nextPacket->getName() <<
 				"], retries left: " << nextPacketRetries;
 			initiateCSMACA();
 			return;
@@ -702,7 +702,7 @@ void Mac802154::attemptTransmission(const char * descr)
 // initiate CSMA-CA algorithm, initialising retries, next state and response values
 void Mac802154::initiateCSMACA(int retries, int nextState, simtime_t response)
 {
-	trace() << "Initiating new transmission of [" << nextPacket->getName() << 
+	trace() << "Initiating new transmission of [" << nextPacket->getName() <<
 		"], retries left: " << retries;
 	nextPacketRetries = retries;
 	nextMacState = nextState;

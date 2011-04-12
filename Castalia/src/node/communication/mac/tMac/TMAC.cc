@@ -7,7 +7,7 @@
  *                                                                          *
  *      NICTA, Locked Bag 9013, Alexandria, NSW 1435, Australia             *
  *      Attention:  License Inquiry.                                        *
- *                                                                          *  
+ *                                                                          *
  ****************************************************************************/
 
 #include <cmath>
@@ -94,7 +94,7 @@ void TMAC::timerFiredCallback(int timer)
 	switch (timer) {
 
 		case SYNC_SETUP:{
-			/* Timeout to hear a schedule packet has expired at this stage, 
+			/* Timeout to hear a schedule packet has expired at this stage,
 			 * MAC is able to create its own schedule after a random offset
 			 * within the duration of 1 frame
 			 */
@@ -104,8 +104,8 @@ void TMAC::timerFiredCallback(int timer)
 		}
 
 		case SYNC_CREATE:{
-			/* Random offset selected for creating a new schedule has expired. 
-			 * If at this stage still no schedule was received, MAC creates 
+			/* Random offset selected for creating a new schedule has expired.
+			 * If at this stage still no schedule was received, MAC creates
 			 * its own schedule and tries to broadcast it
 			 */
 			if (macState == MAC_STATE_SETUP)
@@ -115,7 +115,7 @@ void TMAC::timerFiredCallback(int timer)
 
 		case SYNC_RENEW:{
 			/* This node is the author of its own primary schedule
-			 * It is required to rebroadcast a SYNC packet and also 
+			 * It is required to rebroadcast a SYNC packet and also
 			 * schedule a self message for the next RESYNC procedure.
 			 */
 			trace() << "Initiated RESYNC procedure";
@@ -165,8 +165,8 @@ void TMAC::timerFiredCallback(int timer)
 		}
 
 		case CHECK_TA:{
-			/* Activation timeout fired, however we may need to extend the timeout 
-			 * here based on the current MAC state, or if there is no reason to 
+			/* Activation timeout fired, however we may need to extend the timeout
+			 * here based on the current MAC state, or if there is no reason to
 			 * extend it, then we need to go to sleep.
 			 */
 
@@ -293,11 +293,11 @@ void TMAC::fromNetworkLayer(cPacket * netPkt, int destination)
 {
 	// Create a new MAC frame from the received packet and buffer it (if possible)
 	TMacPacket *macPkt = new TMacPacket("TMAC data packet", MAC_LAYER_PACKET);
+	encapsulatePacket(macPkt, netPkt);
 	macPkt->setType(DATA_TMAC_PACKET);
 	macPkt->setSource(SELF_MAC_ADDRESS);
 	macPkt->setDestination(destination);
 	macPkt->setSequenceNumber(txSequenceNum);
-	encapsulatePacket(macPkt, netPkt);
 	if (bufferPacket(macPkt)) {	// this is causing problems
 		if (TXBuffer.size() == 1)
 			checkTxBuffer();
@@ -335,7 +335,7 @@ void TMAC::resetDefaultState(const char *descr)
 			syncPacket->setDestination(BROADCAST_MAC_ADDRESS);
 			syncPacket->setSyncId(scheduleTable[0].ID);
 			syncPacket->setSequenceNumber(scheduleTable[0].SN);
-			syncPacket->setSync(currentFrameStart + frameTime - getClock() - 
+			syncPacket->setSync(currentFrameStart + frameTime - getClock() -
 						TX_TIME(syncPacketSize) - randomContentionInterval);
 			syncPacket->setByteLength(syncPacketSize);
 			performCarrierSense(MAC_CARRIER_SENSE_FOR_TX_SYNC, randomContentionInterval);
@@ -380,10 +380,10 @@ void TMAC::setMacState(int newState, const char *descr)
 		return;
 	if (printStateTransitions) {
 		if (descr)
-			trace() << "state changed from " << stateDescr[macState] << 
+			trace() << "state changed from " << stateDescr[macState] <<
 					" to " << stateDescr[newState] << ", reason: " << descr;
 		else
-			trace() << "state changed from " << stateDescr[macState] << 
+			trace() << "state changed from " << stateDescr[macState] <<
 					" to " << stateDescr[newState];
 	}
 	macState = newState;
@@ -403,7 +403,7 @@ void TMAC::updateScheduleTable(simtime_t wakeup, int ID, int SN)
 
 				//Calculate new frame offset for this schedule
 				simtime_t new_offset = getClock() - currentFrameStart + wakeup - frameTime;
-				trace() << "Resync successful for ID:" << ID << " old offset:" << 
+				trace() << "Resync successful for ID:" << ID << " old offset:" <<
 						scheduleTable[i].offset << " new offset:" << new_offset;
 				scheduleTable[i].offset = new_offset;
 				scheduleTable[i].SN = SN;
@@ -608,7 +608,7 @@ void TMAC::fromRadioLayer(cPacket * pkt, double RSSI, double LQI)
 		}
 
 		default:{
-			trace() << "Packet with unknown type (" << macPkt->getType() << 
+			trace() << "Packet with unknown type (" << macPkt->getType() <<
 					") received: [" << macPkt->getName() << "]";
 		}
 	}
@@ -753,7 +753,7 @@ void TMAC::sendDataPacket()
 		// This packet is unicast, so MAC will be expecting an ACK
 		// packet in reply, so the timeout is longer
 		// If we are not using RTS/CTS exchange, then this attempt
-		// also decreases the txRetries counter 
+		// also decreases the txRetries counter
 		// (NOTE: with RTS/CTS exchange sending RTS packet decrements counter)
 		if (!useRtsCts)
 			txRetries--;

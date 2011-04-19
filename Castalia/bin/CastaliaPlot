@@ -37,6 +37,7 @@ parser.add_option("--hist-box", dest="boxwidth", type="float", default="0.9", he
 parser.add_option("--hist-gap", dest="histgap", type="float", help="Set gap between histogram columns")
 parser.add_option("--invert", dest="invert", default=False, action="store_true", help="Invert the table passed as input (i.e. make rows to be columns and vice versa)")
 parser.add_option("--linewidth", dest="linewidth", type="float", default="2", help="Set linewidth, only with linespoints style")
+parser.add_option("--ltitle", dest="ltitle", type="string", help="Set title of legend, determined automatically by default")
 parser.add_option("--order-columns", dest="order", type="string", help="A comma separated list of column indexes. Columns can be reordered or skipped (NOTE: this is applied BEFORE invert)")
 parser.add_option("--ratio", dest="ratio", type="float", help="Set aspect ratio of the graph")
 parser.add_option("--scale", dest="scale", type="int", metavar="N", help="Scale the graph to N% of it's maximum size")
@@ -163,7 +164,7 @@ if len(lines) and "\r" in lines[0]:
 
 # check if gnuplot executable is present
 if not which(options.gnuplot):
-	quit("\nERROR: gnuplot executable not found (need to install gnuplot?)")
+	quit("\nCastaliaPlot ERROR: gnuplot executable not found (need to install gnuplot?)")
 
 # print color information if --colors ?
 if options.colors and options.colors == '?':
@@ -179,7 +180,13 @@ if options.colors and options.colors == '?':
 		print " ", c, "\t", ",".join(col_st[c])
 	sys.exit(0)
 
-# if stacked styl is choosen, invert the invert flag ;)
+if not len(lines):
+	quit("CastaliaPlot: ERROR nothing to plot")
+	
+if options.style not in styles:
+	quit("CastaliaPlot: ERROR unknown style, supported values: " + ", ".join(styles))
+
+# if stacked style is choosen, invert the invert flag ;)
 if options.style == "stacked":
 	options.invert = not options.invert
 
@@ -195,14 +202,8 @@ ci = 0					# confidence interval flag, indicates column in main thable where con
 vi = 0					# variable interval flag, indicates column in main thable where variable intervals start
 table_all = {}			# table with all data (corresponds to --all flag of CastaliaResults)
 plot_all = -1			# plot_all flag and variable to indicate plot_all progress 
+skip_one_line = 0		# flag to skip a line of input
 
-if not len(lines):
-	quit("CastaliaPlot: ERROR nothing to plot")
-	
-if options.style not in styles:
-	quit("CastaliaPlot: ERROR unknown style, supported values: " + ", ".join(styles))
-
-skip_one_line = 0
 for line in lines:
 	m = re.match(r"[-+ \n]+$",line)
 	if (m): continue
@@ -213,7 +214,7 @@ for line in lines:
 		continue
 	if len(data) == 1:
 		if title:
-			# skip one line because next line will be table header
+			# skip one line because next line will be table header (i.e. column names)
 			# which we already parsed (since we know table title)
 			skip_one_line = 1
 			if data[0] == fulltitle + " - confidence intervals": ci = datasets
@@ -286,6 +287,9 @@ if options.invert:
 	xlabels = tmp;
 	if ci: ci = len(labels)
 	if vi: vi = len(labels) + ci
+
+if not len(xlabels):
+	quit("CastaliaPlot: ERROR nothing to plot")
 
 if len(extratitle):
 	title = title + " (" + ",".join(extratitle) + ")" 
@@ -370,6 +374,7 @@ if options.rotate:
 	myprint(f, "set xtics nomirror rotate by -" + str(options.rotate) + " (" + ', '.join(xtics_add) + ")")
 elif len(xtics_add): myprint(f, "set xtics (" + ', '.join(xtics_add) + ")")
 key = ""
+if options.ltitle: ltitle = options.ltitle
 if ltitle != "": key += "title \"" + ltitle + "\" "
 if options.legend: key += options.legend
 if options.xtitle: myprint(f, "set xlabel '" + options.xtitle + "'")

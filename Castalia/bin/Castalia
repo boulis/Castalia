@@ -57,6 +57,9 @@ parser.add_option("-o","--output", dest="output", type="string", metavar="FILE",
 parser.add_option("-r","--repeat", dest="repeat", type="int", metavar="N", default=1, help="Number of repetitions for each unique scenario")
 (options,args) = parser.parse_args()
 
+if len(args):
+	quit("\nERROR: unexpected argument\n"+args[0])
+
 customConfigList = []
 
 def makeConfig(c,dictionary):
@@ -303,23 +306,27 @@ for ini in iniList:
 	if options.debug: print result
 	raw_result = []
 	for line in result.split("\n"):
-		m = re.match("Scenario:\s(.*)\$repetition=\d+$",line)
+		m = re.match("Scenario:\s(.*)\$repetition=(\d+)$",line)
 		if (m):
 			raw_result = []
 			has_result = 0
-			line = m.group(1).replace("$","").replace(" ","").strip(",")
-			if len(line) > 0: 
-				if len(baselabel): label = baselabel + "," + line
-				else: label = line
-			if len(label) == 0: label = "None"
-			fr.write("Castalia| label:"+label+"\n")
+			label = m.group(1).replace("$","").replace(" ","").strip(",")
+			if len(label) == 0:
+				if len(baselabel) > 0:
+					label = baselabel
+				else:
+					label = "None"
+			elif len(baselabel) > 0: 
+				label = baselabel + "," + label
+			fr.write("Castalia| repeat:"+m.group(2)+" label:"+label+"\n")
 			continue
 		if (re.match("^Castalia|\s+(.*)$",line)):
 			fr.write(line + "\n")
 			has_result = 1
 		else:
 			raw_result.append(line)
-	if not has_result: fr.write("\n".join(raw_result))
+	if not has_result: 
+		fr.write("\n".join(raw_result))
 
 if not options.debug: commands.getoutput("rm omnetpp.tmp")
 fr.close()

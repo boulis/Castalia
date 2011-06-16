@@ -256,6 +256,7 @@ for line in lines:
 		l,n = data.pop(0).split(" ",1)
 		data = reorder(data)
 		n = int(n)
+		if l == "seed": l = labels[plot_all]
 		if labels[plot_all] != l: plot_all = plot_all + 1
 		if labels[plot_all] != l: 
 			print "CastaliaPlot: WARNING unexpected label in the table '" + l + "'"

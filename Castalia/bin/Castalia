@@ -11,8 +11,8 @@
 # *                                                                          *
 # ***************************************************************************/
 
-import os, sys, commands, getopt, re
-from datetime import date, time, datetime
+import os, sys, commands, getopt, re, subprocess
+from datetime import date, time, datetime, timedelta
 from optparse import OptionParser
 
 #initialise important paths
@@ -291,25 +291,69 @@ if options.output: fr = open(options.output,"w")
 else: fr = open(datetime.now().strftime("%y%m%d-%H%M%S")+".txt","w")
 fr.write("Castalia| what:" + options.config + " (" + str(options.repeat) + ")\n")
 fr.write("Castalia| when:" + datetime.now().strftime("%Y-%m-%d %H:%M") + "\n")
+
+r_castalia = re.compile("^Castalia\|\s+(.+)$")
+r_scenario = re.compile("Scenario:\s(.*)\$repetition=(\d+)$")
+r_progress = re.compile("^\*\* Event \#\d+\s+T=(\S+)\s+Elapsed: (\S+)s.+\s(\d+)\% completed")
+r_newrun = re.compile("Preparing for running configuration General, run #(\d+)")
+r_totalrun = re.compile("Number of runs: (\d+)")
+
 for ini in iniList:
 	ini_num += 1
 	baselabel = label = labelList.pop(0)
-	print "Running configuration", str(ini_num) + "/" + str(len(iniList))
 	f = open("omnetpp.tmp","w")
 	f.write("[General]\n")
 	f.write("repeat = " + str(options.repeat) + "\n")
 	for k in sorted(ini.keys()):
 		f.write(k + " = " + ini[k] + "\n")
 	f.close();
-	has_result = 0
-	result = commands.getoutput(pathToCastaliaBin + " -f omnetpp.tmp");
-	if options.debug: print result
-	raw_result = []
-	for line in result.split("\n"):
-		m = re.match("Scenario:\s(.*)\$repetition=(\d+)$",line)
+	has_output = 0
+	data = subprocess.check_output([pathToCastaliaBin, '-f', 'omnetpp.tmp', '-x', 'General']).split("\n")[6]
+	m = r_totalrun.match(data)
+	if (m):
+		runs = "/" + m.group(1)
+	else:
+		print "WARNING: unable to determine total simulation runs"
+		runs = ""
+	
+	CastaliaProcess = subprocess.Popen([pathToCastaliaBin, '-f', 'omnetpp.tmp'], stdout = subprocess.PIPE)
+	raw_output = []
+	while 1:
+		line = CastaliaProcess.stdout.readline()
+		if not line: break
+		
+		m = r_castalia.match(line)
+		if (m):		#this is an output line, starting with 'Castalia |' prefix
+			fr.write(line)
+			has_output = 1
+			continue
+		
+		if options.debug: print line,
+		
+		m = r_progress.match(line)
+		if (m):		#this is simulation progress line
+			simtime = float(m.group(1))
+			elapsed = float(m.group(2))
+			percent = int(m.group(3))
+			if not options.debug:
+				print "\rRunning Castalia:\tConfiguration", str(ini_num) + "/" + str(len(iniList)),
+				print "\tRun", str(run) + runs,
+				print "\tComplete", str(percent) + "%",
+
+			if percent == 100:	#end of this run, record execution time in the results file
+				if not options.debug:
+					print "\tTime taken", str(timedelta(0,elapsed))
+				fr.write("Castalia|		module:SN.Simulation\n")
+				fr.write("Castalia|			simple output name:Execution time, seconds\n")
+				fr.write("Castalia|				" + str(elapsed) + "\n")
+				fr.write("Castalia|			simple output name:Execution ratio (simtime/realtime)\n")
+				fr.write("Castalia|				" + str(simtime/elapsed) + "\n")
+			continue
+				
+		m = r_scenario.match(line)
 		if (m):
-			raw_result = []
-			has_result = 0
+			raw_output = []
+			has_output = 0
 			label = m.group(1).replace("$","").replace(" ","").strip(",")
 			if len(label) == 0:
 				if len(baselabel) > 0:
@@ -320,13 +364,15 @@ for ini in iniList:
 				label = baselabel + "," + label
 			fr.write("Castalia| repeat:"+m.group(2)+" label:"+label+"\n")
 			continue
-		if (re.match("^Castalia|\s+(.*)$",line)):
-			fr.write(line + "\n")
-			has_result = 1
-		else:
-			raw_result.append(line)
-	if not has_result: 
-		fr.write("\n".join(raw_result))
+		
+		m = r_newrun.match(line)
+		if (m):
+			run = int(m.group(1)) + 1
+
+	if not has_output: 
+		fr.write("\n".join(raw_output))
+		print "\n".join(raw_output)
 
 if not options.debug: commands.getoutput("rm omnetpp.tmp")
 fr.close()
+

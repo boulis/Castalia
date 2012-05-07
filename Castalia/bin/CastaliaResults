@@ -29,7 +29,7 @@ parser.add_option("-v","--variability-interval", dest="varint", type="float", me
 parser.add_option("--all", dest="all", default=False, action="store_true", help="Display ALL data points in a separate table")
 parser.add_option("--filter-columns", dest="col_filter", type="string", metavar="RE", help="Select a subset of columns by applying RE (regular expression) filter, only works with breakdown outputs")
 parser.add_option("--order", dest="order", type="string", metavar="STRING", help="Select label ordering for the table, first label will become column headers. Labels without '=' can be matched by keyword 'configs'")
-parser.add_option("--precision", dest="precision", type="int", default=3, metavar="N", help="Set precision of floating point numbers, in decimal places (default is 3)")
+parser.add_option("--precision", dest="precision", type="int", default=5, metavar="N", help="Set precision of floating point numbers, in decimal places (default is 3)")
 parser.add_option("--sum", dest="sum", default=False, action="store_true", help="Display sum instead of average when data across more than one node is aggregated")
 
 command = "CastaliaResults " + " ".join(sys.argv[1:])
@@ -317,9 +317,16 @@ class Output():
 			return self.nxi_max[bl]
 		return self.nxi_max[bl]*len(self.nxi[bl].keys())
 			
-	def aggregate_total(self,bl):
+	def aggregate_total(self,bl,l=None):
 		if options.sum: return 1
-		return len(self.nxi[bl].keys())
+		if l:
+			count = 0
+			for label in self.nxi[bl].keys():
+				if l == label.split(":")[2]:
+					count += 1 
+			return count
+		else:
+			return len(self.nxi[bl].keys())
 		
 modules = {}
 labels = {}
@@ -611,7 +618,7 @@ def printOutput(name,o):
 						for tmp_values in all_values:
 							if i < len(tmp_values):
 								this_value = this_value + float(tmp_values[i]);
-						final_values.append(this_value/o.aggregate_total(label))
+						final_values.append(this_value/o.aggregate_total(label,col))
 
 					# if atleast one entry exists, load it into the final table
 					if len(final_values) > 0:
@@ -725,7 +732,7 @@ def readFile(file):
 
 	# prepare regex for file parsing
 	r_castalia = re.compile("^Castalia\|\s+(.+)$")
-	r_output = re.compile("^([-+]?[0-9]*\.?[0-9]+)\s*(.*)$")
+	r_output = re.compile("^([-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)\s*(.*)$")
 	r_histogram = re.compile("^histogram name:(.+)$")
 	r_histogram_params = re.compile("histogram_min:([-+]?[0-9]*\.?[0-9]+) histogram_max:([-+]?[0-9]*\.?[0-9]+)$")
 	r_histogram_values = re.compile("histogram_values\s(.+)$")
@@ -758,7 +765,7 @@ def readFile(file):
 			# check for output data
 			m = r_output.match(line)
 			if (m):
-				saveOutput(module,n,i,o,bl,m.group(2),m.group(1),repeat)
+				saveOutput(module,n,i,o,bl,m.group(3),m.group(1),repeat)
 				continue
 			else:
 				level = 2

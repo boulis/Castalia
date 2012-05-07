@@ -38,6 +38,7 @@ parser.add_option("--hist-gap", dest="histgap", type="float", help="Set gap betw
 parser.add_option("--invert", dest="invert", default=False, action="store_true", help="Invert the table passed as input (i.e. make rows to be columns and vice versa)")
 parser.add_option("--linewidth", dest="linewidth", type="float", default="2", help="Set linewidth, only with linespoints style")
 parser.add_option("--ltitle", dest="ltitle", type="string", help="Set title of legend, determined automatically by default")
+parser.add_option("--llist", dest="llist", type="string", help="Comma separated list of labels for the legend, determined automatically by default")
 parser.add_option("--order-columns", dest="order", type="string", help="A comma separated list of column indexes. Columns can be reordered or skipped (NOTE: this is applied BEFORE invert)")
 parser.add_option("--ratio", dest="ratio", type="float", help="Set aspect ratio of the graph")
 parser.add_option("--scale", dest="scale", type="int", metavar="N", help="Scale the graph to N% of it's maximum size")
@@ -336,6 +337,13 @@ if ext != 'ps' and ext != 'eps':
 	name += ".ps"
 else:
 	name = options.output
+
+if options.llist:
+	labelstmp = options.llist.split(",")
+	if len(labelstmp) < len(labels):
+		print("Warning: malformed -llist option")
+	else:
+		labels = labelstmp
 
 if options.debug:
 	print("\n===DEBUG: gnuplot commands===")

@@ -308,7 +308,14 @@ for ini in iniList:
 		f.write(k + " = " + ini[k] + "\n")
 	f.close();
 	has_output = 0
-	data = subprocess.check_output([pathToCastaliaBin, '-f', 'omnetpp.tmp', '-x', 'General']).split("\n")[6]
+	if sys.version_info > (2,7):
+		data = subprocess.check_output([pathToCastaliaBin, '-f', 'omnetpp.tmp', '-x', 'General']).split("\n")
+	else:
+		data = subprocess.Popen([pathToCastaliaBin, '-f', 'omnetpp.tmp', '-x', 'General'], stdout=subprocess.PIPE).communicate()[0].split("\n")
+	
+	if len(data) > 6: data = data[6]
+	else: data = ""
+
 	m = r_totalrun.match(data)
 	if (m):
 		runs = "/" + m.group(1)

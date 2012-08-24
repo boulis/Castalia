@@ -106,7 +106,31 @@ void ResourceManager::finishSpecific()
 {
 	calculateEnergySpent();
 	declareOutput("Consumed Energy");
-	collectOutput("Consumed Energy", "", getSpentEnergy());
+	collectOutput("Consumed Energy", "", initialEnergy - remainingEnergy);
+	declareOutput("Remaining Energy");
+	collectOutput("Remaining Energy", "", remainingEnergy);
+
+	if (getParentModule()->getIndex() == 0) {
+		cTopology *topo;	// temp variable to access energy spent by other nodes
+		topo = new cTopology("topo");
+		topo->extractByNedTypeName(cStringTokenizer("node.Node").asVector());
+
+		double minLifetime = estimateLifetime();
+		for (int i = 1; i < topo->getNumNodes(); i++) {
+			ResourceManager *resMng = dynamic_cast<ResourceManager*>
+				(topo->getNode(i)->getModule()->getSubmodule("ResourceManager"));
+			if (minLifetime > resMng->estimateLifetime()) 
+				minLifetime = resMng->estimateLifetime();
+		}
+		declareOutput("Estimated network lifetime (days)");
+		collectOutput("Estimated network lifetime (days)", "", minLifetime);
+		delete(topo);
+	}
+}
+
+double ResourceManager::estimateLifetime(void) 
+{
+	return ((initialEnergy * simTime().dbl()) / ((initialEnergy - remainingEnergy) * 86400.0));
 }
 
 double ResourceManager::getSpentEnergy(void)

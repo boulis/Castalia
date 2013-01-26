@@ -10,13 +10,13 @@
 //*                                                                              *
 //*******************************************************************************/*
 
-package wirelessChannel;
+package wirelessChannel.defaultChannel;
 
 // The wireless channel module simulates the wireless medium. Nodes sent packets to it
 // and according to various conditions (fading, interference etc) it is decided which
 // nodes can receive this packet
 
-simple WirelessChannel {
+simple WirelessChannel like wirelessChannel.iWirelessChannel {
  parameters:
 	bool collectTraceInfo = default (false);
 	bool onlyStaticNodes = default (true);		// if NO mobility, set it to true for greater efficiency 

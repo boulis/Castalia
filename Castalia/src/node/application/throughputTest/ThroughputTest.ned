@@ -22,9 +22,11 @@ simple ThroughputTest like node.application.iApplication {
 	int priority = default (1);
 	int packetHeaderOverhead = default (5);		// in bytes
 	int constantDataPayload = default (100);	// in bytes
+	double delayLimit = default (0); 			// application delay limit (0 - no limit)
+											// discard packets arriving after the limit
 
-	string nextRecipient = default ("0");	// Destination for packets produced in this node. 
-											// This parameter can be used to create an
+	string nextRecipient = default ("0");	// Destination for packets received in this node. 
+											// These parameters can be used to create an
 											// application-level static routing. This way we can
 											// have a multi-hop throughput test   
 

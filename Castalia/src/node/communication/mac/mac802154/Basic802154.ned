@@ -1,5 +1,5 @@
 //****************************************************************************
-//*  Copyright: National ICT Australia,  2007 - 2010                         *
+//*  Copyright: National ICT Australia,  2007 - 2012                         *
 //*  Developed at the ATP lab, Networked Systems research theme              *
 //*  Author(s): Athanassios Boulis, Yuriy Tselishchev                        *
 //*  This file is distributed under the terms in the attached LICENSE file.  *
@@ -12,19 +12,18 @@
 
 package node.communication.mac.mac802154;
 
-simple Mac802154 like node.communication.mac.iMac {
+simple Basic802154 like node.communication.mac.iMac {
  parameters:
     //debug parameters
 	bool collectTraceInfo = default (false);
 	bool printStateTransitions = default (false);
 
 	//mac layer parameters
-	int macMaxPacketSize = default (0);
+	int macMaxPacketSize = default (142);	//128 (Maximum payload for 802.15.4) + 14 (Data packet overhead)
 	int macPacketOverhead = default (14);
 	int macBufferSize = default (32);
 
 	bool enableSlottedCSMA = default (true);
-	bool enableCAP = default (true);
 	bool isFFD = default (false);
 	bool isPANCoordinator = default (false);
 	bool batteryLifeExtention = default (false);
@@ -41,7 +40,6 @@ simple Mac802154 like node.communication.mac.iMac {
 	int macMaxFrameRetries = default (2);
 	int maxLostBeacons = default (4);
 	int minCAPLength = default (440);
-	int requestGTS = default (0);
 
 	// parameters dependent on physical layer
 	// some are essential and are not defined as default

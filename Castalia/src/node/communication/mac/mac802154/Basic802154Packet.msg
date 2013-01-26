@@ -1,5 +1,5 @@
 //****************************************************************************
-//*  Copyright: National ICT Australia,  2007 - 2010                         *
+//*  Copyright: National ICT Australia,  2007 - 2012                         *
 //*  Developed at the ATP lab, Networked Systems research theme              *
 //*  Author(s): Athanassios Boulis, Yuriy Tselishchev                        *
 //*  This file is distributed under the terms in the attached LICENSE file.  *
@@ -16,7 +16,7 @@ cplusplus {{
 
 class MacPacket;
 
-enum MAC802154Packet_type {
+enum Mac802154Packet_type {
 	MAC_802154_BEACON_PACKET = 1001;
 	MAC_802154_ASSOCIATE_PACKET = 1002;
 	MAC_802154_DATA_PACKET = 1003;
@@ -24,17 +24,18 @@ enum MAC802154Packet_type {
 	MAC_802154_GTS_REQUEST_PACKET = 1005;
 }
 
-struct GTSspec {
+struct Basic802154GTSspec {
 	int owner;
 	int start;
 	int length;
 }
 
-packet Mac802154Packet extends MacPacket {
-	int Mac802154PacketType enum (MAC802154Packet_type);
+packet Basic802154Packet extends MacPacket {
+	int Mac802154PacketType enum (Mac802154Packet_type);
 	int PANid;
 	int srcID;
 	int dstID;
+	int seqNum;
 
 	// those fields belong to beacon packet (MAC_802154_BEACON_PACKET)
 	int beaconOrder;
@@ -42,6 +43,6 @@ packet Mac802154Packet extends MacPacket {
 	int BSN;
 	int CAPlength;
 	int GTSlength;
-	GTSspec GTSlist[];
+	Basic802154GTSspec GTSlist[];
 }
 

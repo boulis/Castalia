@@ -26,6 +26,7 @@ simple BaselineBANMac like node.communication.mac.iMac {
 	int RAP1Length= default(8);					//in slots, defined for the Hub
 	int scheduledAccessLength = default(0);		//in slots, asked by the sensor, default: no scheduled access
 	int scheduledAccessPeriod = default(1);		//in beacon periods, asked by the sensor, default: 1-periodic
+	bool enableRAP = default(true);				//allow data packets to be transmitted in RAP
 
 	int maxPacketTries = default(2);
 	double contentionSlotLength = default(0.36);	//in msecs, mini-slots used in contention 

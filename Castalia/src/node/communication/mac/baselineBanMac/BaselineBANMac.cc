@@ -51,6 +51,7 @@ void BaselineBANMac::startup() {
 	enhanceMoreData = par("enhanceMoreData");
 	pollingEnabled = par("pollingEnabled");
 	naivePollingScheme = par("naivePollingScheme");
+	enableRAP = par("enableRAP");
 	sendIAckPoll = false;	// only used by Hub, but must be initialized for all
 	currentSlot = -1;		// only used by Hub
 	nextFuturePollSlot = -1;	// only used by Hub
@@ -78,6 +79,8 @@ void BaselineBANMac::startup() {
 	declareOutput("Data pkt breakdown");
 	declareOutput("Mgmt & Ctrl pkt breakdown");
 	declareOutput("pkt TX state breakdown");
+	declareOutput("Beacons received");
+	declareOutput("Beacons sent");
 	declareOutput("var stats");
 }
 
@@ -126,9 +129,9 @@ void BaselineBANMac::timerFiredCallback(int index) {
 			// check if we reached the max number and if so delete the packet
 			if (currentPacketTransmissions + currentPacketCSFails == maxPacketTries) {
 				// collect statistics
-				if (packetToBeSent->getFrameType() == DATA)
+				if (packetToBeSent->getFrameType() == DATA) {
 					collectOutput("Data pkt breakdown", "Failed, No Ack");
-				else collectOutput("Mgmt & Ctrl pkt breakdown", "Failed, No Ack");
+				} else collectOutput("Mgmt & Ctrl pkt breakdown", "Failed, No Ack");
 				cancelAndDelete(packetToBeSent);
 				packetToBeSent = NULL;
 				currentPacketTransmissions = 0;
@@ -227,7 +230,7 @@ void BaselineBANMac::timerFiredCallback(int index) {
 			setTimer(START_ATTEMPT_TX, (TX_TIME(beaconPkt->getByteLength()) + 2*pTIFS));
 			futureAttemptToTX = true;
 
-			collectOutput("var stats", "beacons sent");
+			collectOutput("Beacons sent");
 			// keep track of the current slot and the frame start time
 			frameStartTime = getClock();
 			currentSlot = 1;
@@ -422,6 +425,7 @@ void BaselineBANMac::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 			SInominal = (allocationSlotLength/10.0 - pTIFS) / (2*mClockAccuracy);
 
 			// a beacon is our synchronization event. Update relevant timer
+			pastSyncIntervalNominal = false;
 			setTimer(SYNC_INTERVAL_TIMEOUT, SInominal);
 
 			beaconPeriodLength = BaselineBANBeacon->getBeaconPeriodLength();
@@ -431,7 +435,7 @@ void BaselineBANMac::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 				macState = MAC_RAP;
 				endTime = getClock() + RAP1Length * allocationSlotLength - beaconTxTime;
 			}
-			collectOutput("var stats", "beacons received");
+			collectOutput("Beacons received");
 			trace() << "Beacon rx: reseting sync clock to " << SInominal << " secs";
 			trace() << "           Slot= " << allocationSlotLength << " secs, beacon period= " << beaconPeriodLength << "slots";
 			trace() << "           RAP1= " << RAP1Length << "slots, RAP ends at time: "<< endTime;
@@ -772,6 +776,7 @@ void BaselineBANMac::attemptTxInRAP() {
 	if (backoffCounter == 0) {
 		backoffCounter = 1 + genk_intrand(0,CW);
 	}
+	trace() << "Starting to transmit " << packetToBeSent->getName() << " in RAP, backoffCounter " << backoffCounter;
 	attemptingToTX = true;
 	setTimer(CARRIER_SENSING,0);
 }
@@ -789,7 +794,7 @@ void BaselineBANMac::attemptTX() {
 	if (waitingForACK || attemptingToTX || futureAttemptToTX ) return;
 
 	if (packetToBeSent && currentPacketTransmissions + currentPacketCSFails < maxPacketTries) {
-		if (macState == MAC_RAP) attemptTxInRAP();
+		if (macState == MAC_RAP && (enableRAP || packetToBeSent->getFrameType() != DATA)) attemptTxInRAP();
 		if ((macState == MAC_FREE_TX_ACCESS) && (canFitTx())) sendPacket();
 		return;
 	}
@@ -818,13 +823,13 @@ void BaselineBANMac::attemptTX() {
 		packetToBeSent = (BaselineMacPacket*)MgmtBuffer.front();  MgmtBuffer.pop();
 		if (MgmtBuffer.size() > MGMT_BUFFER_SIZE)
 			trace() << "WARNING: Management buffer reached a size of " << MgmtBuffer.size();
-	} else if (TXBuffer.size() != 0){
+	} else if (connectedNID != UNCONNECTED && TXBuffer.size() != 0) {
 		packetToBeSent = (BaselineMacPacket*)TXBuffer.front();   TXBuffer.pop();
 		setHeaderFields(packetToBeSent, I_ACK_POLICY, DATA, RESERVED);
 	}
 	// if we found a packet in any of the buffers, try to TX it.
 	if (packetToBeSent){
-		if (macState == MAC_RAP) attemptTxInRAP();
+		if (macState == MAC_RAP && (enableRAP || packetToBeSent->getFrameType() != DATA)) attemptTxInRAP();
 		if ((macState == MAC_FREE_TX_ACCESS) && (canFitTx())) sendPacket();
 	}
 }
@@ -849,10 +854,10 @@ void BaselineBANMac::sendPacket() {
 
 	// collect stats about the state we are TXing data packets
 	if (packetToBeSent->getFrameType() == DATA) {
-		if (macState == MAC_RAP) collectOutput("pkt TX state breakdown", "RAP");
+		if (macState == MAC_RAP) collectOutput("pkt TX state breakdown", "Contention");
 		else {
-			if (isPollPeriod) collectOutput("pkt TX state breakdown", "Polled");
-			else collectOutput("pkt TX state breakdown", "Scheduled");
+			if (isPollPeriod) collectOutput("pkt TX state breakdown", "Poll");
+			else collectOutput("pkt TX state breakdown", "Contention-free");
 		}
 	}
 

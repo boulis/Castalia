@@ -134,6 +134,7 @@ class BaselineBANMac : public VirtualMac {
 	bool naivePollingScheme;
 	bool isRadioSleeping;
 	double pTimeSleepToTX;
+	bool enableRAP;
 
 	bool waitingForACK;
 	bool futureAttemptToTX;

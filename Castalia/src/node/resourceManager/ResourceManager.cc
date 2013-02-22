@@ -1,5 +1,5 @@
 /*******************************************************************************
- *  Copyright: National ICT Australia,  2007 - 2010                            *
+ *  Copyright: National ICT Australia,  2007 - 2012                            *
  *  Developed at the ATP lab, Networked Systems research theme                 *
  *  Author(s): Athanassios Boulis, Dimosthenis Pediaditakis, Yuriy Tselishchev *
  *  This file is distributed under the terms in the attached LICENSE file.     *
@@ -156,7 +156,10 @@ void ResourceManager::consumeEnergy(double amount)
 		send(new cMessage("Destroy node message", OUT_OF_ENERGY), "toNetwork");
 		send(new cMessage("Destroy node message", OUT_OF_ENERGY), "toMac");
 		send(new cMessage("Destroy node message", OUT_OF_ENERGY), "toRadio");
-                remainingEnergy = 0;
+        disabled = true;
+        declareOutput("Dead Node");
+		collectOutput("Dead Node", "yes?", 1);
+		collectOutput("Dead Node", "time", SIMTIME_DBL(simTime()));
 	} else
 		remainingEnergy -= amount;
 }
@@ -170,6 +173,10 @@ void ResourceManager::destroyNode(void)
 	send(new cMessage("Destroy node message", DESTROY_NODE), "toNetwork");
 	send(new cMessage("Destroy node message", DESTROY_NODE), "toMac");
 	send(new cMessage("Destroy node message", DESTROY_NODE), "toRadio");
+	disabled = true;
+    declareOutput("Dead Node");
+	collectOutput("Dead Node", "yes?", 1);
+	collectOutput("Dead Node", "time", SIMTIME_DBL(simTime()));
 }
 
 int ResourceManager::RamStore(int numBytes)

@@ -31,8 +31,8 @@ simple ResourceManager {
 	// energy of the node in Joules, default value corresponds to two AA batteries
 	// source http://www.allaboutbatteries.com/Energy-tables.html
 
-	double baselineNodePower = default (6);	// periodic energy consumption of node, in mWatts
-	double periodicEnergyCalculationInterval = default (1000);	// interval for energy calculation, in msec     
+	double baselineNodePower = default (6);	// the baseline/minimum power consumption in mWatts
+	double periodicEnergyCalculationInterval = default (1000);	// maximum interval for periodic energy calculation, in msec     
 
  gates:
 	output toSensorDevManager;

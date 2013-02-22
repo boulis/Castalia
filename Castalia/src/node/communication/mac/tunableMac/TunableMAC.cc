@@ -1,5 +1,5 @@
 /***************************************************************************
- *  Copyright: National ICT Australia,  2007 - 2011                        *
+ *  Copyright: National ICT Australia,  2007 - 2012                        *
  *  Developed at the ATP lab, Networked Systems theme                      *
  *  Author(s): Athanassios Boulis, Yuriy Tselishchev                       *
  *  This file is distributed under the terms in the attached LICENSE file. *
@@ -454,7 +454,7 @@ void TunableMAC::fromRadioLayer(cPacket * pkt, double rssi, double lqi)
 		}
 
 		case DATA_FRAME:{
-			toNetworkLayer(macFrame->decapsulate());
+			toNetworkLayer(decapsulatePacket(macFrame));
 			collectOutput("TunableMAC packet breakdown", "received data pkts");
 			if (macState == MAC_STATE_RX) {
 				cancelTimer(ATTEMPT_TX);

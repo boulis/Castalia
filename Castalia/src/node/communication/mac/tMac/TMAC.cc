@@ -1,5 +1,5 @@
 /****************************************************************************
- *  Copyright: National ICT Australia,  2007 - 2010                         *
+ *  Copyright: National ICT Australia,  2007 - 2012                         *
  *  Developed at the ATP lab, Networked Systems research theme              *
  *  Author(s): Athanassios Boulis, Yuriy Tselishchev                        *
  *  This file is distributed under the terms in the attached LICENSE file.  *
@@ -550,7 +550,7 @@ void TMAC::fromRadioLayer(cPacket * pkt, double RSSI, double LQI)
 		case DATA_TMAC_PACKET:{
 			// Forward the frame to upper layer first
 			if (isNotDuplicatePacket(macPkt))
-				toNetworkLayer(macPkt->decapsulate());
+				toNetworkLayer(decapsulatePacket(macPkt));
 
 			// If the frame was sent to broadcast address, nothing else needs to be done
 			if (destination == BROADCAST_MAC_ADDRESS)

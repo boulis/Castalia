@@ -1,3 +1,33 @@
+Castalia 3.3: Changes from 3.2
+------------------------------------------
+- Redesigned 802.15.4 MAC module. Modular to allow expansion.
+  Several bug fixes due to the redesign. Now there is a base
+  module to implement the basis of the protocol and then further
+  modules can be developed to take decisions not specified by the
+  protocol. An an example we offer StaticGTS which is a module 
+  that assigns statically GTS slots.
+
+- Wireless channel interface created. Base module moved to
+  defaultChannel. SensorNetwork.ned changed accordignly. 
+  TraceChannel added
+ 
+- Castalia script offers new progress output
+  CastaliaResults supports better averaging
+  CastaliaPlot offers new labels to handle legends
+
+- New output by several modules
+  ThroughputTest: Packet success and loss rate, maximum delay
+  Resource manager: Remaining energy, network lifetime, dead nodes
+  Simulation: execution time, sim/exec time ratio
+
+- Bug fixes in BaselineBanMac (pastSyncInterval flag and 
+  transmitting when UNCONNECTED). Some output renaming to 
+  match 802.15.4 outputs (for easy comparison) 
+  
+- Bug fixes in TMAC TunableMAC bug fixes regarding decapsulate,
+  and TMAC using own seqNum
+
+
 
 Castalia 3.2: Changes from 3.1
 ------------------------------------------

@@ -890,7 +890,7 @@ double Radio::SNR2BER(double SNR_dB)
 			return 0.5 * erfc(sqrt(pow(10.0, (SNR_dB / 10.0)) * RXmode->noiseBandwidth / RXmode->datarate));
 
 		case DIFFBPSK:
-			return 0.5 * exp((RXmode->noiseBandwidth / RXmode->datarate) * pow(10.0, (SNR_dB / 10.0)));
+			return 0.5 * exp(-(RXmode->noiseBandwidth / RXmode->datarate) * pow(10.0, (SNR_dB / 10.0)));
 
 		case DIFFQPSK:
 			return diffQPSK_SNR2BER(SNR_dB);

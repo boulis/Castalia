@@ -297,7 +297,7 @@ void TMAC::fromNetworkLayer(cPacket * netPkt, int destination)
 	macPkt->setType(DATA_TMAC_PACKET);
 	macPkt->setSource(SELF_MAC_ADDRESS);
 	macPkt->setDestination(destination);
-	macPkt->setSequenceNumber(txSequenceNum);
+	//macPkt->setSequenceNumber(txSequenceNum); no need for TMAC specific seq number, virtualMAC takes care of this 
 	if (bufferPacket(macPkt)) {	// this is causing problems
 		if (TXBuffer.size() == 1)
 			checkTxBuffer();
@@ -785,11 +785,11 @@ void TMAC::extendActivePeriod(simtime_t extra)
 {
 	simtime_t curTime = getClock();
 	if (conservativeTA) {
-		curTime += extra;
-		while (activationTimeout < curTime) {
+		simtime_t extraCurTime = curTime + extra;
+		while (activationTimeout < extraCurTime) {
 			activationTimeout += listenTimeout;
 		}
-		if (curTime + listenTimeout < activationTimeout)
+		if (extraCurTime + listenTimeout < activationTimeout)
 			return;
 		activationTimeout += listenTimeout;
 	} else if (activationTimeout < curTime + listenTimeout + extra) {
@@ -808,7 +808,7 @@ void TMAC::checkTxBuffer()
 	TMacPacket *macPkt = check_and_cast < TMacPacket * >(TXBuffer.front());
 	txAddr = macPkt->getDestination();
 	txRetries = maxTxRetries;
-	txSequenceNum = 0;
+	// txSequenceNum = 0;  no need for TMAC specific seq number, virtualMAC takes care of this 
 }
 
 /* This function will remove the first packet from MAC transmission buffer

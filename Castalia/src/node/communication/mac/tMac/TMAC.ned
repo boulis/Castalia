@@ -44,7 +44,7 @@ simple TMAC like node.communication.mac.iMac {
 	double waitTimeout = default (5);		// timeout for expecting a reply to DATA or RTS packet
 	double frameTime = default (610);		// frame time (standard = 610ms)
 
-	int collisionResolution = default (0);	// collision resolution mechanism, choose from 
+	int collisionResolution = default (1);	// collision resolution mechanism, choose from 
 											//      0 - immediate retry (low collision avoidance)
 											//      1 - based on overhearing (default)
 											//      2 - retry next frame (aggressive collision avoidance)

@@ -1056,7 +1056,7 @@ void Radio::parseRadioParameterFile(const char *fileName)
 			if (section == 1) {
 				// parsing lines in the following format:
 				// Name, dataRate(kbps), modulationType, bitsPerSymbol, bandwidth(MHz),
-				// noiseBandwidth(MHz), noiseFloor(dBm), sensitivity(dBm), powerConsumed(mW)
+				// noiseBandwidth(KHz), noiseFloor(dBm), sensitivity(dBm), powerConsumed(mW)
 
 				RXmode_type rxmode;
 				cStringTokenizer t(s.c_str(), ", \t");

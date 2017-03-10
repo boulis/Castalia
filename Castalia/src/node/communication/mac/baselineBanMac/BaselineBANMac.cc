@@ -496,7 +496,7 @@ void BaselineBANMac::fromRadioLayer(cPacket *pkt, double rssi, double lqi) {
 				// schedule a timer to wake up for the next beacon (it might be m periods away
 				setTimer(WAKEUP_FOR_BEACON, beaconPeriodLength * scheduledAccessPeriod * allocationSlotLength - beaconTxTime - GUARD_TIME );
 
-				// if we have a schedule that does not start after RAP, or our schedule
+				// if we have a schedule that does not start immediately after RAP, or our schedule
 				// is not assigned yet, then go to sleep after RAP.
 				if ((scheduledTxAccessStart == UNCONNECTED && RAP1Length < beaconPeriodLength)
 								|| (scheduledTxAccessStart-1 > RAP1Length)) {

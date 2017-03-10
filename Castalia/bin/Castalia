@@ -354,7 +354,10 @@ for ini in iniList:
 				fr.write("Castalia|			simple output name:Execution time, seconds\n")
 				fr.write("Castalia|				" + str(elapsed) + "\n")
 				fr.write("Castalia|			simple output name:Execution ratio (simtime/realtime)\n")
-				fr.write("Castalia|				" + str(simtime/elapsed) + "\n")
+				if elapsed > 0: 
+					fr.write("Castalia|				" + str(simtime/elapsed) + "\n")
+				else:
+					fr.write("Castalia|				" + "Simulation did not run. Real runtime not greater than 0.\n")
 			continue
 				
 		m = r_scenario.match(line)

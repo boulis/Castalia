@@ -12,7 +12,7 @@
 
 
 RX MODES
-# Name, dataRate(kbps), modulationType, bitsPerSymbol, bandwidth(MHz), noiseBandwidth(MHz), noiseFloor(dBm), sensitivity(dBm), powerConsumed(mW)
+# Name, dataRate(kbps), modulationType, bitsPerSymbol, bandwidth(MHz), noiseBandwidth(KHz), noiseFloor(dBm), sensitivity(dBm), powerConsumed(mW)
 normal, 250, PSK, 4, 20, 194, -100, -95, 62
 IDEAL, 250, IDEAL, 4, 20, 194, -100, -95, 62
 

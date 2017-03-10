@@ -11,7 +11,7 @@
 # ***************************************************************************/
 
 RX MODES
-# Name, dataRate(kbps), modulationType, bitsPerSymbol, bandwidth(MHz), noiseBandwidth(MHz), noiseFloor(dBm), sensitivity(dBm), powerConsumed(mW)
+# Name, dataRate(kbps), modulationType, bitsPerSymbol, bandwidth(MHz), noiseBandwidth(KHz), noiseFloor(dBm), sensitivity(dBm), powerConsumed(mW)
 high, 1024, DIFFQPSK, 2, 20, 1000, -104, -87, 3.1
 low, 512, DIFFBPSK, 1, 20, 1000, -104, -91, 3.1
 IDEAL, 1024, IDEAL, 2, 20, 1000, -104, -87, 3.1

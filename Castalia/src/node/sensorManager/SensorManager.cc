@@ -18,10 +18,8 @@ void SensorManager::initialize()
 {
 	self = getParentModule()->getIndex();
 
-	// get a valid reference to the object of the Resources Manager module so that 
-	// we can make direct calls to its public methods instead of using extra
-	// messages & message types for tighlty couplped operations.
-//      resMgrModule = check_and_cast<ResourceGenericManager*>(getParentModule()->getSubmodule("nodeResourceMgr"));
+	// get a valid reference to the mobility manager module to ask for location information,
+	//  whenever we need to sample the physical process
 	nodeMobilityModule = check_and_cast<VirtualMobilityManager*>(getParentModule()->getSubmodule("MobilityManager"));
 	disabled = 1;
 
@@ -89,8 +87,9 @@ void SensorManager::handleMessage(cMessage * msg)
 				send(requestMsg, "toNodeContainerModule", corrPhyProcess[sensorIndex]);
 
 				// update the remaining energy of the node
-				// CONSUME_ENERGY(pwrConsumptionPerDevice[sensorIndex]);
-				// +++ will need to change to powerDrawn();
+				// powerDrawn(pwrConsumptionPerDevice[sensorIndex]);
+				// Left as is the module will draw this power always, that's why it's commented out.
+				// We need to schedule a timer to draw 0 power after some time. How much time?
 
 				// update the most recent sample times in sensorlastSampleTime[]
 				sensorlastSampleTime[sensorIndex] = currentTime;
@@ -184,10 +183,10 @@ void SensorManager::parseStringParams(void)
 	parameterStr = par("pwrConsumptionPerDevice");
 	cStringTokenizer pwrTokenizer(parameterStr);
 	while ((token = pwrTokenizer.nextToken()) != NULL)
-		pwrConsumptionPerDevice.push_back(((double)atof(token)) / 1000.0f);
+		pwrConsumptionPerDevice.push_back(((double)atof(token)));  // the power consumption in mW
 
-	//get the samplerate for each sensor device and calculate the minSamplingIntervals 
-	//(that is every how many ms to request a sample from the physical process)
+	// get the max sample rate for each sensor device and calculate the minSamplingIntervals 
+	// (that is: every how many ms to request a sample from the physical process)
 	minSamplingIntervals.clear();
 	parameterStr = par("maxSampleRates");
 	cStringTokenizer ratesTokenizer(parameterStr);

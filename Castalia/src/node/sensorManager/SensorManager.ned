@@ -12,9 +12,9 @@
 
 package node.sensorManager;
 
-// The sensor node module. Connects to the wireless channel in order to communicate 
-// with other nodes. Connects to psysical processes so it can sample them. 
-// Default values represent temperature sensor
+// Sensor Manager defines the parameters for all sensing devices (aka sensors) of a node
+// Here the default values are just for one sensor, but most of the parameters are string arrays
+// of commaseparated values, so we can define multiple sensors 
 
 simple SensorManager {
  parameters:
@@ -22,14 +22,14 @@ simple SensorManager {
 	int numSensingDevices = default (1);		// how many sensing devices the node has 
 												// (has to be <= SensorNetwork.numPhysicalProcesses)
 
-	string pwrConsumptionPerDevice = default ("0.02");
+	string pwrConsumptionPerDevice = default ("0.5");  // string array of comma-separated power consumptions in mW
 
-	string sensorTypes = default ("Temperature");	// Humidity OR Temperature OR Light
+	string sensorTypes = default ("Temperature");	// string array of comma-separated Names for the sensing devices
 
 	string corrPhyProcess = default ("0");		//holds the indexes of the corresponding phy processes for
 												//each sensor (usually it should be : "0 1 2 3")
 
-	string maxSampleRates = default ("1");		//number of samples per second for each sensor
+	string maxSampleRates = default ("10");		//number of samples per second for each sensor
 
 	string devicesBias = default ("0.1");		//If the output signal is not zero when the measured property is zero
 

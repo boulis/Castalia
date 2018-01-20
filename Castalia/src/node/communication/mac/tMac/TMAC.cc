@@ -60,8 +60,8 @@ void TMAC::startup()
 	phyLayerOverhead = par("phyFrameOverhead");
 
 	//try to obtain the value of isSink parameter from application module
-	if (getParentModule()->getParentModule()->findSubmodule("nodeApplication") != -1) {
-		cModule *tmpApplication = getParentModule()->getParentModule()->getSubmodule("nodeApplication");
+	if (getParentModule()->getParentModule()->findSubmodule("Application") != -1) {
+		cModule *tmpApplication = getParentModule()->getParentModule()->getSubmodule("Application");
 		isSink = tmpApplication->hasPar("isSink") ? tmpApplication->par("isSink") : false;
 	} else {
 		isSink = false;
